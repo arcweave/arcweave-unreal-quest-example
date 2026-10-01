@@ -1,0 +1,17 @@
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+.vs/
+.vscode/
+*.sln
+*.suo
+*.VC.db
+*.opensdf
+*.sdf
+Builds/
+Build/*/FileOpenOrder/
+__pycache__/
+.env
+*api*key*.txt
+*token*.txt

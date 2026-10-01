@@ -1,0 +1,19 @@
+{
+  "Board": "b031a811-813e-45a6-8d7f-30c0e4e46eac",
+  "StartElement": "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7",
+  "GeneratorElement": "53a8e27d-542d-4222-85fc-36073d0e37df",
+  "SuccessElement": "bfc100c0-7b99-4404-a71c-c1b42b102c02",
+  "MissingCellsElement": "10be7825-974e-4306-b8e4-d2bbc63486dd",
+  "PowerBranch": "e110b153-2cfa-4294-adcc-e4b14cd0aef3",
+  "PowerCondition": "67dca5b4-dd8c-4a74-a492-5b2d26c94425",
+  "ElseCondition": "f6c4d07b-b123-45ec-992a-0b6c6333ae91",
+  "StartConnection": "41afd57e-da4b-43f8-a668-e731ce7956f5",
+  "GeneratorConnection": "d1857eb2-d333-4106-a851-f9f57f3c7a18",
+  "SuccessConnection": "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8",
+  "MissingConnection": "35020249-1368-47c3-a8ca-358dce19746d",
+  "PowerCellsVariable": "6546037a-fcdf-4b42-9fe3-d697bc156d79",
+  "QuestStartedVariable": "882765ae-0eef-4aae-b430-84006b4a0a9e",
+  "PowerRestoredVariable": "ae62d51d-cd04-4022-a643-580921115260",
+  "RestorePowerComponent": "defba3c3-cdce-4b80-91cc-b75118f1f512",
+  "OpenGateComponent": "80c7c42c-bb19-4065-8afa-7cd5b54776fc"
+}

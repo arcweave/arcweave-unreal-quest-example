@@ -1,0 +1,201 @@
+{
+  "name": "Restore Power — Unreal C++ Quest Sample",
+  "project": {
+    "startingElement": "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7",
+    "boards": {
+      "b031a811-813e-45a6-8d7f-30c0e4e46eac": {
+        "name": "Restore Power",
+        "customId": "restore_power_quest",
+        "elements": [
+          "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7",
+          "53a8e27d-542d-4222-85fc-36073d0e37df",
+          "bfc100c0-7b99-4404-a71c-c1b42b102c02",
+          "10be7825-974e-4306-b8e4-d2bbc63486dd"
+        ],
+        "branches": [
+          "e110b153-2cfa-4294-adcc-e4b14cd0aef3"
+        ],
+        "connections": [
+          "41afd57e-da4b-43f8-a668-e731ce7956f5",
+          "d1857eb2-d333-4106-a851-f9f57f3c7a18",
+          "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8",
+          "35020249-1368-47c3-a8ca-358dce19746d"
+        ],
+        "notes": [
+          "6c069694-7fea-4980-b59d-d9dc2c857cc4"
+        ],
+        "jumpers": []
+      }
+    },
+    "elements": {
+      "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7": {
+        "title": "<p>01 · Restore power</p>",
+        "content": "<pre><code class=\"language-arcscript\">questStarted = true</code></pre><p>The outpost is dark. Collect <strong>two power cells</strong>, then use the generator to restore the lights and open the exit gate.</p><p>You can try the generator before collecting both cells.</p>",
+        "x": 9800,
+        "y": 10000,
+        "width": 360,
+        "height": 170,
+        "autoHeight": true,
+        "theme": "cyan",
+        "outputs": [
+          "41afd57e-da4b-43f8-a668-e731ce7956f5"
+        ],
+        "components": []
+      },
+      "53a8e27d-542d-4222-85fc-36073d0e37df": {
+        "title": "<p>02 · Check the generator</p>",
+        "content": "<p>Checking the generator...</p><pre><code class=\"language-arcscript\">show(\"Power cells collected: \", powerCells)</code></pre>",
+        "x": 10320,
+        "y": 10000,
+        "width": 360,
+        "height": 170,
+        "autoHeight": true,
+        "theme": "gold",
+        "outputs": [
+          "d1857eb2-d333-4106-a851-f9f57f3c7a18"
+        ],
+        "components": []
+      },
+      "bfc100c0-7b99-4404-a71c-c1b42b102c02": {
+        "title": "<p>03 · Power restored</p>",
+        "content": "<pre><code class=\"language-arcscript\">powerRestored = true</code></pre><p><strong>Power restored.</strong> The lights come on and the exit gate opens. Reach the illuminated exit to complete your escape.</p>",
+        "x": 11140,
+        "y": 9820,
+        "width": 360,
+        "height": 170,
+        "autoHeight": true,
+        "theme": "green",
+        "outputs": [],
+        "components": [
+          "defba3c3-cdce-4b80-91cc-b75118f1f512",
+          "80c7c42c-bb19-4065-8afa-7cd5b54776fc"
+        ]
+      },
+      "10be7825-974e-4306-b8e4-d2bbc63486dd": {
+        "title": "<p>02b · More cells needed</p>",
+        "content": "<p>The generator needs two power cells. Search the outpost and collect the missing cells, then return here and try again.</p>",
+        "x": 11140,
+        "y": 10280,
+        "width": 360,
+        "height": 170,
+        "autoHeight": true,
+        "theme": "orange",
+        "outputs": [],
+        "components": []
+      }
+    },
+    "branches": {
+      "e110b153-2cfa-4294-adcc-e4b14cd0aef3": {
+        "x": 10830,
+        "y": 10050,
+        "theme": "gold",
+        "conditions": {
+          "ifCondition": "67dca5b4-dd8c-4a74-a492-5b2d26c94425",
+          "elseCondition": "f6c4d07b-b123-45ec-992a-0b6c6333ae91"
+        }
+      }
+    },
+    "conditions": {
+      "67dca5b4-dd8c-4a74-a492-5b2d26c94425": {
+        "script": "powerCells >= 2",
+        "output": "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8"
+      },
+      "f6c4d07b-b123-45ec-992a-0b6c6333ae91": {
+        "script": null,
+        "output": "35020249-1368-47c3-a8ca-358dce19746d"
+      }
+    },
+    "connections": {
+      "41afd57e-da4b-43f8-a668-e731ce7956f5": {
+        "sourceid": "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7",
+        "targetid": "53a8e27d-542d-4222-85fc-36073d0e37df",
+        "sourceType": "elements",
+        "targetType": "elements",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "label": "<p>Player uses the generator</p>",
+        "labelLocation": 0.5,
+        "theme": "cyan"
+      },
+      "d1857eb2-d333-4106-a851-f9f57f3c7a18": {
+        "sourceid": "53a8e27d-542d-4222-85fc-36073d0e37df",
+        "targetid": "e110b153-2cfa-4294-adcc-e4b14cd0aef3",
+        "sourceType": "elements",
+        "targetType": "branches",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "label": "<p>Check current cells</p>",
+        "labelLocation": 0.5,
+        "theme": "gold"
+      },
+      "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8": {
+        "sourceid": "67dca5b4-dd8c-4a74-a492-5b2d26c94425",
+        "targetid": "bfc100c0-7b99-4404-a71c-c1b42b102c02",
+        "sourceType": "conditions",
+        "targetType": "elements",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "label": "<p>Enough power cells</p>",
+        "labelLocation": 0.5,
+        "theme": "green"
+      },
+      "35020249-1368-47c3-a8ca-358dce19746d": {
+        "sourceid": "f6c4d07b-b123-45ec-992a-0b6c6333ae91",
+        "targetid": "10be7825-974e-4306-b8e4-d2bbc63486dd",
+        "sourceType": "conditions",
+        "targetType": "elements",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "label": "<p>Keep searching</p>",
+        "labelLocation": 0.5,
+        "theme": "orange"
+      }
+    },
+    "components": {
+      "defba3c3-cdce-4b80-91cc-b75118f1f512": {
+        "name": "Restore power",
+        "customId": "restore_power"
+      },
+      "80c7c42c-bb19-4065-8afa-7cd5b54776fc": {
+        "name": "Open gate",
+        "customId": "open_gate"
+      }
+    },
+    "variables": {
+      "6546037a-fcdf-4b42-9fe3-d697bc156d79": {
+        "name": "powerCells",
+        "type": "integer",
+        "value": 0,
+        "cType": "global"
+      },
+      "882765ae-0eef-4aae-b430-84006b4a0a9e": {
+        "name": "questStarted",
+        "type": "boolean",
+        "value": false,
+        "cType": "global"
+      },
+      "ae62d51d-cd04-4022-a643-580921115260": {
+        "name": "powerRestored",
+        "type": "boolean",
+        "value": false,
+        "cType": "global"
+      }
+    },
+    "notes": {
+      "6c069694-7fea-4980-b59d-d9dc2c857cc4": {
+        "x": 9790,
+        "y": 10380,
+        "width": 650,
+        "height": 230,
+        "theme": "purple",
+        "content": "<p><strong>Unreal C++ quest sample</strong></p><p>Unreal starts at 01, then waits for world interactions. Picking up a cell updates powerCells through SetVariable. Using the generator executes 02 and reevaluates the branch every time.</p><p>Success carries the restore_power and open_gate components. The C++ command registry maps those custom IDs to world actions. They are authored metadata, not Arcscript functions.</p><p>In Arcweave Play Mode, edit powerCells in the Debugger to test both branches. In Unreal, collect cells in the world and use the generator again after an unsuccessful attempt.</p>"
+      }
+    },
+    "jumpers": {},
+    "attributes": {}
+  }
+}
