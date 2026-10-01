@@ -24,13 +24,16 @@ def validate_bindings(project, bindings):
         "GeneratorElement": "elements",
         "SuccessElement": "elements",
         "MissingCellsElement": "elements",
+        "TerminalRequiredElement": "elements",
         "PowerBranch": "branches",
         "PowerCondition": "conditions",
         "ElseCondition": "conditions",
+        "TerminalRequiredCondition": "conditions",
         "StartConnection": "connections",
         "GeneratorConnection": "connections",
         "SuccessConnection": "connections",
         "MissingConnection": "connections",
+        "TerminalRequiredConnection": "connections",
         "PowerCellsVariable": "variables",
         "QuestStartedVariable": "variables",
         "PowerRestoredVariable": "variables",
@@ -40,6 +43,28 @@ def validate_bindings(project, bindings):
     for name, collection in collections.items():
         if bindings[name] not in project[collection]:
             raise ValueError(f"The export is missing the {name} binding.")
+
+    conditions = project["branches"][bindings["PowerBranch"]]["conditions"]
+    if (
+        conditions["ifCondition"] != bindings["TerminalRequiredCondition"]
+        or bindings["PowerCondition"] not in conditions.get("elseIfConditions", [])
+        or conditions["elseCondition"] != bindings["ElseCondition"]
+    ):
+        raise ValueError("The generator branch no longer matches its bound conditions.")
+
+    for condition_name, connection_name, element_name in (
+        ("TerminalRequiredCondition", "TerminalRequiredConnection", "TerminalRequiredElement"),
+        ("PowerCondition", "SuccessConnection", "SuccessElement"),
+        ("ElseCondition", "MissingConnection", "MissingCellsElement"),
+    ):
+        condition = project["conditions"][bindings[condition_name]]
+        connection = project["connections"][bindings[connection_name]]
+        if (
+            condition["output"] != bindings[connection_name]
+            or connection["sourceid"] != bindings[condition_name]
+            or connection["targetid"] != bindings[element_name]
+        ):
+            raise ValueError(f"The {condition_name} output no longer matches its binding.")
 
     for name, custom_id in (
         ("RestorePowerComponent", "restore_power"),

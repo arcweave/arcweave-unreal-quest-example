@@ -76,9 +76,9 @@ bool UQuestDirector::CollectCell(FName CellId, FString& Error)
 
 bool UQuestDirector::TryRestorePower(FString& Error)
 {
-    if (!IsQuestStarted())
+    if (!bProjectLoaded)
     {
-        return RejectInteraction(TEXT("Use the terminal to accept the task first."), Error);
+        return RejectInteraction(TEXT("The local narrative export has not been loaded. Restart after checking the export file."), Error);
     }
     if (bPowerRestored)
     {
@@ -96,8 +96,8 @@ bool UQuestDirector::TryRestorePower(FString& Error)
     FArcweaveBoardData* Board = nullptr;
     Arcweave->GetBoardForObject(QuestBindings::GeneratorElement, Generator, Board);
 
-    // Follow the actual exported connection. GetIsTargetBranch evaluates its authored
-    // condition against the latest variables and resolves the matching output connection.
+    // Arcweave selects terminal guidance, missing-cell guidance, or success from the
+    // latest questStarted and powerCells values. Prerequisite feedback is authored text.
     const FGetIsTargetBranchOutput Branch = Arcweave->GetIsTargetBranch(*Board, Generator.Outputs[0]);
     if (!Branch.IsBranch || Branch.BranchConnections.IsEmpty())
     {

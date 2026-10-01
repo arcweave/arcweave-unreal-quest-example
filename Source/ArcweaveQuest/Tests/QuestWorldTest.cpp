@@ -1,9 +1,13 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "QuestCharacter.h"
+#include "QuestBindings.h"
 #include "QuestDirector.h"
 #include "QuestWorldActor.h"
 
+#include "ArcweaveVariable.h"
+#include "ArcscriptTranspilerOutput.h"
+#include "ArcweaveSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/PrimitiveComponent.h"
@@ -79,8 +83,19 @@ public:
             Test.TestTrue(TEXT("Native station fixtures exist in the running world"), StationLights.Num() > 0);
             if (!InteractAt(TEXT("generator"))) return true;
             Test.TestFalse(TEXT("Actual generator interaction before the terminal cannot start the quest"), Director->IsQuestStarted());
-            Test.TestTrue(TEXT("Premature world interaction displays terminal guidance"), Director->GetStatus().Contains(TEXT("terminal")));
-            Test.TestTrue(TEXT("Premature interaction does not enter a narrative node"), Director->GetCurrentElementId().IsEmpty());
+            Test.TestFalse(TEXT("Authored prerequisite response leaves world power off"), Director->IsPowerRestored());
+            Test.TestFalse(TEXT("Authored prerequisite response leaves the gate closed"), Director->IsGateOpen());
+            Test.TestEqual(TEXT("Actual generator interaction enters the authored terminal-required node"),
+                Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
+            const FArcweaveProjectData Narrative = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData();
+            Test.TestEqual(TEXT("Actual preterminal interaction visits the generator node"),
+                Narrative.Visits.FindChecked(QuestBindings::GeneratorElement), 1);
+            Test.TestEqual(TEXT("Actual preterminal interaction visits the authored guidance node"),
+                Narrative.Visits.FindChecked(QuestBindings::TerminalRequiredElement), 1);
+            Test.TestTrue(TEXT("Premature world interaction displays authored terminal guidance"),
+                Director->GetStatus().Contains(TEXT("Use the terminal to accept the task first.")));
+            Test.TestTrue(TEXT("World feedback includes the guidance node's authored explanation"),
+                Director->GetStatus().Contains(TEXT("The generator is waiting for authorization.")));
             ++Step;
             return false;
         }

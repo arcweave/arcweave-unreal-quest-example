@@ -5,7 +5,7 @@
   "SuccessElement": "bfc100c0-7b99-4404-a71c-c1b42b102c02",
   "MissingCellsElement": "10be7825-974e-4306-b8e4-d2bbc63486dd",
   "PowerBranch": "e110b153-2cfa-4294-adcc-e4b14cd0aef3",
-  "PowerCondition": "67dca5b4-dd8c-4a74-a492-5b2d26c94425",
+  "PowerCondition": "2f225626-b228-4606-9cdf-a0a2729a640f",
   "ElseCondition": "f6c4d07b-b123-45ec-992a-0b6c6333ae91",
   "StartConnection": "41afd57e-da4b-43f8-a668-e731ce7956f5",
   "GeneratorConnection": "d1857eb2-d333-4106-a851-f9f57f3c7a18",
@@ -15,5 +15,8 @@
   "QuestStartedVariable": "882765ae-0eef-4aae-b430-84006b4a0a9e",
   "PowerRestoredVariable": "ae62d51d-cd04-4022-a643-580921115260",
   "RestorePowerComponent": "defba3c3-cdce-4b80-91cc-b75118f1f512",
-  "OpenGateComponent": "80c7c42c-bb19-4065-8afa-7cd5b54776fc"
+  "OpenGateComponent": "80c7c42c-bb19-4065-8afa-7cd5b54776fc",
+  "TerminalRequiredElement": "05d919db-a991-45b7-b20f-db02dbd6f307",
+  "TerminalRequiredCondition": "67dca5b4-dd8c-4a74-a492-5b2d26c94425",
+  "TerminalRequiredConnection": "125db735-28b7-4f4c-9ff1-f3d61a086977"
 }

@@ -29,7 +29,7 @@ Use `-EngineRoot` and `-CompilerVersion` to override the script defaults. If clo
 
 - Move with **WASD**, look with the mouse, and press **E** while looking at a nearby interactable.
 - Activate the terminal to start the objective.
-- Try the generator before collecting both cells to see the authored failure branch.
+- Try the generator before accepting the task to see Arcweave's terminal guidance, or before collecting both cells to see its missing-cell response.
 - Find both power cells, then activate the generator again. Arcweave selects the success branch; its referenced components turn on station power and open the gate.
 - Press **R** to restart the mission.
 
@@ -46,7 +46,7 @@ The game runs offline from `Content/ArcweaveExport/quest.json`. An API key is on
 | Objective and interaction display | [QuestHUD.cpp](Source/ArcweaveQuest/QuestHUD.cpp) |
 | Stable narrative UUID bindings | [QuestBindings.h](Source/ArcweaveQuest/QuestBindings.h) and [bindings.json](Narrative/bindings.json) |
 
-`UQuestDirector` is sample game code. It obtains the plugin with `GEngine->GetEngineSubsystem<UArcweaveSubsystem>()`. The game chooses when to execute an element with `TranspileObject`, updates the cell count with `SetVariable`, and re-evaluates the authored generator branch on each attempt.
+`UQuestDirector` is sample game code. It obtains the plugin with `GEngine->GetEngineSubsystem<UArcweaveSubsystem>()`. The game chooses when to execute an element with `TranspileObject`, updates the cell count with `SetVariable`, and re-evaluates the authored generator branch on each attempt. That branch checks `questStarted` first, then `powerCells`; Unreal displays the selected element's rendered content. Editing the guidance in Arcweave and refreshing the export changes the response without a C++ edit.
 
 Referenced components are a convention implemented by this sample: when an element executes, the director reads its components and dispatches `restore_power` and `open_gate` to C++ handlers. The plugin does not provide an arbitrary Arcscript command/event registration API. Repeated interaction after completion does not re-execute the success node or its commands.
 

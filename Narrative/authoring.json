@@ -22,21 +22,23 @@
                 "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7",
                 "53a8e27d-542d-4222-85fc-36073d0e37df",
                 "bfc100c0-7b99-4404-a71c-c1b42b102c02",
-                "10be7825-974e-4306-b8e4-d2bbc63486dd"
+                "10be7825-974e-4306-b8e4-d2bbc63486dd",
+                "05d919db-a991-45b7-b20f-db02dbd6f307"
             ],
             "attributes": null,
             "connections": [
                 "41afd57e-da4b-43f8-a668-e731ce7956f5",
                 "d1857eb2-d333-4106-a851-f9f57f3c7a18",
                 "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8",
-                "35020249-1368-47c3-a8ca-358dce19746d"
+                "35020249-1368-47c3-a8ca-358dce19746d",
+                "125db735-28b7-4f4c-9ff1-f3d61a086977"
             ]
         }
     },
     "notes": {
         "6c069694-7fea-4980-b59d-d9dc2c857cc4": {
             "theme": "purple",
-            "content": "<p><strong>Unreal C++ quest sample<\/strong><\/p><p>Unreal starts at 01, then waits for world interactions. Picking up a cell updates powerCells through SetVariable. Using the generator executes 02 and reevaluates the branch every time.<\/p><p>Success carries the restore_power and open_gate components. The C++ command registry maps those custom IDs to world actions. They are authored metadata, not Arcscript functions.<\/p><p>In Arcweave Play Mode, edit powerCells in the Debugger to test both branches. In Unreal, collect cells in the world and use the generator again after an unsuccessful attempt.<\/p>"
+            "content": "<p><strong>Unreal C++ quest sample<\/strong><\/p><p>Using the terminal runs 01 and sets questStarted. The generator can be used before or after accepting the task. Picking up a cell updates powerCells through SetVariable. Using the generator executes 02 and reevaluates the branch every time: first check whether the task was accepted, then check the power-cell count.<\/p><p>Success carries the restore_power and open_gate components. The C++ command registry maps those custom IDs to world actions. They are authored metadata, not Arcscript functions.<\/p><p>In Arcweave Play Mode, edit questStarted and powerCells in the Debugger to test all three branch outcomes. In Unreal, collect cells in the world and use the generator again after an unsuccessful attempt.<\/p>"
         }
     },
     "elements": {
@@ -74,6 +76,11 @@
             "components": [],
             "content": "<pre><code>questStarted = true<\/code><\/pre><p>The outpost is dark. Collect <strong>two power cells<\/strong>, then use the generator to restore the lights and open the exit gate.<\/p><p>You can try the generator before collecting both cells.<\/p>",
             "title": "<p>01 \u00b7 Restore power<\/p>"
+        },
+        "05d919db-a991-45b7-b20f-db02dbd6f307": {
+            "theme": "purple",
+            "content": "<p>Use the terminal to accept the task first.<\/p><p>The generator is waiting for authorization. Return here after accepting the restore-power task.<\/p>",
+            "title": "<p>02a \u00b7 Accept the task first<\/p>"
         }
     },
     "jumpers": {},
@@ -105,7 +112,7 @@
         "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8": {
             "type": "Bezier",
             "theme": "green",
-            "sourceid": "67dca5b4-dd8c-4a74-a492-5b2d26c94425",
+            "sourceid": "2f225626-b228-4606-9cdf-a0a2729a640f",
             "targetid": "bfc100c0-7b99-4404-a71c-c1b42b102c02",
             "sourceFace": "right",
             "sourceType": "conditions",
@@ -125,6 +132,18 @@
             "targetType": "branches",
             "labelLocation": 0.5,
             "label": "<p>Check current cells<\/p>"
+        },
+        "125db735-28b7-4f4c-9ff1-f3d61a086977": {
+            "sourceType": "conditions",
+            "labelLocation": 0.5,
+            "sourceid": "67dca5b4-dd8c-4a74-a492-5b2d26c94425",
+            "targetid": "05d919db-a991-45b7-b20f-db02dbd6f307",
+            "sourceFace": "right",
+            "targetFace": "left",
+            "type": "Bezier",
+            "theme": "purple",
+            "targetType": "elements",
+            "label": "<p>Task not accepted<\/p>"
         }
     },
     "branches": {
@@ -132,7 +151,10 @@
             "theme": "gold",
             "conditions": {
                 "ifCondition": "67dca5b4-dd8c-4a74-a492-5b2d26c94425",
-                "elseCondition": "f6c4d07b-b123-45ec-992a-0b6c6333ae91"
+                "elseCondition": "f6c4d07b-b123-45ec-992a-0b6c6333ae91",
+                "elseIfConditions": [
+                    "2f225626-b228-4606-9cdf-a0a2729a640f"
+                ]
             }
         }
     },
@@ -148,6 +170,12 @@
         "80c7c42c-bb19-4065-8afa-7cd5b54776fc": {
             "customId": "open_gate",
             "attributes": [],
+            "assets": {
+                "cover": {
+                    "type": "icon",
+                    "file": "delapouite\/open-gate"
+                }
+            },
             "name": "Open gate"
         },
         "defba3c3-cdce-4b80-91cc-b75118f1f512": {
@@ -193,12 +221,16 @@
     },
     "conditions": {
         "67dca5b4-dd8c-4a74-a492-5b2d26c94425": {
-            "output": "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8",
-            "script": "powerCells >= 2"
+            "output": "125db735-28b7-4f4c-9ff1-f3d61a086977",
+            "script": "!questStarted"
         },
         "f6c4d07b-b123-45ec-992a-0b6c6333ae91": {
             "output": "35020249-1368-47c3-a8ca-358dce19746d",
             "script": null
+        },
+        "2f225626-b228-4606-9cdf-a0a2729a640f": {
+            "script": "powerCells >= 2",
+            "output": "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8"
         }
     },
     "name": "Restore Power \u2014 Unreal C++ Quest Sample",

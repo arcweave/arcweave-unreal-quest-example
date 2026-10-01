@@ -61,10 +61,32 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     };
     TestFalse(TEXT("New game awaits the terminal interaction"), Director->IsQuestStarted());
     TestEqual(TEXT("New game has no collected cells"), Director->GetPowerCellCount(), 0);
-    TestFalse(TEXT("Generator before terminal gives guidance"), Director->TryRestorePower(Error));
-    TestTrue(TEXT("Guidance mentions the terminal"), Error.Contains(TEXT("terminal")));
+    TestTrue(TEXT("Generator before terminal runs a successful narrative interaction"), Director->TryRestorePower(Error));
+    TestTrue(TEXT("Authored prerequisite guidance is not reported as an integration error"), Error.IsEmpty());
+    TestEqual(TEXT("Generator enters the authored terminal-required element"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
+    TestEqual(TEXT("Preterminal interaction visits the generator"), Visits(QuestBindings::GeneratorElement), 1);
+    TestEqual(TEXT("Preterminal interaction visits the authored guidance"), Visits(QuestBindings::TerminalRequiredElement), 1);
+    TestTrue(TEXT("Authored guidance tells the player to accept the task"),
+        Director->GetStatus().Contains(TEXT("Use the terminal to accept the task first.")));
+    TestTrue(TEXT("Feedback includes the explanation authored in the guidance node"),
+        Director->GetStatus().Contains(TEXT("The generator is waiting for authorization.")));
+    TestFalse(TEXT("Guidance does not accept the quest"), Director->IsQuestStarted());
+    TestFalse(TEXT("Guidance does not restore power"), Director->IsPowerRestored());
+    TestFalse(TEXT("Guidance does not open the gate"), Director->IsGateOpen());
+
+    Arcweave->SetVariable(QuestBindings::PowerCellsVariable, TEXT("2"));
+    TestTrue(TEXT("Generator reevaluates the authored prerequisite even with enough cells"), Director->TryRestorePower(Error));
+    TestEqual(TEXT("Quest prerequisite takes precedence over the two-cell condition"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
+    TestEqual(TEXT("Two-cell attempt visits the authored guidance again"), Visits(QuestBindings::TerminalRequiredElement), 2);
+    TestEqual(TEXT("Unaccepted quest never enters success despite having two cells"), Visits(QuestBindings::SuccessElement), 0);
+    TestFalse(TEXT("Two-cell prerequisite response leaves the quest unaccepted"), Director->IsQuestStarted());
+    TestEqual(TEXT("Two-cell prerequisite response leaves the authored power flag false"), Variable(QuestBindings::PowerRestoredVariable), FString(TEXT("false")));
+    TestFalse(TEXT("Two-cell prerequisite response leaves world power off"), Director->IsPowerRestored());
+    TestFalse(TEXT("Two-cell prerequisite response leaves the gate closed"), Director->IsGateOpen());
+    TestEqual(TEXT("Prerequisite guidance dispatches no completion commands"), PowerCommands + GateCommands, 0);
+    Arcweave->SetVariable(QuestBindings::PowerCellsVariable, TEXT("0"));
     TestFalse(TEXT("Cells cannot be collected before accepting the task"), Director->CollectCell(TEXT("cell_a"), Error));
-    TestEqual(TEXT("Premature interactions do not enter the generator"), Visits(QuestBindings::GeneratorElement), 0);
+    TestEqual(TEXT("Rejected pickup does not add a cell"), Director->GetPowerCellCount(), 0);
 
     TestTrue(TEXT("Terminal starts the authored quest"), Director->StartQuest(Error));
     TestTrue(TEXT("Start script updates the questStarted variable"), Director->IsQuestStarted());
@@ -99,14 +121,14 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Power handler executes once"), PowerCommands, 1);
     TestEqual(TEXT("Gate handler executes once"), GateCommands, 1);
     TestEqual(TEXT("Success element is entered once"), Visits(QuestBindings::SuccessElement), 1);
-    TestEqual(TEXT("Generator ran once per deliberate interaction"), Visits(QuestBindings::GeneratorElement), 3);
+    TestEqual(TEXT("Generator ran once per deliberate interaction, including prerequisite attempts"), Visits(QuestBindings::GeneratorElement), 5);
     TestTrue(TEXT("World changes notify presentation"), PresentationChanges > 0);
 
     TestTrue(TEXT("Completed generator accepts a repeated interaction"), Director->TryRestorePower(Error));
     TestEqual(TEXT("Repeated completion does not execute power again"), PowerCommands, 1);
     TestEqual(TEXT("Repeated completion does not execute gate again"), GateCommands, 1);
     TestEqual(TEXT("Repeated completion does not replay the success script"), Visits(QuestBindings::SuccessElement), 1);
-    TestEqual(TEXT("Repeated completion does not advance generator visits"), Visits(QuestBindings::GeneratorElement), 3);
+    TestEqual(TEXT("Repeated completion does not advance generator visits"), Visits(QuestBindings::GeneratorElement), 5);
 
     TestTrue(TEXT("Restart reloads authored defaults"), Director->StartNewGame(Error));
     TestFalse(TEXT("Restart clears the quest flag"), Director->IsQuestStarted());

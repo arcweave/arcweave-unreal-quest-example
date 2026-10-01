@@ -9,7 +9,7 @@ namespace QuestBindings
     inline constexpr const TCHAR* SuccessElement = TEXT("bfc100c0-7b99-4404-a71c-c1b42b102c02");
     inline constexpr const TCHAR* MissingCellsElement = TEXT("10be7825-974e-4306-b8e4-d2bbc63486dd");
     inline constexpr const TCHAR* PowerBranch = TEXT("e110b153-2cfa-4294-adcc-e4b14cd0aef3");
-    inline constexpr const TCHAR* PowerCondition = TEXT("67dca5b4-dd8c-4a74-a492-5b2d26c94425");
+    inline constexpr const TCHAR* PowerCondition = TEXT("2f225626-b228-4606-9cdf-a0a2729a640f");
     inline constexpr const TCHAR* ElseCondition = TEXT("f6c4d07b-b123-45ec-992a-0b6c6333ae91");
     inline constexpr const TCHAR* StartConnection = TEXT("41afd57e-da4b-43f8-a668-e731ce7956f5");
     inline constexpr const TCHAR* GeneratorConnection = TEXT("d1857eb2-d333-4106-a851-f9f57f3c7a18");
@@ -20,4 +20,7 @@ namespace QuestBindings
     inline constexpr const TCHAR* PowerRestoredVariable = TEXT("ae62d51d-cd04-4022-a643-580921115260");
     inline constexpr const TCHAR* RestorePowerComponent = TEXT("defba3c3-cdce-4b80-91cc-b75118f1f512");
     inline constexpr const TCHAR* OpenGateComponent = TEXT("80c7c42c-bb19-4065-8afa-7cd5b54776fc");
+    inline constexpr const TCHAR* TerminalRequiredElement = TEXT("05d919db-a991-45b7-b20f-db02dbd6f307");
+    inline constexpr const TCHAR* TerminalRequiredCondition = TEXT("67dca5b4-dd8c-4a74-a492-5b2d26c94425");
+    inline constexpr const TCHAR* TerminalRequiredConnection = TEXT("125db735-28b7-4f4c-9ff1-f3d61a086977");
 }
