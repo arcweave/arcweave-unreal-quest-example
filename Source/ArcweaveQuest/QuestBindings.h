@@ -25,7 +25,7 @@ namespace QuestBindings
     inline constexpr const TCHAR* DuplicatePickupElement = TEXT("35f2414d-8156-474e-98d3-eaf74211d45b");
     inline constexpr const TCHAR* ExitEntryElement = TEXT("802dcbdf-3cf6-4f75-8cbc-f8f03053f85e");
     inline constexpr const TCHAR* PresentationEntryElement = TEXT("7be79d97-39d8-4179-ad71-4b60b4ee62c8");
-    inline constexpr const TCHAR* TextCatalogElement = TEXT("7e9b5c26-0227-4e14-9925-bb75f512a721");
+    inline constexpr const TCHAR* UIComponent = TEXT("87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d");
     inline constexpr const TCHAR* PickupCollectedElement = TEXT("6af8cc14-6034-4e97-ab3f-6ebbdc207161");
     inline constexpr const TCHAR* CompletedElement = TEXT("f2d75b83-f348-4b58-8190-b68d119db86d");
     inline constexpr const TCHAR* TerminalAcceptedElement = TEXT("2689f5bc-f257-4b93-8d03-16760617ef62");

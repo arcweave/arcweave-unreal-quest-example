@@ -36,16 +36,17 @@ bool UQuestDirector::StartNewGame(FString& Error)
     bPowerRestored = false;
     bGateOpen = false;
 
-    FArcweaveElementData Catalog;
-    FArcweaveBoardData* Board = nullptr;
-    if (!Arcweave->GetBoardForObject(QuestBindings::TextCatalogElement, Catalog, Board))
+    const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
+    const FArcweaveComponentData* UI = Project.Components.FindByPredicate(
+        [](const FArcweaveComponentData& Component) { return Component.Id == QuestBindings::UIComponent; });
+    if (!UI)
     {
-        return RejectInteraction(TEXT("The narrative export is missing its text catalog."), Error);
+        return RejectInteraction(TEXT("The narrative export is missing its UI component."), Error);
     }
-    CatalogText.Reset();
-    for (const FArcweaveAttributeData& Attribute : Catalog.Attributes)
+    CatalogVariableIds.Reset();
+    for (const FArcweaveAttributeData& Attribute : UI->Attributes)
     {
-        CatalogText.Add(FName(*Attribute.Name), Attribute.Value.Data);
+        CatalogVariableIds.Add(FName(*Attribute.CustomId), Attribute.Id);
     }
     bProjectLoaded = true;
 
@@ -190,6 +191,15 @@ bool UQuestDirector::RefreshPresentation(FString& Error)
     for (const FArcweaveAttributeData& Attribute : Presentation.Attributes)
     {
         PresentationText.Add(FName(*Attribute.Name), Attribute.Value.Data);
+    }
+
+    // Component attributes describe the authored defaults. Read CurrentVars so ui.*
+    // changes made by Arcscript or SetVariable are reflected after this event.
+    const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
+    CatalogText.Reset();
+    for (const auto& Variable : CatalogVariableIds)
+    {
+        CatalogText.Add(Variable.Key, Project.CurrentVars.FindChecked(Variable.Value).Value);
     }
     return true;
 }

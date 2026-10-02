@@ -83,7 +83,6 @@
             ],
             "elements": [
                 "7be79d97-39d8-4179-ad71-4b60b4ee62c8",
-                "7e9b5c26-0227-4e14-9925-bb75f512a721",
                 "13031eea-0fa8-4721-ac16-8a583906a6ae",
                 "09438fc8-be1d-4f8a-adad-30170999ca60",
                 "172fb20d-be4b-40f7-acec-fb22e76afe50",
@@ -104,7 +103,7 @@
     "notes": {
         "6c069694-7fea-4980-b59d-d9dc2c857cc4": {
             "theme": "purple",
-            "content": "<p><strong>WORLD EVENTS \u00b7 read each lane from left to right<\/strong><\/p><p>Unreal calls an entry point when the corresponding world event occurs. Connections inside a lane run automatically; unconnected lanes wait for their own event. Initialization never accepts the task.<\/p><p>Five variables have distinct owners: questStarted and questCompleted are narrative milestones; powerRestored records the generator state; powerCells is the number of unique pickups collected by Unreal; requiredPowerCells is the authored target. No UI-copy variables are needed.<\/p><p>The collect_cell component requests a physical pickup. Unreal records that pickup, updates powerCells, and then follows the connection to the feedback element. restore_power and open_gate are registered C++ world actions. Completing the generator does not complete the quest: the player must enter the exit.<\/p><p>The Objectives and interface board chooses a cached display after each event. HUD drawing and focus queries only read that cache.<\/p>"
+            "content": "<p><strong>WORLD EVENTS \u00b7 read each lane from left to right<\/strong><\/p><p>Unreal calls an entry point when the corresponding world event occurs. Connections inside a lane run automatically; unconnected lanes wait for their own event. Initialization never accepts the task.<\/p><p>Five global quest variables have distinct owners: questStarted and questCompleted are narrative milestones; powerRestored records the generator state; powerCells is the number of unique pickups collected by Unreal; requiredPowerCells is the authored target. The standalone UI component holds twelve scoped string attributes for shared interface labels, such as ui.station_name. There are seventeen runtime variables in total.<\/p><p>The collect_cell component requests a physical pickup. Unreal records that pickup, updates powerCells, and then follows the connection to the feedback element. restore_power and open_gate are registered C++ world actions. Completing the generator does not complete the quest: the player must enter the exit.<\/p><p>The Objectives and interface board chooses a cached display after each event. HUD drawing and focus queries only read that cache.<\/p>"
         },
         "e1d06b05-73ac-4040-97d1-04a6f8091204": {
             "theme": "purple",
@@ -132,7 +131,7 @@
         },
         "617a47ca-5627-4dd4-a761-e4e9436af53c": {
             "theme": "purple",
-            "content": "<p><strong>OBJECTIVE AND INTERACTION DISPLAY<\/strong><\/p><p>After initialization or any world event, evaluate this branch once and cache the selected leaf. Its content is the objective; its seven named plain-text attributes supply the mission heading, grid state, prompts, and world labels.<\/p><p>These leaves only show text. They never assign state or dispatch command components. The text catalog below stores reusable labels as element metadata, so it adds no Arcscript variables.<\/p>"
+            "content": "<p><strong>OBJECTIVE AND INTERACTION DISPLAY<\/strong><\/p><p>After initialization or any world event, evaluate this branch once and cache the selected leaf. Its content is the objective; its seven named plain-text attributes supply the mission heading, grid state, prompts, and world labels.<\/p><p>These leaves only show text. They never assign state or dispatch command components. Shared labels live in the standalone UI component (custom ID ui). Its twelve plain string attributes have stable custom IDs, such as ui.station_name. Unreal refreshes these labels from current variable values after each event. The component is not a gameplay command.<\/p>"
         }
     },
     "elements": {
@@ -216,24 +215,19 @@
             "content": "<p>Refreshing objective display.<\/p>",
             "title": "<p>Refresh \u00b7 objective and prompts<\/p>"
         },
-        "7e9b5c26-0227-4e14-9925-bb75f512a721": {
-            "theme": "purple",
+        "b87fd479-2ae1-4201-aaae-a738b8b53f99": {
+            "theme": "gold",
             "attributes": [
-                "9f84f70b-cae6-4a4e-8ec8-830553df9478",
-                "c9da7a08-2a34-43fc-8e8f-44281c2e0b42",
-                "884a5bad-e4a6-443d-a69e-f100f28d4a14",
-                "e907fe9a-fd14-4284-8782-539cc910e809",
-                "12f8dead-1cb5-4161-a088-1d77d75553ca",
-                "285aee5a-27ee-4a60-92d6-c64df7e8efa7",
-                "7c157f62-5778-4370-85a7-2c8417d6ea14",
-                "84616afa-72d9-4fe2-8f92-fd16c2066a50",
-                "e0d45bb4-ca5b-4d09-b318-7fb7e36c6510",
-                "24e387fd-7edc-4b9d-b6b7-041ef94505c3",
-                "64a744b1-c654-4a3a-a704-36e11d5d88ab",
-                "206622a1-45aa-4990-ae12-67ee91cf2a9c"
+                "83336380-d9c2-436b-a174-a6b68d8a2cf3",
+                "efa2b6f8-16e9-4196-bab0-8afc3ce80927",
+                "76f62246-4f25-4266-865c-1fa70b4b88a5",
+                "a88fc2a3-90e4-42d5-8ac0-c6efe39c04ec",
+                "e2a88b28-3fab-4777-994a-d3393c6536a4",
+                "04df9e54-02be-42cb-8586-b7286858daa1",
+                "b0bbac5a-6de6-47e7-8e5f-4b7aff1601e0"
             ],
-            "content": "<p>Reusable labels for the HUD and world signs. Edit the named plain-text attributes.<\/p>",
-            "title": "<p>Interface text catalog<\/p>"
+            "content": "<p>Return to the generator and restore power.<\/p>",
+            "title": "<p>Display \u00b7 ready<\/p>"
         },
         "6af8cc14-6034-4e97-ab3f-6ebbdc207161": {
             "theme": "green",
@@ -346,20 +340,6 @@
             ],
             "content": "<pre><code>show(\"Collect power cells (\", powerCells, \"\/\", requiredPowerCells, \"), then use the generator.\")<\/code><\/pre>",
             "title": "<p>Display \u00b7 collecting<\/p>"
-        },
-        "b87fd479-2ae1-4201-aaae-a738b8b53f99": {
-            "theme": "gold",
-            "attributes": [
-                "83336380-d9c2-436b-a174-a6b68d8a2cf3",
-                "efa2b6f8-16e9-4196-bab0-8afc3ce80927",
-                "76f62246-4f25-4266-865c-1fa70b4b88a5",
-                "a88fc2a3-90e4-42d5-8ac0-c6efe39c04ec",
-                "e2a88b28-3fab-4777-994a-d3393c6536a4",
-                "04df9e54-02be-42cb-8586-b7286858daa1",
-                "b0bbac5a-6de6-47e7-8e5f-4b7aff1601e0"
-            ],
-            "content": "<p>Return to the generator and restore power.<\/p>",
-            "title": "<p>Display \u00b7 ready<\/p>"
         }
     },
     "jumpers": {},
@@ -712,7 +692,8 @@
             "children": [
                 "defba3c3-cdce-4b80-91cc-b75118f1f512",
                 "80c7c42c-bb19-4065-8afa-7cd5b54776fc",
-                "06f4de3e-a022-472e-a2f9-bd73ee5875ee"
+                "06f4de3e-a022-472e-a2f9-bd73ee5875ee",
+                "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
             ],
             "name": "Root"
         },
@@ -736,128 +717,158 @@
             "customId": "collect_cell",
             "attributes": [],
             "name": "Collect cell"
+        },
+        "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d": {
+            "customId": "ui",
+            "attributes": [
+                "2af5b596-38fe-4edb-89a2-791c6e0d5273",
+                "0cd5b9d5-a058-413f-a990-af2e13692925",
+                "cd52b9e7-a997-4701-8a09-1d7a8da0d953",
+                "74817219-6f69-460c-9d9a-3ceebad1c6c2",
+                "fd2dfe72-55a0-477e-8e83-9ee22d241542",
+                "de00b66c-be9f-4bac-817a-a51af4bfa63a",
+                "008ff185-2e80-4cd3-afa4-9f362139ad22",
+                "ce75bd31-5a55-44d8-bad3-25defca1164a",
+                "b2b89f25-3012-459d-bfe4-04e68e312bae",
+                "0fb67ca9-b61f-4bf2-9aaa-55fa53cd699b",
+                "1108bd08-0437-430a-abc2-5024f2b8b4bf",
+                "2458358e-e29a-4868-bd8c-96e613f45a55"
+            ],
+            "name": "UI"
         }
     },
     "attributes": {
-        "9f84f70b-cae6-4a4e-8ec8-830553df9478": {
-            "name": "brand",
-            "value": {
-                "plain": true,
-                "type": "string",
-                "data": "ARCWEAVE  \/  FIELD OPERATIONS"
-            },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
-        },
-        "c9da7a08-2a34-43fc-8e8f-44281c2e0b42": {
-            "name": "station_name",
-            "value": {
-                "plain": true,
-                "type": "string",
-                "data": "RELAY 07"
-            },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
-        },
-        "884a5bad-e4a6-443d-a69e-f100f28d4a14": {
-            "name": "mission_tagline",
-            "value": {
-                "plain": true,
-                "type": "string",
-                "data": "RESTORE POWER. OPEN THE GATE."
-            },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
-        },
-        "e907fe9a-fd14-4284-8782-539cc910e809": {
-            "name": "cells_label",
-            "value": {
-                "plain": true,
-                "type": "string",
-                "data": "POWER CELLS"
-            },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
-        },
-        "12f8dead-1cb5-4161-a088-1d77d75553ca": {
-            "name": "station_footer",
-            "value": {
-                "plain": true,
-                "type": "string",
-                "data": "STATION 07   \/   MAINTENANCE ACCESS"
-            },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
-        },
-        "285aee5a-27ee-4a60-92d6-c64df7e8efa7": {
-            "name": "terminal_label",
-            "value": {
-                "plain": true,
-                "type": "string",
-                "data": "STATION TERMINAL"
-            },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
-        },
-        "7c157f62-5778-4370-85a7-2c8417d6ea14": {
-            "name": "cell_a_label",
-            "value": {
-                "plain": true,
-                "type": "string",
-                "data": "CELL A \/ READY"
-            },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
-        },
-        "84616afa-72d9-4fe2-8f92-fd16c2066a50": {
-            "name": "cell_b_label",
-            "value": {
-                "plain": true,
-                "type": "string",
-                "data": "CELL B \/ READY"
-            },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
-        },
-        "e0d45bb4-ca5b-4d09-b318-7fb7e36c6510": {
-            "name": "sign_station",
-            "value": {
-                "plain": true,
-                "type": "string",
-                "data": "RELAY \/ 07"
-            },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
-        },
-        "24e387fd-7edc-4b9d-b6b7-041ef94505c3": {
-            "name": "sign_distribution",
-            "value": {
-                "plain": true,
-                "type": "string",
-                "data": "POWER DISTRIBUTION"
-            },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
-        },
-        "64a744b1-c654-4a3a-a704-36e11d5d88ab": {
-            "name": "sign_gate",
-            "value": {
-                "plain": true,
-                "type": "string",
-                "data": "01"
-            },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
-        },
-        "206622a1-45aa-4990-ae12-67ee91cf2a9c": {
+        "2458358e-e29a-4868-bd8c-96e613f45a55": {
             "name": "sign_exit",
             "value": {
                 "plain": true,
                 "type": "string",
                 "data": "AUTHORIZED EXIT"
             },
-            "cType": "elements",
-            "cId": "7e9b5c26-0227-4e14-9925-bb75f512a721"
+            "customId": "sign_exit",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
+        },
+        "1108bd08-0437-430a-abc2-5024f2b8b4bf": {
+            "name": "sign_gate",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "01"
+            },
+            "customId": "sign_gate",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
+        },
+        "0fb67ca9-b61f-4bf2-9aaa-55fa53cd699b": {
+            "name": "sign_distribution",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "POWER DISTRIBUTION"
+            },
+            "customId": "sign_distribution",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
+        },
+        "b2b89f25-3012-459d-bfe4-04e68e312bae": {
+            "name": "sign_station",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "RELAY \/ 07"
+            },
+            "customId": "sign_station",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
+        },
+        "ce75bd31-5a55-44d8-bad3-25defca1164a": {
+            "name": "cell_b_label",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "CELL B \/ READY"
+            },
+            "customId": "cell_b_label",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
+        },
+        "008ff185-2e80-4cd3-afa4-9f362139ad22": {
+            "name": "cell_a_label",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "CELL A \/ READY"
+            },
+            "customId": "cell_a_label",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
+        },
+        "de00b66c-be9f-4bac-817a-a51af4bfa63a": {
+            "name": "terminal_label",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "STATION TERMINAL"
+            },
+            "customId": "terminal_label",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
+        },
+        "fd2dfe72-55a0-477e-8e83-9ee22d241542": {
+            "name": "station_footer",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "STATION 07   \/   MAINTENANCE ACCESS"
+            },
+            "customId": "station_footer",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
+        },
+        "74817219-6f69-460c-9d9a-3ceebad1c6c2": {
+            "name": "cells_label",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "POWER CELLS"
+            },
+            "customId": "cells_label",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
+        },
+        "cd52b9e7-a997-4701-8a09-1d7a8da0d953": {
+            "name": "mission_tagline",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "RESTORE POWER. OPEN THE GATE."
+            },
+            "customId": "mission_tagline",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
+        },
+        "0cd5b9d5-a058-413f-a990-af2e13692925": {
+            "name": "station_name",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "RELAY 07"
+            },
+            "customId": "station_name",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
+        },
+        "2af5b596-38fe-4edb-89a2-791c6e0d5273": {
+            "name": "brand",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "ARCWEAVE  \/  FIELD OPERATIONS"
+            },
+            "customId": "brand",
+            "cType": "components",
+            "cId": "87e12d2f-b42a-4f78-8cbc-4f9ca62dd44d"
         },
         "5cc9f9eb-97a2-4508-a0e8-561ec4ffb9a8": {
             "name": "mission_heading",

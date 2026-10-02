@@ -70,14 +70,23 @@ class CodeBlocks(HTMLParser):
 def read_expression(node):
     # Presentation supports a deliberately small, side-effect-free expression subset.
     allowed = (
-        ast.Expression, ast.Name, ast.Load, ast.Constant, ast.BinOp, ast.UnaryOp,
+        ast.Expression, ast.Name, ast.Attribute, ast.Load, ast.Constant, ast.BinOp, ast.UnaryOp,
         ast.BoolOp, ast.Compare, ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod,
         ast.UAdd, ast.USub, ast.Not, ast.And, ast.Or, ast.Eq, ast.NotEq,
         ast.Lt, ast.LtE, ast.Gt, ast.GtE,
     )
     names = {item[0] for item in VARIABLES.values()} | {"true", "false"}
-    return all(isinstance(part, allowed) and (not isinstance(part, ast.Name) or part.id in names)
-               for part in ast.walk(node))
+    attributes = [part for part in ast.walk(node) if isinstance(part, ast.Attribute)]
+    for attribute in attributes:
+        if not (isinstance(attribute.value, ast.Name) and attribute.value.id == "ui"
+                and attribute.attr in CATALOG_FIELDS):
+            return False
+    return all(
+        isinstance(part, allowed) and (
+            not isinstance(part, ast.Name) or part.id in names
+            or (part.id == "ui" and any(part is attribute.value for attribute in attributes))
+        ) for part in ast.walk(node)
+    )
 
 
 def validate_display_content(content):
@@ -112,7 +121,7 @@ def validate_metadata(project, element_id, fields):
     element = project["elements"][element_id]
     attributes = [project["attributes"][key] for key in element.get("attributes", [])]
     if len(attributes) != len(fields) or {item["name"] for item in attributes} != fields:
-        raise ValueError("A display or catalog element is missing its required named metadata.")
+        raise ValueError("A display element is missing its required named metadata.")
     for attribute in attributes:
         value = attribute["value"]
         text = value.get("data")
@@ -123,6 +132,25 @@ def validate_metadata(project, element_id, fields):
             or re.search(r"<[^>]+>|\$\{|\bshow\s*\(", text)
         ):
             raise ValueError("Display metadata must be nonempty plain strings without HTML, Arcscript, or custom IDs.")
+
+
+def validate_ui_component(project, component_id):
+    component = project["components"][component_id]
+    if component.get("customId") != "ui":
+        raise ValueError("The UI component must have custom ID ui.")
+    attributes = [project["attributes"][key] for key in component.get("attributes", []) or []]
+    if len(attributes) != len(CATALOG_FIELDS) or {item.get("customId") for item in attributes} != CATALOG_FIELDS:
+        raise ValueError("The UI component must have exactly twelve string attributes with the required custom IDs.")
+    for attribute in attributes:
+        value = attribute["value"]
+        text = value.get("data")
+        if (
+            attribute.get("cType") != "components" or attribute.get("cId") != component_id
+            or value.get("type") != "string" or value.get("plain") is not True
+            or not isinstance(text, str) or not text.strip()
+            or re.search(r"<[^>]+>|\$\{|\bshow\s*\(", text)
+        ):
+            raise ValueError("UI attributes must be nonempty plain strings owned by the UI component, without HTML or Arcscript.")
 
 
 def validate_bindings(project, bindings):
@@ -151,11 +179,15 @@ def validate_bindings(project, bindings):
                     if not item.get("root") and "children" not in item}
     if variable_ids != {bindings[name] for name in VARIABLES}:
         raise ValueError("The sample requires exactly five global variables.")
-    for attribute in project["attributes"].values():
+    ui_id = bindings["UIComponent"]
+    ui_attributes = set(project["components"][ui_id].get("attributes", []) or [])
+    for attribute_id, attribute in project["attributes"].items():
         if attribute.get("cType") in {"boards", "components"}:
             value = attribute["value"]
             if value["type"] in {"boolean", "integer", "float"} or (value["type"] == "string" and value.get("plain")):
-                raise ValueError("UI copy must remain metadata, not additional scoped variables.")
+                if attribute_id not in ui_attributes or attribute["cType"] != "components" or attribute.get("cId") != ui_id:
+                    raise ValueError("Only the twelve UI string attributes may add scoped variables.")
+    validate_ui_component(project, ui_id)
 
     commands = {
         "RestorePowerComponent": "restore_power", "OpenGateComponent": "open_gate",
@@ -204,6 +236,8 @@ def validate_bindings(project, bindings):
         for output in outputs:
             edge(ident, ident, "elements", output)
         components = element.get("components", []) or []
+        if ui_id in components:
+            raise ValueError("The UI component must remain standalone data, not an attached gameplay command.")
         expected = command_elements.get(ident, set())
         if set(components) != expected or len(components) != len(expected):
             raise ValueError("Only PickupAction may collect a cell; only Success may restore power and open the gate.")
@@ -290,10 +324,6 @@ def validate_bindings(project, bindings):
         validate_display_content(element_content(project, ident))
     for ident in leaves:
         validate_metadata(project, ident, DISPLAY_FIELDS)
-    catalog_id = bindings["TextCatalogElement"]
-    if edges[catalog_id] or project["elements"][catalog_id].get("components"):
-        raise ValueError("The text catalog must be metadata-only.")
-    validate_metadata(project, catalog_id, CATALOG_FIELDS)
 
 
 def main():

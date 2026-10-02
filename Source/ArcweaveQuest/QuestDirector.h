@@ -57,6 +57,7 @@ private:
     FName PendingCellId;
     FString CurrentElementId;
     FString PresentationElementId;
+    TMap<FName, FString> CatalogVariableIds;
     TMap<FName, FString> CatalogText;
     TMap<FName, FString> PresentationText;
     FString Objective;

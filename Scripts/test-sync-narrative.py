@@ -38,8 +38,9 @@ class NarrativeValidationTests(unittest.TestCase):
     def variable(self, binding):
         return self.project["variables"][self.bindings[binding]]
 
-    def catalog_attribute(self):
-        return self.project["attributes"][self.element("TextCatalogElement")["attributes"][0]]
+    def ui_attribute(self):
+        component = self.project["components"][self.bindings["UIComponent"]]
+        return self.project["attributes"][component["attributes"][0]]
 
     def generator_connection(self):
         return self.project["connections"][self.element("GeneratorElement")["outputs"][0]]
@@ -85,8 +86,8 @@ class NarrativeValidationTests(unittest.TestCase):
         board["connections"].append(connection)
         self.validate()
 
-    def test_metadata_catalog_does_not_need_executable_content(self):
-        self.element("TextCatalogElement")["content"] = None
+    def test_ui_attribute_display_name_can_change(self):
+        self.ui_attribute()["name"] = "Shared station branding"
         self.validate()
 
     def test_missing_bound_entry_is_rejected(self):
@@ -114,17 +115,91 @@ class NarrativeValidationTests(unittest.TestCase):
         self.element("PresentationReadyElement")["attributes"] = []
         self.assert_invalid("missing its required named metadata")
 
-    def test_rich_text_catalog_attribute_is_rejected(self):
-        self.catalog_attribute()["value"]["plain"] = False
+    def test_rich_text_ui_attribute_is_rejected(self):
+        self.ui_attribute()["value"]["plain"] = False
+        self.assert_invalid("UI attributes must be nonempty plain strings")
+
+    def test_html_in_plain_ui_attribute_is_rejected(self):
+        self.ui_attribute()["value"]["data"] = "<p>Station title.</p>"
+        self.assert_invalid("UI attributes must be nonempty plain strings")
+
+    def test_presentation_metadata_custom_id_is_rejected(self):
+        attribute = self.element("PresentationCollectingElement")["attributes"][0]
+        self.project["attributes"][attribute]["customId"] = "extraState"
         self.assert_invalid("metadata must be nonempty plain strings")
 
-    def test_html_in_plain_catalog_attribute_is_rejected(self):
-        self.catalog_attribute()["value"]["data"] = "<p>Station title.</p>"
-        self.assert_invalid("metadata must be nonempty plain strings")
+    def test_wrong_ui_component_custom_id_is_rejected(self):
+        self.project["components"][self.bindings["UIComponent"]]["customId"] = "other_ui"
+        self.assert_invalid("UI component must have custom ID ui")
 
-    def test_metadata_custom_id_is_rejected(self):
-        self.catalog_attribute()["customId"] = "extraState"
-        self.assert_invalid("metadata must be nonempty plain strings")
+    def test_missing_ui_attribute_custom_id_is_rejected(self):
+        del self.ui_attribute()["customId"]
+        self.assert_invalid("exactly twelve string attributes with the required custom IDs")
+
+    def test_unknown_ui_attribute_custom_id_is_rejected(self):
+        self.ui_attribute()["customId"] = "unknown_field"
+        self.assert_invalid("exactly twelve string attributes with the required custom IDs")
+
+    def test_non_string_ui_attribute_is_rejected(self):
+        self.ui_attribute()["value"] = {"type": "integer", "data": 1}
+        self.assert_invalid("UI attributes must be nonempty plain strings")
+
+    def test_ui_attribute_wrong_owner_is_rejected(self):
+        self.ui_attribute()["cId"] = self.bindings["RestorePowerComponent"]
+        self.assert_invalid("Only the twelve UI string attributes may add scoped variables")
+
+    def test_additional_ui_attribute_is_rejected(self):
+        extra = "c916868d-e2ab-4d42-8f92-d4152a29a9e6"
+        self.project["attributes"][extra] = dict(self.ui_attribute(), customId="debug_label")
+        self.project["components"][self.bindings["UIComponent"]]["attributes"].append(extra)
+        self.assert_invalid("exactly twelve string attributes with the required custom IDs")
+
+    def test_additional_command_component_variable_is_rejected(self):
+        extra = "ed23bc46-83b3-4937-ab43-91c2c8b85d08"
+        owner = self.bindings["RestorePowerComponent"]
+        self.project["attributes"][extra] = dict(self.ui_attribute(), cId=owner, customId="debug_label")
+        self.project["components"][owner]["attributes"] = [extra]
+        self.assert_invalid("Only the twelve UI string attributes may add scoped variables")
+
+    def test_additional_board_variable_is_rejected(self):
+        extra = "5aa30329-45b8-42df-b65b-1e94f0a76a84"
+        owner = self.bindings["Board"]
+        self.project["attributes"][extra] = dict(self.ui_attribute(), cType="boards", cId=owner, customId="debug_label")
+        self.project["boards"][owner]["attributes"] = [extra]
+        self.assert_invalid("Only the twelve UI string attributes may add scoped variables")
+
+    def test_ui_component_cannot_be_attached_as_a_command(self):
+        self.element("InitializationElement")["components"] = [self.bindings["UIComponent"]]
+        self.assert_invalid("UI component must remain standalone data")
+
+    def test_presentation_can_show_known_ui_field(self):
+        self.element("PresentationCollectingElement")["content"] = "<pre><code>show(ui.station_name)</code></pre>"
+        self.validate()
+
+    def test_presentation_condition_can_read_known_ui_field(self):
+        branch = self.project["branches"][self.bindings["PresentationBranch"]]
+        self.project["conditions"][branch["conditions"]["ifCondition"]]["script"] = 'ui.station_name == "RELAY 07"'
+        self.validate()
+
+    def test_presentation_unknown_ui_field_is_rejected(self):
+        self.element("PresentationCollectingElement")["content"] = "<pre><code>show(ui.unknown_field)</code></pre>"
+        self.assert_invalid("Display content cannot assign state")
+
+    def test_presentation_ui_method_call_is_rejected(self):
+        self.element("PresentationCollectingElement")["content"] = "<pre><code>show(ui.station_name.upper())</code></pre>"
+        self.assert_invalid("Display content cannot assign state")
+
+    def test_presentation_ui_assignment_is_rejected(self):
+        self.element("PresentationCollectingElement")["content"] = '<pre><code>ui.station_name = "Changed"</code></pre>'
+        self.assert_invalid("Display content cannot assign state")
+
+    def test_presentation_cannot_show_bare_ui_object(self):
+        self.element("PresentationCollectingElement")["content"] = "<pre><code>show(ui)</code></pre>"
+        self.assert_invalid("Display content cannot assign state")
+
+    def test_presentation_cannot_read_unknown_component(self):
+        self.element("PresentationCollectingElement")["content"] = "<pre><code>show(other.station_name)</code></pre>"
+        self.assert_invalid("Display content cannot assign state")
 
     def test_extra_global_variable_is_rejected(self):
         self.project["variables"]["extra"] = {
