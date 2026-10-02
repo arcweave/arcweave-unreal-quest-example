@@ -1,6 +1,6 @@
 # Arcweave Unreal Quest Example
 
-A small C++ Unreal project in which Arcweave drives a world objective: collect two power cells, restore a station generator, and open the exit gate.
+A small C++ Unreal project in which Arcweave drives a world objective: accept a task, collect the required power cells, restore a station generator, and reach the exit. Arcweave owns the quest decisions, feedback, objective text, prompts, and station labels.
 
 [Open the matching Arcweave project](https://arcweave.com/app/project/MWEZgMb62g) · [Narrative and C++ guide](docs/narrative.md)
 
@@ -31,7 +31,10 @@ Use `-EngineRoot` and `-CompilerVersion` to override the script defaults. If clo
 - Activate the terminal to start the objective.
 - Try the generator before accepting the task to see Arcweave's terminal guidance, or before collecting both cells to see its missing-cell response.
 - Find both power cells, then activate the generator again. Arcweave selects the success branch; its referenced components turn on station power and open the gate.
+- Walk through the gate into the exit corridor to complete the mission. Restoring power and completing the escape are separate authored states.
 - Press **R** to restart the mission.
+
+The authored `requiredPowerCells` value defaults to `2`. Setting it to `1` updates the requirement, feedback, prompts, and HUD together. The sample level has two physical pickups; a larger requirement also needs additional pickups in the level.
 
 The game runs offline from `Content/ArcweaveExport/quest.json`. An API key is only needed to refresh that export; no credential belongs in Unreal settings or packaged builds.
 
@@ -39,16 +42,20 @@ The game runs offline from `Content/ArcweaveExport/quest.json`. An API key is on
 
 | Responsibility | Implementation |
 | --- | --- |
-| Quest text, variables, branch conditions, component references | Matching Arcweave project and bundled export; see [narrative guide](docs/narrative.md) |
+| Quest decisions, feedback, objectives, prompts, and station text | Matching Arcweave project and bundled export; see [narrative guide](docs/narrative.md) |
 | Execute elements, update variables, select branch, dispatch components | [QuestDirector.cpp](Source/ArcweaveQuest/QuestDirector.cpp) |
 | Build the station and reflect quest state in the world | [QuestGameMode.cpp](Source/ArcweaveQuest/QuestGameMode.cpp) |
 | Movement and interaction | [QuestCharacter.cpp](Source/ArcweaveQuest/QuestCharacter.cpp) |
 | Objective and interaction display | [QuestHUD.cpp](Source/ArcweaveQuest/QuestHUD.cpp) |
 | Stable narrative UUID bindings | [QuestBindings.h](Source/ArcweaveQuest/QuestBindings.h) and [bindings.json](Narrative/bindings.json) |
 
-`UQuestDirector` is sample game code. It obtains the plugin with `GEngine->GetEngineSubsystem<UArcweaveSubsystem>()`. The game chooses when to execute an element with `TranspileObject`, updates the cell count with `SetVariable`, and re-evaluates the authored generator branch on each attempt. That branch checks `questStarted` first, then `powerCells`; Unreal displays the selected element's rendered content. Editing the guidance in Arcweave and refreshing the export changes the response without a C++ edit.
+`UQuestDirector` is sample game code. It obtains the plugin with `GEngine->GetEngineSubsystem<UArcweaveSubsystem>()`. Initialization, terminal use, pickup attempts, generator use, and entering the exit each have explicit authored entry points. The director follows their automatic connections and evaluates branches until the event reaches an element with no outgoing connection. It waits for another real world interaction before entering a different event flow.
 
-Referenced components are a convention implemented by this sample: when an element executes, the director reads its components and dispatches `restore_power` and `open_gate` to C++ handlers. The plugin does not provide an arbitrary Arcscript command/event registration API. Repeated interaction after completion does not re-execute the success node or its commands.
+Referenced components are a convention implemented by this sample: `collect_cell`, `restore_power`, and `open_gate` dispatch to C++ handlers. Collection records the unique physical item and updates `powerCells` through `SetVariable`; the next authored element renders the updated count. Authored branches handle rejected and repeated interactions. The plugin does not provide an arbitrary Arcscript command/event registration API.
+
+After each event, a separate Presentation graph selects and renders one objective element. Its plain text attributes supply the prompts and status labels. A catalog element supplies static station wording. Both are cached: HUD drawing and looking at objects never execute Arcscript or increment visits. Presentation evaluation itself records visits once per event and contains only text and `show()` expressions, with no world commands or state assignments.
+
+The project has five global variables: `questStarted` means the terminal task was accepted, `powerCells` is Unreal's collected-item count, `requiredPowerCells` is the authored requirement, `powerRestored` is set by the generator success element, and `questCompleted` is set by the exit completion element. Display attributes have no custom IDs and do not create additional Arcscript variables. Editing authored wording and refreshing the export changes the response without a C++ edit.
 
 The scene uses Unreal primitive meshes and C++ actors. There are no quest Blueprints or external model dependencies. The committed map can be regenerated with `Scripts/build.ps1 -Task Map` after compiling the editor target.
 

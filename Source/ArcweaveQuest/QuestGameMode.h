@@ -5,8 +5,11 @@
 #include "QuestGameMode.generated.h"
 
 class AQuestWorldActor;
+class UBoxComponent;
 class UPointLightComponent;
+class UPrimitiveComponent;
 class UQuestDirector;
+class UTextRenderComponent;
 
 UCLASS()
 class ARCWEAVEQUEST_API AQuestGameMode : public AGameModeBase
@@ -22,7 +25,11 @@ private:
     void BuildStation();
     void RefreshStation();
     void AddBlock(FVector Location, FVector Dimensions, FLinearColor Color, FRotator Rotation = FRotator::ZeroRotator);
-    void AddSign(const FString& Value, FVector Location, float Size, FColor Color);
+    void AddSign(FName CatalogKey, FVector Location, float Size, FColor Color);
+
+    UFUNCTION()
+    void HandleExitBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+        UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
     UPROPERTY()
     TObjectPtr<UQuestDirector> Director;
@@ -30,5 +37,9 @@ private:
     TArray<TObjectPtr<AQuestWorldActor>> StationObjects;
     UPROPERTY()
     TArray<TObjectPtr<UPointLightComponent>> StationLights;
+    UPROPERTY()
+    TMap<FName, TObjectPtr<UTextRenderComponent>> StationSigns;
+    UPROPERTY()
+    TObjectPtr<UBoxComponent> ExitTrigger;
     FDelegateHandle QuestChangedHandle;
 };

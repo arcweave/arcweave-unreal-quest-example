@@ -21,17 +21,20 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     UQuestDirector* Director = NewObject<UQuestDirector>(GameInstance);
     UArcweaveSubsystem* Arcweave = GEngine->GetEngineSubsystem<UArcweaveSubsystem>();
     FString Error;
-    if (!TestTrue(TEXT("The released plugin loads the local narrative export"), Director->StartNewGame(Error)))
+    if (!TestTrue(TEXT("The released plugin loads and initializes the local narrative"), Director->StartNewGame(Error)))
     {
         AddError(Error);
         return false;
     }
+    const FArcweaveProjectData InitialState = Arcweave->GetArcweaveProjectData();
 
     int32 PowerCommands = 0;
     int32 GateCommands = 0;
+    int32 PickupCommands = 0;
     int32 PresentationChanges = 0;
     const TFunction<void()> RestorePower = Director->CommandHandlers.FindChecked(TEXT("restore_power"));
     const TFunction<void()> OpenGate = Director->CommandHandlers.FindChecked(TEXT("open_gate"));
+    const TFunction<void()> CollectCell = Director->CommandHandlers.FindChecked(TEXT("collect_cell"));
     Director->CommandHandlers.Add(TEXT("restore_power"), [&PowerCommands, RestorePower]
     {
         ++PowerCommands;
@@ -42,12 +45,21 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         ++GateCommands;
         OpenGate();
     });
+    Director->CommandHandlers.Add(TEXT("collect_cell"), [&PickupCommands, CollectCell]
+    {
+        ++PickupCommands;
+        CollectCell();
+    });
     Director->OnQuestChanged.AddLambda([this, Director, &PresentationChanges]
     {
         ++PresentationChanges;
         if (Director->IsPowerRestored())
         {
             TestTrue(TEXT("Presentation observes both completed world commands"), Director->IsGateOpen());
+        }
+        if (Director->IsQuestCompleted())
+        {
+            TestTrue(TEXT("Completed presentation also observes restored power"), Director->IsPowerRestored());
         }
     });
 
@@ -59,91 +71,222 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     {
         return Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(Id).Value;
     };
-    TestFalse(TEXT("New game awaits the terminal interaction"), Director->IsQuestStarted());
-    TestEqual(TEXT("New game has no collected cells"), Director->GetPowerCellCount(), 0);
-    TestTrue(TEXT("Generator before terminal runs a successful narrative interaction"), Director->TryRestorePower(Error));
-    TestTrue(TEXT("Authored prerequisite guidance is not reported as an integration error"), Error.IsEmpty());
-    TestEqual(TEXT("Generator enters the authored terminal-required element"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
-    TestEqual(TEXT("Preterminal interaction visits the generator"), Visits(QuestBindings::GeneratorElement), 1);
-    TestEqual(TEXT("Preterminal interaction visits the authored guidance"), Visits(QuestBindings::TerminalRequiredElement), 1);
-    TestTrue(TEXT("Authored guidance tells the player to accept the task"),
-        Director->GetStatus().Contains(TEXT("Use the terminal to accept the task first.")));
-    TestTrue(TEXT("Feedback includes the explanation authored in the guidance node"),
-        Director->GetStatus().Contains(TEXT("The generator is waiting for authorization.")));
-    TestFalse(TEXT("Guidance does not accept the quest"), Director->IsQuestStarted());
-    TestFalse(TEXT("Guidance does not restore power"), Director->IsPowerRestored());
-    TestFalse(TEXT("Guidance does not open the gate"), Director->IsGateOpen());
+    const auto CheckCachedReads = [this, Director, Arcweave, &PowerCommands, &GateCommands,
+        &PickupCommands, &PresentationChanges](const TCHAR* Stage)
+    {
+        const FArcweaveProjectData Before = Arcweave->GetArcweaveProjectData();
+        const FString Cursor = Director->GetCurrentElementId();
+        const FString Presentation = Director->GetPresentationElementId();
+        const FString Objective = Director->GetObjective();
+        const FString Status = Director->GetStatus();
+        const int32 Commands = PowerCommands + GateCommands + PickupCommands;
+        const int32 Notifications = PresentationChanges;
+        for (int32 Read = 0; Read < 32; ++Read)
+        {
+            Director->GetObjective();
+            Director->GetStatus();
+            Director->GetPowerCellCount();
+            Director->GetRequiredPowerCellCount();
+            Director->IsQuestStarted();
+            Director->IsPowerRestored();
+            Director->IsGateOpen();
+            Director->IsQuestCompleted();
+            Director->HasCollectedCell(TEXT("cell_a"));
+            for (const TCHAR* Key : {TEXT("brand"), TEXT("station_name"), TEXT("cells_label"), TEXT("terminal_label")})
+            {
+                Director->GetCatalogText(Key);
+            }
+            for (const TCHAR* Key : {TEXT("mission_heading"), TEXT("grid_status"), TEXT("terminal_prompt"),
+                TEXT("cell_prompt"), TEXT("generator_prompt"), TEXT("generator_label"), TEXT("gate_label")})
+            {
+                Director->GetPresentationText(Key);
+            }
+        }
+        const FArcweaveProjectData After = Arcweave->GetArcweaveProjectData();
+        const FString Prefix = FString(Stage) + TEXT(": ");
+        TestTrue(Prefix + TEXT("cached getters preserve every visit counter"), Before.Visits.OrderIndependentCompareEqual(After.Visits));
+        TestEqual(Prefix + TEXT("cached getters preserve the variable collection"), After.CurrentVars.Num(), Before.CurrentVars.Num());
+        for (const auto& Pair : Before.CurrentVars)
+        {
+            const FArcweaveVariable* Actual = After.CurrentVars.Find(Pair.Key);
+            if (TestNotNull(Prefix + TEXT("variable remains present: ") + Pair.Key, Actual))
+            {
+                TestEqual(Prefix + TEXT("cached getters preserve variable ") + Pair.Key, Actual->Value, Pair.Value.Value);
+            }
+        }
+        TestEqual(Prefix + TEXT("cached getters do not dispatch commands"), PowerCommands + GateCommands + PickupCommands, Commands);
+        TestEqual(Prefix + TEXT("cached getters do not notify presentation"), PresentationChanges, Notifications);
+        TestEqual(Prefix + TEXT("gameplay cursor is unchanged"), Director->GetCurrentElementId(), Cursor);
+        TestEqual(Prefix + TEXT("presentation cursor is unchanged"), Director->GetPresentationElementId(), Presentation);
+        TestEqual(Prefix + TEXT("objective is unchanged"), Director->GetObjective(), Objective);
+        TestEqual(Prefix + TEXT("status is unchanged"), Director->GetStatus(), Status);
+    };
+    const auto CheckRestart = [this, Director, Arcweave, &InitialState, &Visits, &Error]()
+    {
+        if (!TestTrue(TEXT("Restart executes the authored initialization again"), Director->StartNewGame(Error)))
+        {
+            AddError(Error);
+            return false;
+        }
+        const FArcweaveProjectData Restarted = Arcweave->GetArcweaveProjectData();
+        TestFalse(TEXT("Restart clears quest acceptance"), Director->IsQuestStarted());
+        TestFalse(TEXT("Restart clears completion"), Director->IsQuestCompleted());
+        TestFalse(TEXT("Restart turns power off"), Director->IsPowerRestored());
+        TestFalse(TEXT("Restart closes the gate"), Director->IsGateOpen());
+        TestFalse(TEXT("Restart respawns cell A"), Director->HasCollectedCell(TEXT("cell_a")));
+        TestFalse(TEXT("Restart respawns cell B"), Director->HasCollectedCell(TEXT("cell_b")));
+        TestEqual(TEXT("Restart restores authored required count"), Director->GetRequiredPowerCellCount(), 2);
+        TestEqual(TEXT("Restart restores collected count"), Director->GetPowerCellCount(), 0);
+        TestEqual(TEXT("Initialization is visited once in the new session"), Visits(QuestBindings::InitializationElement), 1);
+        TestEqual(TEXT("Restart retains the initialization gameplay cursor"), Director->GetCurrentElementId(), FString(QuestBindings::InitializationElement));
+        TestEqual(TEXT("Restart selects the unaccepted presentation"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationUnacceptedElement));
+        TestTrue(TEXT("Restart visits match a newly initialized session, not an all-zero map"),
+            Restarted.Visits.OrderIndependentCompareEqual(InitialState.Visits));
+        TestEqual(TEXT("Restart preserves the five gameplay variable definitions"), Restarted.CurrentVars.Num(), InitialState.CurrentVars.Num());
+        for (const auto& Pair : InitialState.CurrentVars)
+        {
+            TestEqual(TEXT("Restart restores authored value ") + Pair.Key, Restarted.CurrentVars.FindChecked(Pair.Key).Value, Pair.Value.Value);
+        }
+        return true;
+    };
+
+    TestEqual(TEXT("Only five gameplay variables are imported"), InitialState.CurrentVars.Num(), 5);
+    TestFalse(TEXT("Initialization does not accept the task"), Director->IsQuestStarted());
+    TestFalse(TEXT("Initialization does not complete the task"), Director->IsQuestCompleted());
+    TestEqual(TEXT("Initial required cell count comes from the export"), Director->GetRequiredPowerCellCount(), 2);
+    TestEqual(TEXT("Initialization executes once"), Visits(QuestBindings::InitializationElement), 1);
+    TestEqual(TEXT("Presentation does not replace the initialization cursor"), Director->GetCurrentElementId(), FString(QuestBindings::InitializationElement));
+    TestEqual(TEXT("Unaccepted presentation is selected by the graph"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationUnacceptedElement));
+    TestEqual(TEXT("Authored initial objective is cached"), Director->GetObjective(), FString(TEXT("Use the terminal to begin.")));
+    TestFalse(TEXT("Static catalog text is available"), Director->GetCatalogText(TEXT("station_name")).IsEmpty());
+    TestFalse(TEXT("Initial terminal prompt is available"), Director->GetPresentationText(TEXT("terminal_prompt")).IsEmpty());
+    CheckCachedReads(TEXT("Initial state"));
+
+    TestTrue(TEXT("A generator attempt before acceptance executes authored guidance"), Director->TryRestorePower(Error));
+    TestTrue(TEXT("Narrative denial is not an integration error"), Error.IsEmpty());
+    TestEqual(TEXT("Generator enters the terminal-required response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
+    TestTrue(TEXT("Generator guidance is the authored authorization text"), Director->GetStatus().Contains(TEXT("The generator is waiting for authorization.")));
+    TestEqual(TEXT("Preterminal attempt visits the generator"), Visits(QuestBindings::GeneratorElement), 1);
+    TestFalse(TEXT("Generator guidance leaves acceptance false"), Director->IsQuestStarted());
+    TestFalse(TEXT("Generator guidance leaves power off"), Director->IsPowerRestored());
 
     Arcweave->SetVariable(QuestBindings::PowerCellsVariable, TEXT("2"));
-    TestTrue(TEXT("Generator reevaluates the authored prerequisite even with enough cells"), Director->TryRestorePower(Error));
-    TestEqual(TEXT("Quest prerequisite takes precedence over the two-cell condition"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
-    TestEqual(TEXT("Two-cell attempt visits the authored guidance again"), Visits(QuestBindings::TerminalRequiredElement), 2);
-    TestEqual(TEXT("Unaccepted quest never enters success despite having two cells"), Visits(QuestBindings::SuccessElement), 0);
-    TestFalse(TEXT("Two-cell prerequisite response leaves the quest unaccepted"), Director->IsQuestStarted());
-    TestEqual(TEXT("Two-cell prerequisite response leaves the authored power flag false"), Variable(QuestBindings::PowerRestoredVariable), FString(TEXT("false")));
-    TestFalse(TEXT("Two-cell prerequisite response leaves world power off"), Director->IsPowerRestored());
-    TestFalse(TEXT("Two-cell prerequisite response leaves the gate closed"), Director->IsGateOpen());
-    TestEqual(TEXT("Prerequisite guidance dispatches no completion commands"), PowerCommands + GateCommands, 0);
+    TestTrue(TEXT("Authored acceptance requirement still applies with enough cells"), Director->TryRestorePower(Error));
+    TestEqual(TEXT("Acceptance takes precedence over the required count"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
+    TestEqual(TEXT("Premature two-cell attempt does not execute success"), Visits(QuestBindings::SuccessElement), 0);
+    TestEqual(TEXT("Premature attempts execute no world commands"), PowerCommands + GateCommands + PickupCommands, 0);
     Arcweave->SetVariable(QuestBindings::PowerCellsVariable, TEXT("0"));
-    TestFalse(TEXT("Cells cannot be collected before accepting the task"), Director->CollectCell(TEXT("cell_a"), Error));
-    TestEqual(TEXT("Rejected pickup does not add a cell"), Director->GetPowerCellCount(), 0);
 
-    TestTrue(TEXT("Terminal starts the authored quest"), Director->StartQuest(Error));
-    TestTrue(TEXT("Start script updates the questStarted variable"), Director->IsQuestStarted());
-    TestEqual(TEXT("Current narrative cursor is Start"), Director->GetCurrentElementId(), FString(QuestBindings::StartElement));
-    TestEqual(TEXT("Start element is visited once"), Visits(QuestBindings::StartElement), 1);
-    TestTrue(TEXT("Repeated terminal interaction is harmless"), Director->StartQuest(Error));
-    TestEqual(TEXT("Repeated terminal does not replay its script"), Visits(QuestBindings::StartElement), 1);
+    TestTrue(TEXT("Pickup before acceptance executes its authored denial"), Director->CollectCell(TEXT("cell_a"), Error));
+    TestEqual(TEXT("Pickup uses its dedicated prerequisite response"), Director->GetCurrentElementId(), FString(QuestBindings::PickupTerminalRequiredElement));
+    TestTrue(TEXT("Denied pickup is a valid narrative interaction"), Error.IsEmpty());
+    TestEqual(TEXT("Denied pickup cannot increase the count"), Director->GetPowerCellCount(), 0);
+    TestFalse(TEXT("Denied pickup leaves the physical cell available"), Director->HasCollectedCell(TEXT("cell_a")));
+    TestEqual(TEXT("Denied pickup does not dispatch collect_cell"), PickupCommands, 0);
+    TestTrue(TEXT("Exit before power executes the authored denial"), Director->ReachExit(Error));
+    TestEqual(TEXT("Early exit reaches the denial element"), Director->GetCurrentElementId(), FString(QuestBindings::ExitDeniedElement));
+    TestFalse(TEXT("Early exit does not complete the task"), Director->IsQuestCompleted());
 
-    TestTrue(TEXT("Generator evaluates the authored condition with zero cells"), Director->TryRestorePower(Error));
-    TestEqual(TEXT("False branch enters the authored missing-cells element"), Director->GetCurrentElementId(), FString(QuestBindings::MissingCellsElement));
-    TestFalse(TEXT("False branch leaves power off"), Director->IsPowerRestored());
-    TestFalse(TEXT("False branch leaves the gate closed"), Director->IsGateOpen());
-    TestEqual(TEXT("False branch executes no world command"), PowerCommands + GateCommands, 0);
-    TestFalse(TEXT("Authored missing-cells text is rendered"), Director->GetStatus().IsEmpty());
+    TestTrue(TEXT("Terminal traverses the acceptance graph"), Director->StartQuest(Error));
+    TestTrue(TEXT("Acceptance script changes questStarted"), Director->IsQuestStarted());
+    TestEqual(TEXT("Accepting the task ends at Start"), Director->GetCurrentElementId(), FString(QuestBindings::StartElement));
+    TestEqual(TEXT("Acceptance does not automatically attempt the generator"), Visits(QuestBindings::GeneratorElement), 2);
+    TestEqual(TEXT("Collecting objective renders current and required counts"), Director->GetObjective(), FString(TEXT("Collect power cells (0/2), then use the generator.")));
+    TestTrue(TEXT("Repeated terminal interaction follows an authored response"), Director->StartQuest(Error));
+    TestEqual(TEXT("Repeat acceptance reaches its own response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalAcceptedElement));
+    TestEqual(TEXT("Repeat acceptance does not replay Start"), Visits(QuestBindings::StartElement), 1);
 
-    TestTrue(TEXT("First world pickup updates narrative state"), Director->CollectCell(TEXT("cell_a"), Error));
-    TestTrue(TEXT("World remembers the first pickup"), Director->HasCollectedCell(TEXT("cell_a")));
-    TestEqual(TEXT("SetVariable passes one collected cell into Arcweave"), Variable(QuestBindings::PowerCellsVariable), FString(TEXT("1")));
-    TestFalse(TEXT("Repeated pickup cannot award another cell"), Director->CollectCell(TEXT("cell_a"), Error));
-    TestEqual(TEXT("Duplicate pickup preserves the narrative count"), Director->GetPowerCellCount(), 1);
-    TestTrue(TEXT("Generator reevaluates with one cell"), Director->TryRestorePower(Error));
-    TestEqual(TEXT("One cell still takes the authored false branch"), Director->GetCurrentElementId(), FString(QuestBindings::MissingCellsElement));
-    TestEqual(TEXT("Each valid attempt visits the missing-cells response"), Visits(QuestBindings::MissingCellsElement), 2);
+    TestTrue(TEXT("Zero-cell generator attempt executes the missing-cell response"), Director->TryRestorePower(Error));
+    TestEqual(TEXT("Zero cells select MissingCells"), Director->GetCurrentElementId(), FString(QuestBindings::MissingCellsElement));
+    TestFalse(TEXT("Missing-cell response leaves world power off"), Director->IsPowerRestored());
+    TestFalse(TEXT("Missing-cell response leaves the gate closed"), Director->IsGateOpen());
 
-    TestTrue(TEXT("Second pickup updates narrative state"), Director->CollectCell(TEXT("cell_b"), Error));
-    TestEqual(TEXT("Both cells are present in the Arcweave variable"), Variable(QuestBindings::PowerCellsVariable), FString(TEXT("2")));
-    TestTrue(TEXT("Generator reevaluates the same branch after the second pickup"), Director->TryRestorePower(Error));
-    TestEqual(TEXT("True branch enters the actual success connection target"), Director->GetCurrentElementId(), FString(QuestBindings::SuccessElement));
-    TestEqual(TEXT("Success script updates the narrative completion flag"), Variable(QuestBindings::PowerRestoredVariable), FString(TEXT("true")));
-    TestTrue(TEXT("restore_power component dispatches the C++ world handler"), Director->IsPowerRestored());
-    TestTrue(TEXT("open_gate component dispatches the C++ world handler"), Director->IsGateOpen());
-    TestEqual(TEXT("Power handler executes once"), PowerCommands, 1);
-    TestEqual(TEXT("Gate handler executes once"), GateCommands, 1);
-    TestEqual(TEXT("Success element is entered once"), Visits(QuestBindings::SuccessElement), 1);
-    TestEqual(TEXT("Generator ran once per deliberate interaction, including prerequisite attempts"), Visits(QuestBindings::GeneratorElement), 5);
-    TestTrue(TEXT("World changes notify presentation"), PresentationChanges > 0);
+    TestTrue(TEXT("First accepted pickup traverses the action and feedback nodes"), Director->CollectCell(TEXT("cell_a"), Error));
+    TestEqual(TEXT("Pickup command updates the narrative count"), Variable(QuestBindings::PowerCellsVariable), FString(TEXT("1")));
+    TestTrue(TEXT("Pickup command records the physical cell"), Director->HasCollectedCell(TEXT("cell_a")));
+    TestEqual(TEXT("Pickup feedback is rendered after the count update"), Director->GetStatus(), FString(TEXT("Collected a power cell (1/2).")));
+    TestEqual(TEXT("Pickup ends at its feedback node"), Director->GetCurrentElementId(), FString(QuestBindings::PickupCollectedElement));
+    TestEqual(TEXT("One cell keeps the collecting presentation"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationCollectingElement));
+    TestEqual(TEXT("Collecting objective updates with the current count"), Director->GetObjective(), FString(TEXT("Collect power cells (1/2), then use the generator.")));
+    TestEqual(TEXT("Exactly one physical pickup command was issued"), PickupCommands, 1);
+    CheckCachedReads(TEXT("Collecting state"));
 
-    TestTrue(TEXT("Completed generator accepts a repeated interaction"), Director->TryRestorePower(Error));
-    TestEqual(TEXT("Repeated completion does not execute power again"), PowerCommands, 1);
-    TestEqual(TEXT("Repeated completion does not execute gate again"), GateCommands, 1);
-    TestEqual(TEXT("Repeated completion does not replay the success script"), Visits(QuestBindings::SuccessElement), 1);
-    TestEqual(TEXT("Repeated completion does not advance generator visits"), Visits(QuestBindings::GeneratorElement), 5);
+    TestTrue(TEXT("Duplicate pickup executes authored feedback"), Director->CollectCell(TEXT("cell_a"), Error));
+    TestEqual(TEXT("Duplicate uses the duplicate response"), Director->GetCurrentElementId(), FString(QuestBindings::DuplicatePickupElement));
+    TestTrue(TEXT("Duplicate is not an integration error"), Error.IsEmpty());
+    TestEqual(TEXT("Duplicate cannot increase the count"), Director->GetPowerCellCount(), 1);
+    TestEqual(TEXT("Duplicate cannot reissue collect_cell"), PickupCommands, 1);
+    TestEqual(TEXT("Duplicate does not enter the collected feedback node"), Visits(QuestBindings::PickupCollectedElement), 1);
+    TestTrue(TEXT("One-cell generator attempt reevaluates the condition"), Director->TryRestorePower(Error));
+    TestEqual(TEXT("One cell still selects MissingCells"), Director->GetCurrentElementId(), FString(QuestBindings::MissingCellsElement));
 
-    TestTrue(TEXT("Restart reloads authored defaults"), Director->StartNewGame(Error));
-    TestFalse(TEXT("Restart clears the quest flag"), Director->IsQuestStarted());
-    TestFalse(TEXT("Restart resets world power"), Director->IsPowerRestored());
-    TestFalse(TEXT("Restart closes the gate"), Director->IsGateOpen());
-    TestFalse(TEXT("Restart respawns the first cell"), Director->HasCollectedCell(TEXT("cell_a")));
-    TestFalse(TEXT("Restart respawns the second cell"), Director->HasCollectedCell(TEXT("cell_b")));
-    TestEqual(TEXT("Restart restores the authored cell count"), Director->GetPowerCellCount(), 0);
-    TestEqual(TEXT("Restart restores the authored completion flag"), Variable(QuestBindings::PowerRestoredVariable), FString(TEXT("false")));
-    TestTrue(TEXT("Restart clears the narrative cursor"), Director->GetCurrentElementId().IsEmpty());
-    for (const auto& Pair : Arcweave->GetArcweaveProjectData().Visits)
-    {
-        TestEqual(TEXT("Restart clears visit counter ") + Pair.Key, Pair.Value, 0);
-    }
-    TestEqual(TEXT("Restart applies world state without running completion commands"), PowerCommands + GateCommands, 2);
+    TestTrue(TEXT("Second unique pickup reaches the requirement"), Director->CollectCell(TEXT("cell_b"), Error));
+    TestEqual(TEXT("Both pickups are reflected in narrative state"), Director->GetPowerCellCount(), 2);
+    TestEqual(TEXT("Second pickup feedback reads the updated count"), Director->GetStatus(), FString(TEXT("Collected a power cell (2/2).")));
+    TestEqual(TEXT("Required count selects the authored ready presentation"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationReadyElement));
+    TestEqual(TEXT("Ready objective is authored text"), Director->GetObjective(), FString(TEXT("Return to the generator and restore power.")));
+    const FString ReadyPrompt = Director->GetPresentationText(TEXT("generator_prompt"));
+    TestFalse(TEXT("Ready generator prompt is supplied by the graph"), ReadyPrompt.IsEmpty());
+
+    TestTrue(TEXT("Generator succeeds after the required pickups"), Director->TryRestorePower(Error));
+    TestEqual(TEXT("Success follows the authored connection"), Director->GetCurrentElementId(), FString(QuestBindings::SuccessElement));
+    TestEqual(TEXT("Success updates the narrative power flag"), Variable(QuestBindings::PowerRestoredVariable), FString(TEXT("true")));
+    TestTrue(TEXT("restore_power turns world power on"), Director->IsPowerRestored());
+    TestTrue(TEXT("open_gate opens the world gate"), Director->IsGateOpen());
+    TestFalse(TEXT("Restoring power does not complete the task before reaching the exit"), Director->IsQuestCompleted());
+    TestEqual(TEXT("Completion variable remains false while the exit is available"), Variable(QuestBindings::QuestCompletedVariable), FString(TEXT("false")));
+    TestEqual(TEXT("Power and completion select distinct presentation stages"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationPoweredElement));
+    TestEqual(TEXT("Powered objective directs the player to the exit"), Director->GetObjective(), FString(TEXT("Power restored. Walk through the open gate.")));
+    TestEqual(TEXT("Power command runs once"), PowerCommands, 1);
+    TestEqual(TEXT("Gate command runs once"), GateCommands, 1);
+    CheckCachedReads(TEXT("Powered state"));
+
+    TestTrue(TEXT("Repeated generator use executes an authored already-online response"), Director->TryRestorePower(Error));
+    TestEqual(TEXT("Repeated generator reaches AlreadyOnline"), Director->GetCurrentElementId(), FString(QuestBindings::AlreadyOnlineElement));
+    TestEqual(TEXT("Repeated generator does not reenter success"), Visits(QuestBindings::SuccessElement), 1);
+    TestEqual(TEXT("Repeated generator does not reissue power"), PowerCommands, 1);
+    TestEqual(TEXT("Repeated generator does not reissue gate opening"), GateCommands, 1);
+    TestTrue(TEXT("Terminal can describe the powered state"), Director->StartQuest(Error));
+    TestEqual(TEXT("Powered terminal uses its authored response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalPoweredElement));
+
+    TestTrue(TEXT("Reaching the exit executes the completion graph"), Director->ReachExit(Error));
+    TestTrue(TEXT("Exit completion updates questCompleted"), Director->IsQuestCompleted());
+    TestEqual(TEXT("Only the completion node ends the quest"), Director->GetCurrentElementId(), FString(QuestBindings::CompletedElement));
+    TestEqual(TEXT("Completed presentation is distinct from powered"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationCompletedElement));
+    TestEqual(TEXT("Completed objective comes from the presentation node"), Director->GetObjective(), FString(TEXT("Task complete. You reached the exit.")));
+    TestEqual(TEXT("Completion node is visited once"), Visits(QuestBindings::CompletedElement), 1);
+    TestTrue(TEXT("Repeated exit entry executes authored feedback"), Director->ReachExit(Error));
+    TestEqual(TEXT("Repeated exit reaches its own response"), Director->GetCurrentElementId(), FString(QuestBindings::ExitAlreadyCompletedElement));
+    TestEqual(TEXT("Repeated exit does not replay the completion node"), Visits(QuestBindings::CompletedElement), 1);
+    TestTrue(TEXT("Terminal can describe the completed state"), Director->StartQuest(Error));
+    TestEqual(TEXT("Completed terminal uses its authored response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalCompletedElement));
+    CheckCachedReads(TEXT("Completed state"));
+
+    if (!CheckRestart()) return false;
+    TestEqual(TEXT("Restart cannot replay pickup commands"), PickupCommands, 2);
+    TestEqual(TEXT("Restart cannot replay completion commands"), PowerCommands + GateCommands, 2);
+
+    // Changing the authored requirement changes both the branch result and its displayed count.
+    Arcweave->SetVariable(QuestBindings::RequiredPowerCellsVariable, TEXT("1"));
+    TestTrue(TEXT("One-cell variant still begins through the terminal graph"), Director->StartQuest(Error));
+    TestEqual(TEXT("Required count getter reads the authored variable"), Director->GetRequiredPowerCellCount(), 1);
+    TestEqual(TEXT("Objective renders the changed requirement"), Director->GetObjective(), FString(TEXT("Collect power cells (0/1), then use the generator.")));
+    TestTrue(TEXT("One-cell variant allows either physical cell"), Director->CollectCell(TEXT("cell_b"), Error));
+    TestEqual(TEXT("Pickup feedback renders the changed requirement"), Director->GetStatus(), FString(TEXT("Collected a power cell (1/1).")));
+    TestEqual(TEXT("One pickup now selects Ready"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationReadyElement));
+    TestEqual(TEXT("One-cell readiness selects the same authored interaction prompt"), Director->GetPresentationText(TEXT("generator_prompt")), ReadyPrompt);
+    TestTrue(TEXT("One-cell variant still handles duplicate feedback"), Director->CollectCell(TEXT("cell_b"), Error));
+    TestEqual(TEXT("Duplicate preserves the one-cell requirement state"), Director->GetPowerCellCount(), 1);
+    TestEqual(TEXT("Only one additional pickup command was dispatched"), PickupCommands, 3);
+    TestTrue(TEXT("One-cell requirement permits power restoration"), Director->TryRestorePower(Error));
+    TestTrue(TEXT("One-cell variant opens the gate"), Director->IsGateOpen());
+    TestFalse(TEXT("One-cell variant also waits for the exit to complete"), Director->IsQuestCompleted());
+    TestTrue(TEXT("One-cell variant completes at the exit"), Director->ReachExit(Error));
+    TestTrue(TEXT("One-cell exit marks completion"), Director->IsQuestCompleted());
+    TestEqual(TEXT("Each session issues exactly one power command"), PowerCommands, 2);
+    TestEqual(TEXT("Each session issues exactly one gate command"), GateCommands, 2);
+    CheckCachedReads(TEXT("One-cell completed state"));
+    if (!CheckRestart()) return false;
     return true;
 }
 

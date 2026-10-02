@@ -11,6 +11,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/PrimitiveComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
 #include "Engine/PointLight.h"
@@ -64,7 +65,10 @@ public:
         {
             Test.TestFalse(TEXT("GameMode starts the world with an unaccepted quest"), Director->IsQuestStarted());
             Test.TestEqual(TEXT("World starts with zero power cells"), Director->GetPowerCellCount(), 0);
+            Test.TestEqual(TEXT("World uses the authored two-cell requirement"), Director->GetRequiredPowerCellCount(), 2);
             Test.TestFalse(TEXT("World starts without power"), Director->IsPowerRestored());
+            Test.TestFalse(TEXT("World starts without completion"), Director->IsQuestCompleted());
+            InitialVisits = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().Visits;
             FHitResult Hit;
             Test.TestTrue(TEXT("Closed gate blocks the actual doorway collision trace"), TraceGate(Hit));
             Gate = Cast<AQuestWorldActor>(Hit.GetActor());
@@ -81,19 +85,18 @@ public:
                 StationLights.Emplace(Light, Light->Intensity);
             }
             Test.TestTrue(TEXT("Native station fixtures exist in the running world"), StationLights.Num() > 0);
-            if (!InteractAt(TEXT("generator"))) return true;
+            Generator = InteractAt(TEXT("generator"));
+            if (!Generator.IsValid()) return true;
+            Test.TestEqual(TEXT("The world generator label reads authored offline text"),
+                Generator->FindComponentByClass<UTextRenderComponent>()->Text.ToString(),
+                Director->GetPresentationText(TEXT("generator_label")));
             Test.TestFalse(TEXT("Actual generator interaction before the terminal cannot start the quest"), Director->IsQuestStarted());
             Test.TestFalse(TEXT("Authored prerequisite response leaves world power off"), Director->IsPowerRestored());
             Test.TestFalse(TEXT("Authored prerequisite response leaves the gate closed"), Director->IsGateOpen());
             Test.TestEqual(TEXT("Actual generator interaction enters the authored terminal-required node"),
                 Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
-            const FArcweaveProjectData Narrative = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData();
-            Test.TestEqual(TEXT("Actual preterminal interaction visits the generator node"),
-                Narrative.Visits.FindChecked(QuestBindings::GeneratorElement), 1);
-            Test.TestEqual(TEXT("Actual preterminal interaction visits the authored guidance node"),
-                Narrative.Visits.FindChecked(QuestBindings::TerminalRequiredElement), 1);
-            Test.TestTrue(TEXT("Premature world interaction displays authored terminal guidance"),
-                Director->GetStatus().Contains(TEXT("Use the terminal to accept the task first.")));
+            Test.TestEqual(TEXT("Actual preterminal interaction visits the generator node"), Visits(QuestBindings::GeneratorElement), 1);
+            Test.TestEqual(TEXT("Actual preterminal interaction visits the authored guidance node"), Visits(QuestBindings::TerminalRequiredElement), 1);
             Test.TestTrue(TEXT("World feedback includes the guidance node's authored explanation"),
                 Director->GetStatus().Contains(TEXT("The generator is waiting for authorization.")));
             ++Step;
@@ -101,23 +104,49 @@ public:
         }
 
         case 2:
+            CellA = InteractAt(TEXT("cell_a"));
+            if (!CellA.IsValid()) return true;
+            Test.TestEqual(TEXT("Real pickup before acceptance uses the authored prerequisite"),
+                Director->GetCurrentElementId(), FString(QuestBindings::PickupTerminalRequiredElement));
+            Test.TestEqual(TEXT("Denied world pickup leaves the narrative count at zero"), Director->GetPowerCellCount(), 0);
+            Test.TestFalse(TEXT("Denied world pickup remains visible"), CellA->IsHidden());
+            Test.TestTrue(TEXT("Denied world pickup retains collision"), CellA->GetActorEnableCollision());
+            Test.TestEqual(TEXT("Physical cell label comes from the authored catalog"),
+                CellA->FindComponentByClass<UTextRenderComponent>()->Text.ToString(),
+                Director->GetCatalogText(TEXT("cell_a_label")));
+            Character->QuestView(TEXT("exit"));
+            PhaseStart = World->GetTimeSeconds();
+            ++Step;
+            return false;
+
+        case 3:
+            // Teleporting uses the character capsule's normal overlap path; never call ReachExit here.
+            if (World->GetTimeSeconds() - PhaseStart < 0.1) return false;
+            Test.TestEqual(TEXT("Real exit overlap before power executes authored denial"),
+                Director->GetCurrentElementId(), FString(QuestBindings::ExitDeniedElement));
+            Test.TestFalse(TEXT("An early physical exit overlap cannot complete the task"), Director->IsQuestCompleted());
+            Test.TestFalse(TEXT("An early exit overlap cannot restore power"), Director->IsPowerRestored());
             if (!InteractAt(TEXT("terminal"))) return true;
             if (!Test.TestTrue(TEXT("Tracing and interacting with the actual terminal starts the quest"), Director->IsQuestStarted())) return true;
             ++Step;
             return false;
 
-        case 3:
+        case 4:
             if (!InteractAt(TEXT("generator"))) return true;
             Test.TestFalse(TEXT("World generator takes the insufficient-cell branch"), Director->IsPowerRestored());
             Test.TestFalse(TEXT("Insufficient-cell branch leaves the actual gate closed"), Director->IsGateOpen());
-            Test.TestTrue(TEXT("Insufficient-cell response is shown to the player"), Director->GetStatus().Contains(TEXT("two power cells")));
+            Test.TestEqual(TEXT("Insufficient-cell interaction reaches the authored response"),
+                Director->GetCurrentElementId(), FString(QuestBindings::MissingCellsElement));
+            Test.TestFalse(TEXT("Insufficient-cell response is shown to the player"), Director->GetStatus().IsEmpty());
             ++Step;
             return false;
 
-        case 4:
+        case 5:
             CellA = InteractAt(TEXT("cell_a"));
             if (!CellA.IsValid()) return true;
             Test.TestEqual(TEXT("Actual cell A pickup updates the narrative variable"), Director->GetPowerCellCount(), 1);
+            Test.TestEqual(TEXT("World pickup displays feedback after the count update"),
+                Director->GetStatus(), FString(TEXT("Collected a power cell (1/2).")));
             Test.TestTrue(TEXT("Quest notification hides the actual collected cell A actor"), CellA->IsHidden());
             Test.TestFalse(TEXT("Collected cell A no longer blocks collision"), CellA->GetActorEnableCollision());
             Character->QuestInteract();
@@ -125,7 +154,7 @@ public:
             ++Step;
             return false;
 
-        case 5:
+        case 6:
             CellB = InteractAt(TEXT("cell_b"));
             if (!CellB.IsValid()) return true;
             Test.TestEqual(TEXT("Actual cell B pickup updates the narrative variable"), Director->GetPowerCellCount(), 2);
@@ -134,10 +163,20 @@ public:
             ++Step;
             return false;
 
-        case 6:
-            if (!InteractAt(TEXT("generator"))) return true;
+        case 7:
+            Generator = InteractAt(TEXT("generator"));
+            if (!Generator.IsValid()) return true;
             if (!Test.TestTrue(TEXT("Actual generator interaction now restores power"), Director->IsPowerRestored())) return true;
             Test.TestTrue(TEXT("Authored command opens the world gate"), Director->IsGateOpen());
+            Test.TestFalse(TEXT("World power restoration alone does not complete the task"), Director->IsQuestCompleted());
+            Test.TestEqual(TEXT("Power restoration refreshes the authored world generator label"),
+                Generator->FindComponentByClass<UTextRenderComponent>()->Text.ToString(),
+                Director->GetPresentationText(TEXT("generator_label")));
+            Test.TestEqual(TEXT("Gate label reads the authored access text"),
+                Gate->FindComponentByClass<UTextRenderComponent>()->Text.ToString(),
+                Director->GetPresentationText(TEXT("gate_label")));
+            Test.TestEqual(TEXT("World power restoration selects the exit objective"),
+                Director->GetPresentationElementId(), FString(QuestBindings::PresentationPoweredElement));
             for (const auto& Light : StationLights)
             {
                 Test.TestTrue(TEXT("World notification increases each native station light's intensity"), Light.Key->Intensity > Light.Value);
@@ -147,7 +186,7 @@ public:
             ++Step;
             return false;
 
-        case 7:
+        case 8:
         {
             // Advance through normal game ticks; do not call actor Tick or move the panel from the test.
             if (World->GetTimeSeconds() - AnimationStart < 3.0) return false;
@@ -156,6 +195,52 @@ public:
             Test.TestFalse(TEXT("Opened gate leaves the actual doorway collision trace clear"), TraceGate(Hit));
             Test.TestTrue(TEXT("The collision panel itself moved upward through its normal animation"),
                 GatePanel->GetComponentLocation().Z > ClosedPanelHeight + 400.0);
+            Test.TestFalse(TEXT("Finishing the gate animation still waits for the physical exit"), Director->IsQuestCompleted());
+            const FArcweaveProjectData Before = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData();
+            for (int32 Read = 0; Read < 32; ++Read)
+            {
+                Test.TestEqual(TEXT("Native interaction text reads the cached authored generator prompt"),
+                    Generator->GetInteractionText(*Director), Director->GetPresentationText(TEXT("generator_prompt")));
+                Gate->GetInteractionText(*Director);
+                Director->GetObjective();
+            }
+            Test.TestTrue(TEXT("Repeated native prompt reads leave every narrative visit unchanged"),
+                Before.Visits.OrderIndependentCompareEqual(GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().Visits));
+            Character->QuestView(TEXT("exit"));
+            PhaseStart = World->GetTimeSeconds();
+            ++Step;
+            return false;
+        }
+
+        case 9:
+            if (World->GetTimeSeconds() - PhaseStart < 0.1) return false;
+            Test.TestTrue(TEXT("Entering the real exit volume completes the powered task"), Director->IsQuestCompleted());
+            Test.TestEqual(TEXT("The physical exit overlap executes the authored completion node"),
+                Director->GetCurrentElementId(), FString(QuestBindings::CompletedElement));
+            Test.TestEqual(TEXT("Physical completion selects the completed presentation"),
+                Director->GetPresentationElementId(), FString(QuestBindings::PresentationCompletedElement));
+            Test.TestEqual(TEXT("Physical exit entry completes exactly once"), Visits(QuestBindings::CompletedElement), 1);
+            Character->QuestView(TEXT("gate"));
+            PhaseStart = World->GetTimeSeconds();
+            ++Step;
+            return false;
+
+        case 10:
+            if (World->GetTimeSeconds() - PhaseStart < 0.1) return false;
+            Character->QuestView(TEXT("exit"));
+            PhaseStart = World->GetTimeSeconds();
+            ++Step;
+            return false;
+
+        case 11:
+        {
+            if (World->GetTimeSeconds() - PhaseStart < 0.1) return false;
+            Test.TestEqual(TEXT("Physical exit reentry executes authored repeated-entry feedback"),
+                Director->GetCurrentElementId(), FString(QuestBindings::ExitAlreadyCompletedElement));
+            Test.TestEqual(TEXT("Physical reentry does not execute completion twice"), Visits(QuestBindings::CompletedElement), 1);
+            Test.TestTrue(TEXT("Repeated physical exit entry preserves completion"), Director->IsQuestCompleted());
+            // Leave the trigger before restarting so the next session begins outside it.
+            Character->QuestView(TEXT("gate"));
             FString Error;
             if (!Test.TestTrue(TEXT("Restart reloads the narrative in the same running world"), Director->StartNewGame(Error)))
             {
@@ -166,9 +251,10 @@ public:
             return false;
         }
 
-        case 8:
+        case 12:
         {
             Test.TestFalse(TEXT("World restart clears the quest flag"), Director->IsQuestStarted());
+            Test.TestFalse(TEXT("World restart clears completion"), Director->IsQuestCompleted());
             Test.TestEqual(TEXT("World restart restores the narrative cell count"), Director->GetPowerCellCount(), 0);
             Test.TestFalse(TEXT("World restart turns power off"), Director->IsPowerRestored());
             Test.TestFalse(TEXT("World restart closes the gate"), Director->IsGateOpen());
@@ -176,6 +262,12 @@ public:
             Test.TestFalse(TEXT("World restart makes cell B visible again"), CellB->IsHidden());
             Test.TestTrue(TEXT("World restart restores cell A collision"), CellA->GetActorEnableCollision());
             Test.TestTrue(TEXT("World restart restores cell B collision"), CellB->GetActorEnableCollision());
+            Test.TestEqual(TEXT("World restart executes initialization once"), Visits(QuestBindings::InitializationElement), 1);
+            Test.TestEqual(TEXT("World restart clears the previous completion visit"), Visits(QuestBindings::CompletedElement), 0);
+            Test.TestEqual(TEXT("World restart selects the unaccepted presentation"),
+                Director->GetPresentationElementId(), FString(QuestBindings::PresentationUnacceptedElement));
+            Test.TestTrue(TEXT("World restart restores the visits of a freshly initialized session"),
+                InitialVisits.OrderIndependentCompareEqual(GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().Visits));
             FHitResult Hit;
             Test.TestTrue(TEXT("Reset gate once again blocks the real doorway"), TraceGate(Hit));
             Test.TestTrue(TEXT("Reset doorway obstruction belongs to the same gate actor"), Hit.GetActor() == Gate.Get());
@@ -193,6 +285,11 @@ public:
     }
 
 private:
+    int32 Visits(const TCHAR* Id) const
+    {
+        return GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().Visits.FindChecked(Id);
+    }
+
     AQuestWorldActor* InteractAt(const TCHAR* View)
     {
         Character->QuestView(View);
@@ -225,11 +322,14 @@ private:
     TWeakObjectPtr<AQuestWorldActor> CellA;
     TWeakObjectPtr<AQuestWorldActor> CellB;
     TWeakObjectPtr<AQuestWorldActor> Gate;
+    TWeakObjectPtr<AQuestWorldActor> Generator;
     TWeakObjectPtr<UPrimitiveComponent> GatePanel;
     TArray<TPair<TWeakObjectPtr<UPointLightComponent>, float>> StationLights;
+    TMap<FString, int32> InitialVisits;
     int32 Step = 0;
     double Deadline;
     double AnimationStart = 0.0;
+    double PhaseStart = 0.0;
     double ClosedPanelHeight = 0.0;
 };
 }
