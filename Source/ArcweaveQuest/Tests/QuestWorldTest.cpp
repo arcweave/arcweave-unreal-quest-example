@@ -89,7 +89,7 @@ public:
             if (!Generator.IsValid()) return true;
             Test.TestEqual(TEXT("The world generator label reads authored offline text"),
                 Generator->FindComponentByClass<UTextRenderComponent>()->Text.ToString(),
-                Director->GetPresentationText(TEXT("generator_label")));
+                Director->GetUIText(TEXT("quest_ui.generator_label")));
             Test.TestFalse(TEXT("Actual generator interaction before the terminal cannot start the quest"), Director->IsQuestStarted());
             Test.TestFalse(TEXT("Authored prerequisite response leaves world power off"), Director->IsPowerRestored());
             Test.TestFalse(TEXT("Authored prerequisite response leaves the gate closed"), Director->IsGateOpen());
@@ -113,7 +113,7 @@ public:
             Test.TestTrue(TEXT("Denied world pickup retains collision"), CellA->GetActorEnableCollision());
             Test.TestEqual(TEXT("Physical cell label comes from the authored catalog"),
                 CellA->FindComponentByClass<UTextRenderComponent>()->Text.ToString(),
-                Director->GetCatalogText(TEXT("cell_a_label")));
+                Director->GetUIText(TEXT("world_text.cell_a_label")));
             Character->QuestView(TEXT("exit"));
             PhaseStart = World->GetTimeSeconds();
             ++Step;
@@ -171,10 +171,10 @@ public:
             Test.TestFalse(TEXT("World power restoration alone does not complete the task"), Director->IsQuestCompleted());
             Test.TestEqual(TEXT("Power restoration refreshes the authored world generator label"),
                 Generator->FindComponentByClass<UTextRenderComponent>()->Text.ToString(),
-                Director->GetPresentationText(TEXT("generator_label")));
+                Director->GetUIText(TEXT("quest_ui.generator_label")));
             Test.TestEqual(TEXT("Gate label reads the authored access text"),
                 Gate->FindComponentByClass<UTextRenderComponent>()->Text.ToString(),
-                Director->GetPresentationText(TEXT("gate_label")));
+                Director->GetUIText(TEXT("quest_ui.gate_label")));
             Test.TestEqual(TEXT("World power restoration selects the exit objective"),
                 Director->GetPresentationElementId(), FString(QuestBindings::PresentationPoweredElement));
             for (const auto& Light : StationLights)
@@ -200,7 +200,7 @@ public:
             for (int32 Read = 0; Read < 32; ++Read)
             {
                 Test.TestEqual(TEXT("Native interaction text reads the cached authored generator prompt"),
-                    Generator->GetInteractionText(*Director), Director->GetPresentationText(TEXT("generator_prompt")));
+                    Generator->GetInteractionText(*Director), Director->GetUIText(TEXT("quest_ui.generator_prompt")));
                 Gate->GetInteractionText(*Director);
                 Director->GetObjective();
             }

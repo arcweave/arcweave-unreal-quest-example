@@ -34,8 +34,7 @@ public:
     FString GetStatus() const { return Status; }
     FString GetCurrentElementId() const { return CurrentElementId; }
     FString GetPresentationElementId() const { return PresentationElementId; }
-    FString GetCatalogText(FName Field) const { return CatalogText.FindRef(Field); }
-    FString GetPresentationText(FName Field) const { return PresentationText.FindRef(Field); }
+    FString GetUIText(FName QualifiedField) const { return UIText.FindRef(QualifiedField); }
 
     FSimpleMulticastDelegate OnQuestChanged;
 
@@ -57,9 +56,8 @@ private:
     FName PendingCellId;
     FString CurrentElementId;
     FString PresentationElementId;
-    TMap<FName, FString> CatalogVariableIds;
-    TMap<FName, FString> CatalogText;
-    TMap<FName, FString> PresentationText;
+    TMap<FName, FString> UIVariableIds;
+    TMap<FName, FString> UIText;
     FString Objective;
     FString Status;
     bool bProjectLoaded = false;

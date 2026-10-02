@@ -25,7 +25,7 @@ private:
     void BuildStation();
     void RefreshStation();
     void AddBlock(FVector Location, FVector Dimensions, FLinearColor Color, FRotator Rotation = FRotator::ZeroRotator);
-    void AddSign(FName CatalogKey, FVector Location, float Size, FColor Color);
+    void AddSign(FName TextKey, FVector Location, float Size, FColor Color);
 
     UFUNCTION()
     void HandleExitBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,

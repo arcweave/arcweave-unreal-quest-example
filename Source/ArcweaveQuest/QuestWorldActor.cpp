@@ -143,16 +143,16 @@ void AQuestWorldActor::ApplyQuestState(const UQuestDirector& Director, bool bAni
     StatusLight->SetVisibility(!bCollected);
     if (Kind == EQuestStationObject::Terminal)
     {
-        Label->SetText(FText::FromString(Director.GetCatalogText(TEXT("terminal_label"))));
+        Label->SetText(FText::FromString(Director.GetUIText(TEXT("world_text.terminal_label"))));
     }
     if (Kind == EQuestStationObject::PowerCell)
     {
-        Label->SetText(FText::FromString(Director.GetCatalogText(
-            CellId == TEXT("cell_a") ? TEXT("cell_a_label") : TEXT("cell_b_label"))));
+        Label->SetText(FText::FromString(Director.GetUIText(
+            CellId == TEXT("cell_a") ? TEXT("world_text.cell_a_label") : TEXT("world_text.cell_b_label"))));
     }
     if (Kind == EQuestStationObject::Generator)
     {
-        Label->SetText(FText::FromString(Director.GetPresentationText(TEXT("generator_label"))));
+        Label->SetText(FText::FromString(Director.GetUIText(TEXT("quest_ui.generator_label"))));
     }
     if (Kind == EQuestStationObject::Gate)
     {
@@ -162,7 +162,7 @@ void AQuestWorldActor::ApplyQuestState(const UQuestDirector& Director, bool bAni
             GateOpenAmount = GateTarget;
             VisualRoot->SetRelativeLocation(FVector(0, 0, GateOpenAmount * 440.0f));
         }
-        Label->SetText(FText::FromString(Director.GetPresentationText(TEXT("gate_label"))));
+        Label->SetText(FText::FromString(Director.GetUIText(TEXT("quest_ui.gate_label"))));
     }
 }
 
@@ -171,11 +171,11 @@ FString AQuestWorldActor::GetInteractionText(const UQuestDirector& Director) con
     switch (Kind)
     {
     case EQuestStationObject::Terminal:
-        return Director.GetPresentationText(TEXT("terminal_prompt"));
+        return Director.GetUIText(TEXT("quest_ui.terminal_prompt"));
     case EQuestStationObject::PowerCell:
-        return Director.GetPresentationText(TEXT("cell_prompt"));
+        return Director.GetUIText(TEXT("quest_ui.cell_prompt"));
     case EQuestStationObject::Generator:
-        return Director.GetPresentationText(TEXT("generator_prompt"));
+        return Director.GetUIText(TEXT("quest_ui.generator_prompt"));
     default:
         return FString();
     }

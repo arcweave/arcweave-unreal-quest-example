@@ -28,59 +28,120 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     }
     const FArcweaveProjectData InitialState = Arcweave->GetArcweaveProjectData();
 
-    const TSet<FName> RequiredCatalogFields = {
-        TEXT("brand"), TEXT("station_name"), TEXT("mission_tagline"), TEXT("cells_label"),
-        TEXT("station_footer"), TEXT("terminal_label"), TEXT("cell_a_label"), TEXT("cell_b_label"),
-        TEXT("sign_station"), TEXT("sign_distribution"), TEXT("sign_gate"), TEXT("sign_exit")
+    const TSet<FName> RequiredUIFields = {
+        TEXT("hud.brand"), TEXT("hud.station_name"), TEXT("hud.mission_tagline"), TEXT("hud.cells_label"),
+        TEXT("hud.station_footer"), TEXT("world_text.terminal_label"), TEXT("world_text.cell_a_label"),
+        TEXT("world_text.cell_b_label"), TEXT("world_text.sign_station"), TEXT("world_text.sign_distribution"),
+        TEXT("world_text.sign_gate"), TEXT("world_text.sign_exit"), TEXT("quest_ui.mission_heading"),
+        TEXT("quest_ui.grid_status"), TEXT("quest_ui.terminal_prompt"), TEXT("quest_ui.cell_prompt"),
+        TEXT("quest_ui.generator_prompt"), TEXT("quest_ui.generator_label"), TEXT("quest_ui.gate_label")
     };
-    TMap<FName, FString> AuthoredCatalog;
-    const FArcweaveComponentData* UIComponent = InitialState.Components.FindByPredicate(
-        [](const FArcweaveComponentData& Component) { return Component.Id == QuestBindings::UIComponent; });
-    if (!TestNotNull(TEXT("The UI text component is imported"), UIComponent)) return false;
-    TestEqual(TEXT("The UI component exposes the authored ui scope"), UIComponent->CustomId, FString(TEXT("ui")));
-    TestEqual(TEXT("The UI component contains twelve string attributes"), UIComponent->Attributes.Num(), 12);
-    TMap<FName, FString> UIVariableIds;
-    for (const FArcweaveAttributeData& Attribute : UIComponent->Attributes)
+    struct FUIComponentScope
     {
-        const FName Field(*Attribute.CustomId);
-        const FArcweaveVariable* RuntimeVariable = InitialState.CurrentVars.Find(Attribute.Id);
-        if (!TestTrue(TEXT("UI attribute has a required field: ") + Attribute.CustomId, RequiredCatalogFields.Contains(Field))
-            || !TestFalse(TEXT("UI attribute field is unique: ") + Attribute.CustomId, UIVariableIds.Contains(Field))
-            || !TestFalse(TEXT("Authored UI text is nonempty: ") + Attribute.CustomId, Attribute.Value.Data.IsEmpty())
-            || !TestNotNull(TEXT("UI attribute imports a runtime variable: ") + Attribute.CustomId, RuntimeVariable))
+        const TCHAR* Id;
+        const TCHAR* Scope;
+        int32 Fields;
+    };
+    const FUIComponentScope UIComponents[] = {
+        {QuestBindings::HUDTextComponent, TEXT("hud"), 5},
+        {QuestBindings::WorldTextComponent, TEXT("world_text"), 7},
+        {QuestBindings::QuestUIComponent, TEXT("quest_ui"), 7}
+    };
+    TMap<FName, FString> AuthoredUI;
+    TMap<FName, FString> UIVariableIds;
+    for (const FUIComponentScope& Expected : UIComponents)
+    {
+        const FArcweaveComponentData* Component = InitialState.Components.FindByPredicate(
+            [&Expected](const FArcweaveComponentData& Candidate) { return Candidate.Id == Expected.Id; });
+        if (!TestNotNull(TEXT("The UI component is imported: ") + FString(Expected.Scope), Component)) return false;
+        TestEqual(TEXT("The component has its authored scope: ") + FString(Expected.Scope), Component->CustomId, FString(Expected.Scope));
+        TestEqual(TEXT("The component contains its required fields: ") + FString(Expected.Scope), Component->Attributes.Num(), Expected.Fields);
+        for (const FArcweaveAttributeData& Attribute : Component->Attributes)
         {
-            return false;
+            const FName Field(*(Component->CustomId + TEXT(".") + Attribute.CustomId));
+            const FArcweaveVariable* RuntimeVariable = InitialState.CurrentVars.Find(Attribute.Id);
+            if (!TestTrue(TEXT("UI attribute has a required qualified field: ") + Field.ToString(), RequiredUIFields.Contains(Field))
+                || !TestFalse(TEXT("UI attribute field is unique: ") + Field.ToString(), UIVariableIds.Contains(Field))
+                || !TestFalse(TEXT("Authored UI text is nonempty: ") + Field.ToString(), Attribute.Value.Data.IsEmpty())
+                || !TestNotNull(TEXT("UI attribute imports a runtime variable: ") + Field.ToString(), RuntimeVariable))
+            {
+                return false;
+            }
+            UIVariableIds.Add(Field, Attribute.Id);
+            AuthoredUI.Add(Field, Attribute.Value.Data);
+            TestEqual(TEXT("UI attribute owner is the component: ") + Field.ToString(), Attribute.cId, Component->Id);
+            TestEqual(TEXT("UI attribute owner type is components: ") + Field.ToString(), Attribute.cType, FString(TEXT("components")));
+            TestEqual(TEXT("UI variable uses the attribute custom ID: ") + Field.ToString(), RuntimeVariable->Name, Attribute.CustomId);
+            TestEqual(TEXT("UI variable has string type: ") + Field.ToString(), RuntimeVariable->Type, FString(TEXT("string")));
+            TestEqual(TEXT("UI variable belongs to components: ") + Field.ToString(), RuntimeVariable->cType, FString(TEXT("components")));
+            TestEqual(TEXT("UI variable has its component scope: ") + Field.ToString(), RuntimeVariable->Scope, Component->CustomId);
+            TestTrue(TEXT("UI variable retains its authored default: ") + Field.ToString(), RuntimeVariable->bHasDefaultValue);
+            TestEqual(TEXT("UI variable default matches authored text: ") + Field.ToString(), RuntimeVariable->DefaultValue, Attribute.Value.Data);
+            if (Component->CustomId != TEXT("quest_ui"))
+            {
+                TestEqual(TEXT("Static UI starts with its authored value: ") + Field.ToString(), RuntimeVariable->Value, Attribute.Value.Data);
+            }
         }
-        UIVariableIds.Add(Field, Attribute.Id);
-        AuthoredCatalog.Add(Field, Attribute.Value.Data);
-        TestEqual(TEXT("UI attribute owner is the component: ") + Attribute.CustomId, Attribute.cId, UIComponent->Id);
-        TestEqual(TEXT("UI attribute owner type is components: ") + Attribute.CustomId, Attribute.cType, FString(TEXT("components")));
-        TestEqual(TEXT("UI variable uses the attribute custom ID: ") + Attribute.CustomId, RuntimeVariable->Name, Attribute.CustomId);
-        TestEqual(TEXT("UI variable has string type: ") + Attribute.CustomId, RuntimeVariable->Type, FString(TEXT("string")));
-        TestEqual(TEXT("UI variable belongs to components: ") + Attribute.CustomId, RuntimeVariable->cType, FString(TEXT("components")));
-        TestEqual(TEXT("UI variable is scoped to ui: ") + Attribute.CustomId, RuntimeVariable->Scope, FString(TEXT("ui")));
-        TestTrue(TEXT("UI variable retains its authored default: ") + Attribute.CustomId, RuntimeVariable->bHasDefaultValue);
-        TestEqual(TEXT("UI variable default matches authored text: ") + Attribute.CustomId, RuntimeVariable->DefaultValue, Attribute.Value.Data);
-        TestEqual(TEXT("Initial UI variable value matches authored text: ") + Attribute.CustomId, RuntimeVariable->Value, Attribute.Value.Data);
     }
-    if (!TestEqual(TEXT("Every catalog field has its own runtime UI variable"), UIVariableIds.Num(), RequiredCatalogFields.Num())) return false;
+    if (!TestEqual(TEXT("Every UI field has its own runtime variable"), UIVariableIds.Num(), RequiredUIFields.Num())) return false;
     int32 GlobalVariableCount = 0;
-    int32 UIVariableCount = 0;
     for (const auto& Pair : InitialState.CurrentVars)
     {
         GlobalVariableCount += Pair.Value.cType == TEXT("global") && Pair.Value.Scope.IsEmpty() ? 1 : 0;
-        UIVariableCount += Pair.Value.cType == TEXT("components") && Pair.Value.Scope == TEXT("ui") ? 1 : 0;
     }
     TestEqual(TEXT("The five quest variables retain global scope"), GlobalVariableCount, 5);
-    TestEqual(TEXT("All twelve UI strings use component scope"), UIVariableCount, 12);
-    const auto CheckCatalogValues = [this, Director, Arcweave, &UIVariableIds](const TCHAR* Stage)
+    for (const FUIComponentScope& Expected : UIComponents)
+    {
+        int32 ScopedVariableCount = 0;
+        for (const auto& Pair : InitialState.CurrentVars)
+        {
+            ScopedVariableCount += Pair.Value.cType == TEXT("components") && Pair.Value.Scope == Expected.Scope ? 1 : 0;
+        }
+        TestEqual(TEXT("Runtime UI variable count for ") + FString(Expected.Scope), ScopedVariableCount, Expected.Fields);
+    }
+    const auto CheckUIValues = [this, Director, Arcweave, &UIVariableIds](const TCHAR* Stage)
     {
         const FArcweaveProjectData State = Arcweave->GetArcweaveProjectData();
         for (const auto& Pair : UIVariableIds)
         {
-            TestEqual(FString(Stage) + TEXT(": cached catalog matches ui.") + Pair.Key.ToString(),
-                Director->GetCatalogText(Pair.Key), State.CurrentVars.FindChecked(Pair.Value).Value);
+            TestEqual(FString(Stage) + TEXT(": cached UI matches ") + Pair.Key.ToString(),
+                Director->GetUIText(Pair.Key), State.CurrentVars.FindChecked(Pair.Value).Value);
         }
+    };
+    const auto CheckPresentation = [this, Director, &AuthoredUI, &CheckUIValues](const TCHAR* ElementId)
+    {
+        TMap<FName, FString> ExpectedFields;
+        for (const auto& Pair : AuthoredUI)
+        {
+            if (Pair.Key.ToString().StartsWith(TEXT("quest_ui."))) ExpectedFields.Add(Pair.Key, Pair.Value);
+        }
+        const FString Stage(ElementId);
+        if (Stage == QuestBindings::PresentationUnacceptedElement)
+        {
+            ExpectedFields.Add(TEXT("quest_ui.terminal_prompt"), TEXT("Read station terminal"));
+            ExpectedFields.Add(TEXT("quest_ui.cell_prompt"), TEXT("Read the station terminal first"));
+        }
+        else if (Stage == QuestBindings::PresentationReadyElement)
+        {
+            ExpectedFields.Add(TEXT("quest_ui.generator_prompt"), TEXT("Install cells and restore power"));
+        }
+        else if (Stage == QuestBindings::PresentationPoweredElement || Stage == QuestBindings::PresentationCompletedElement)
+        {
+            ExpectedFields.Add(TEXT("quest_ui.grid_status"), TEXT("GRID ONLINE"));
+            ExpectedFields.Add(TEXT("quest_ui.generator_prompt"), TEXT("Review running generator"));
+            ExpectedFields.Add(TEXT("quest_ui.generator_label"), TEXT("GENERATOR / ONLINE"));
+            ExpectedFields.Add(TEXT("quest_ui.gate_label"), TEXT("GATE 01 / ACCESS GRANTED"));
+            if (Stage == QuestBindings::PresentationCompletedElement)
+            {
+                ExpectedFields.Add(TEXT("quest_ui.mission_heading"), TEXT("MISSION COMPLETE"));
+            }
+        }
+        TestEqual(TEXT("Presentation selects the expected authored leaf"), Director->GetPresentationElementId(), Stage);
+        for (const auto& Pair : ExpectedFields)
+        {
+            TestEqual(TEXT("Presentation renders the expected value for ") + Pair.Key.ToString(), Director->GetUIText(Pair.Key), Pair.Value);
+        }
+        CheckUIValues(*Stage);
     };
 
     int32 PowerCommands = 0;
@@ -137,7 +198,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TMap<FName, FString> Catalog;
         for (const auto& Pair : UIVariableIds)
         {
-            Catalog.Add(Pair.Key, Director->GetCatalogText(Pair.Key));
+            Catalog.Add(Pair.Key, Director->GetUIText(Pair.Key));
         }
         const int32 Commands = PowerCommands + GateCommands + PickupCommands;
         const int32 Notifications = PresentationChanges;
@@ -154,12 +215,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
             Director->HasCollectedCell(TEXT("cell_a"));
             for (const auto& Pair : UIVariableIds)
             {
-                Director->GetCatalogText(Pair.Key);
-            }
-            for (const TCHAR* Key : {TEXT("mission_heading"), TEXT("grid_status"), TEXT("terminal_prompt"),
-                TEXT("cell_prompt"), TEXT("generator_prompt"), TEXT("generator_label"), TEXT("gate_label")})
-            {
-                Director->GetPresentationText(Key);
+                Director->GetUIText(Pair.Key);
             }
         }
         const FArcweaveProjectData After = Arcweave->GetArcweaveProjectData();
@@ -180,12 +236,12 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TestEqual(Prefix + TEXT("presentation cursor is unchanged"), Director->GetPresentationElementId(), Presentation);
         for (const auto& Pair : Catalog)
         {
-            TestEqual(Prefix + TEXT("cached catalog is unchanged: ") + Pair.Key.ToString(), Director->GetCatalogText(Pair.Key), Pair.Value);
+            TestEqual(Prefix + TEXT("cached catalog is unchanged: ") + Pair.Key.ToString(), Director->GetUIText(Pair.Key), Pair.Value);
         }
         TestEqual(Prefix + TEXT("objective is unchanged"), Director->GetObjective(), Objective);
         TestEqual(Prefix + TEXT("status is unchanged"), Director->GetStatus(), Status);
     };
-    const auto CheckRestart = [this, Director, Arcweave, &InitialState, &Visits, &Error, &AuthoredCatalog, &CheckCatalogValues]()
+    const auto CheckRestart = [this, Director, Arcweave, &InitialState, &Visits, &Error, &UIVariableIds, &CheckUIValues]()
     {
         if (!TestTrue(TEXT("Restart executes the authored initialization again"), Director->StartNewGame(Error)))
         {
@@ -211,15 +267,16 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         {
             TestEqual(TEXT("Restart restores authored value ") + Pair.Key, Restarted.CurrentVars.FindChecked(Pair.Key).Value, Pair.Value.Value);
         }
-        for (const auto& Pair : AuthoredCatalog)
+        for (const auto& Pair : UIVariableIds)
         {
-            TestEqual(TEXT("Restart restores authored catalog text: ") + Pair.Key.ToString(), Director->GetCatalogText(Pair.Key), Pair.Value);
+            TestEqual(TEXT("Restart restores initialized UI text: ") + Pair.Key.ToString(),
+                Director->GetUIText(Pair.Key), InitialState.CurrentVars.FindChecked(Pair.Value).Value);
         }
-        CheckCatalogValues(TEXT("Restarted state"));
+        CheckUIValues(TEXT("Restarted state"));
         return true;
     };
 
-    TestEqual(TEXT("Five global quest variables and twelve UI strings are imported"), InitialState.CurrentVars.Num(), 17);
+    TestEqual(TEXT("Five global quest variables and nineteen UI strings are imported"), InitialState.CurrentVars.Num(), 24);
     TestFalse(TEXT("Initialization does not accept the task"), Director->IsQuestStarted());
     TestFalse(TEXT("Initialization does not complete the task"), Director->IsQuestCompleted());
     TestEqual(TEXT("Initial required cell count comes from the export"), Director->GetRequiredPowerCellCount(), 2);
@@ -227,9 +284,10 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Presentation does not replace the initialization cursor"), Director->GetCurrentElementId(), FString(QuestBindings::InitializationElement));
     TestEqual(TEXT("Unaccepted presentation is selected by the graph"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationUnacceptedElement));
     TestEqual(TEXT("Authored initial objective is cached"), Director->GetObjective(), FString(TEXT("Use the terminal to begin.")));
-    CheckCatalogValues(TEXT("Initialized state"));
-    TestFalse(TEXT("Initial terminal prompt is available"), Director->GetPresentationText(TEXT("terminal_prompt")).IsEmpty());
+    CheckUIValues(TEXT("Initialized state"));
+    TestFalse(TEXT("Initial terminal prompt is available"), Director->GetUIText(TEXT("quest_ui.terminal_prompt")).IsEmpty());
     CheckCachedReads(TEXT("Initial state"));
+    CheckPresentation(QuestBindings::PresentationUnacceptedElement);
 
     TestTrue(TEXT("A generator attempt before acceptance executes authored guidance"), Director->TryRestorePower(Error));
     TestTrue(TEXT("Narrative denial is not an integration error"), Error.IsEmpty());
@@ -279,6 +337,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Collecting objective updates with the current count"), Director->GetObjective(), FString(TEXT("Collect power cells (1/2), then use the generator.")));
     TestEqual(TEXT("Exactly one physical pickup command was issued"), PickupCommands, 1);
     CheckCachedReads(TEXT("Collecting state"));
+    CheckPresentation(QuestBindings::PresentationCollectingElement);
 
     TestTrue(TEXT("Duplicate pickup executes authored feedback"), Director->CollectCell(TEXT("cell_a"), Error));
     TestEqual(TEXT("Duplicate uses the duplicate response"), Director->GetCurrentElementId(), FString(QuestBindings::DuplicatePickupElement));
@@ -294,8 +353,9 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Second pickup feedback reads the updated count"), Director->GetStatus(), FString(TEXT("Collected a power cell (2/2).")));
     TestEqual(TEXT("Required count selects the authored ready presentation"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationReadyElement));
     TestEqual(TEXT("Ready objective is authored text"), Director->GetObjective(), FString(TEXT("Return to the generator and restore power.")));
-    const FString ReadyPrompt = Director->GetPresentationText(TEXT("generator_prompt"));
+    const FString ReadyPrompt = Director->GetUIText(TEXT("quest_ui.generator_prompt"));
     TestFalse(TEXT("Ready generator prompt is supplied by the graph"), ReadyPrompt.IsEmpty());
+    CheckPresentation(QuestBindings::PresentationReadyElement);
 
     TestTrue(TEXT("Generator succeeds after the required pickups"), Director->TryRestorePower(Error));
     TestEqual(TEXT("Success follows the authored connection"), Director->GetCurrentElementId(), FString(QuestBindings::SuccessElement));
@@ -309,6 +369,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Power command runs once"), PowerCommands, 1);
     TestEqual(TEXT("Gate command runs once"), GateCommands, 1);
     CheckCachedReads(TEXT("Powered state"));
+    CheckPresentation(QuestBindings::PresentationPoweredElement);
 
     TestTrue(TEXT("Repeated generator use executes an authored already-online response"), Director->TryRestorePower(Error));
     TestEqual(TEXT("Repeated generator reaches AlreadyOnline"), Director->GetCurrentElementId(), FString(QuestBindings::AlreadyOnlineElement));
@@ -330,32 +391,33 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Terminal can describe the completed state"), Director->StartQuest(Error));
     TestEqual(TEXT("Completed terminal uses its authored response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalCompletedElement));
     CheckCachedReads(TEXT("Completed state"));
-    CheckCatalogValues(TEXT("Completed state"));
+    CheckPresentation(QuestBindings::PresentationCompletedElement);
+    CheckUIValues(TEXT("Completed state"));
 
     // Runtime UI changes become visible at the same event boundary as the presentation graph.
-    const FString StationNameVariableId = UIVariableIds.FindChecked(TEXT("station_name"));
+    const FString StationNameVariableId = UIVariableIds.FindChecked(TEXT("hud.station_name"));
     const FString UpdatedStationName(TEXT("RELAY 08 / TEST"));
     Arcweave->SetVariable(StationNameVariableId, UpdatedStationName);
     TestEqual(TEXT("SetVariable updates the scoped UI runtime value"),
         Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(StationNameVariableId).Value, UpdatedStationName);
     TestEqual(TEXT("Reading a catalog getter alone preserves the previously cached UI text"),
-        Director->GetCatalogText(TEXT("station_name")), AuthoredCatalog.FindChecked(TEXT("station_name")));
+        Director->GetUIText(TEXT("hud.station_name")), AuthoredUI.FindChecked(TEXT("hud.station_name")));
     CheckCachedReads(TEXT("UI change waiting for an event"));
     TestTrue(TEXT("A normal repeated terminal event refreshes the UI cache"), Director->StartQuest(Error));
     TestEqual(TEXT("The event refresh reads the current UI variable rather than the authored attribute"),
-        Director->GetCatalogText(TEXT("station_name")), UpdatedStationName);
+        Director->GetUIText(TEXT("hud.station_name")), UpdatedStationName);
     const FArcweaveProjectData UpdatedUIState = Arcweave->GetArcweaveProjectData();
     TestEqual(TEXT("A runtime UI change preserves the authored variable default"),
-        UpdatedUIState.CurrentVars.FindChecked(StationNameVariableId).DefaultValue, AuthoredCatalog.FindChecked(TEXT("station_name")));
+        UpdatedUIState.CurrentVars.FindChecked(StationNameVariableId).DefaultValue, AuthoredUI.FindChecked(TEXT("hud.station_name")));
     const FArcweaveComponentData* UpdatedUIComponent = UpdatedUIState.Components.FindByPredicate(
-        [](const FArcweaveComponentData& Component) { return Component.Id == QuestBindings::UIComponent; });
+        [](const FArcweaveComponentData& Component) { return Component.Id == QuestBindings::HUDTextComponent; });
     if (!TestNotNull(TEXT("The UI component remains available after a runtime change"), UpdatedUIComponent)) return false;
     const FArcweaveAttributeData* AuthoredStationAttribute = UpdatedUIComponent->Attributes.FindByPredicate(
         [&StationNameVariableId](const FArcweaveAttributeData& Attribute) { return Attribute.Id == StationNameVariableId; });
     if (!TestNotNull(TEXT("The authored station-name attribute remains available"), AuthoredStationAttribute)) return false;
     TestEqual(TEXT("Runtime UI changes do not rewrite the authored component attribute"),
-        AuthoredStationAttribute->Value.Data, AuthoredCatalog.FindChecked(TEXT("station_name")));
-    CheckCatalogValues(TEXT("UI change refreshed"));
+        AuthoredStationAttribute->Value.Data, AuthoredUI.FindChecked(TEXT("hud.station_name")));
+    CheckUIValues(TEXT("UI change refreshed"));
     CheckCachedReads(TEXT("UI change refreshed"));
 
     if (!CheckRestart()) return false;
@@ -370,7 +432,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("One-cell variant allows either physical cell"), Director->CollectCell(TEXT("cell_b"), Error));
     TestEqual(TEXT("Pickup feedback renders the changed requirement"), Director->GetStatus(), FString(TEXT("Collected a power cell (1/1).")));
     TestEqual(TEXT("One pickup now selects Ready"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationReadyElement));
-    TestEqual(TEXT("One-cell readiness selects the same authored interaction prompt"), Director->GetPresentationText(TEXT("generator_prompt")), ReadyPrompt);
+    TestEqual(TEXT("One-cell readiness selects the same authored interaction prompt"), Director->GetUIText(TEXT("quest_ui.generator_prompt")), ReadyPrompt);
     TestTrue(TEXT("One-cell variant still handles duplicate feedback"), Director->CollectCell(TEXT("cell_b"), Error));
     TestEqual(TEXT("Duplicate preserves the one-cell requirement state"), Director->GetPowerCellCount(), 1);
     TestEqual(TEXT("Only one additional pickup command was dispatched"), PickupCommands, 3);
@@ -382,6 +444,74 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Each session issues exactly one power command"), PowerCommands, 2);
     TestEqual(TEXT("Each session issues exactly one gate command"), GateCommands, 2);
     CheckCachedReads(TEXT("One-cell completed state"));
+    CheckPresentation(QuestBindings::PresentationCompletedElement);
+
+    // Presentation can be refreshed independently when external gameplay changes the quest state.
+    // Static HUD/world overrides survive; quest_ui is rebuilt from its authored defaults each time.
+    const FString WorldLabelVariableId = UIVariableIds.FindChecked(TEXT("world_text.cell_a_label"));
+    const FString UpdatedWorldLabel(TEXT("Runtime cell label"));
+    Arcweave->SetVariable(StationNameVariableId, UpdatedStationName);
+    Arcweave->SetVariable(WorldLabelVariableId, UpdatedWorldLabel);
+    for (const auto& Pair : UIVariableIds)
+    {
+        if (Pair.Key.ToString().StartsWith(TEXT("quest_ui.")))
+        {
+            Arcweave->SetVariable(Pair.Value, TEXT("Stale presentation text"));
+        }
+    }
+    const auto CheckPresentationRefresh = [this, Director, Arcweave, &Error, &CheckPresentation,
+        &CheckCachedReads, &PowerCommands, &GateCommands, &PickupCommands, &PresentationChanges,
+        &UpdatedStationName, &UpdatedWorldLabel](const TCHAR* ExpectedLeaf, bool bStarted, bool bPowered,
+        bool bCompleted, int32 Cells, int32 Required)
+    {
+        Arcweave->SetVariable(QuestBindings::QuestStartedVariable, bStarted ? TEXT("true") : TEXT("false"));
+        Arcweave->SetVariable(QuestBindings::PowerRestoredVariable, bPowered ? TEXT("true") : TEXT("false"));
+        Arcweave->SetVariable(QuestBindings::QuestCompletedVariable, bCompleted ? TEXT("true") : TEXT("false"));
+        Arcweave->SetVariable(QuestBindings::PowerCellsVariable, FString::FromInt(Cells));
+        Arcweave->SetVariable(QuestBindings::RequiredPowerCellsVariable, FString::FromInt(Required));
+        const FArcweaveProjectData Before = Arcweave->GetArcweaveProjectData();
+        const FString Cursor = Director->GetCurrentElementId();
+        const FString Status = Director->GetStatus();
+        const bool bWorldPowered = Director->IsPowerRestored();
+        const bool bWorldGateOpen = Director->IsGateOpen();
+        const int32 Commands = PowerCommands + GateCommands + PickupCommands;
+        const int32 Notifications = PresentationChanges;
+        if (!TestTrue(TEXT("Arcscript refreshes the presentation graph"), Director->RefreshPresentation(Error)))
+        {
+            AddError(Error);
+            return false;
+        }
+        const FArcweaveProjectData After = Arcweave->GetArcweaveProjectData();
+        TestEqual(TEXT("Presentation refresh preserves the variable collection"), After.CurrentVars.Num(), Before.CurrentVars.Num());
+        for (const auto& Pair : Before.CurrentVars)
+        {
+            const FArcweaveVariable& Actual = After.CurrentVars.FindChecked(Pair.Key);
+            if (Pair.Value.Scope != TEXT("quest_ui"))
+            {
+                TestEqual(TEXT("Presentation preserves quest globals and static UI: ") + Pair.Value.Scope + TEXT(".") + Pair.Value.Name,
+                    Actual.Value, Pair.Value.Value);
+            }
+            TestEqual(TEXT("Presentation preserves each variable's authored default: ") + Pair.Value.Name,
+                Actual.DefaultValue, Pair.Value.DefaultValue);
+        }
+        TestEqual(TEXT("Presentation never dispatches gameplay commands"), PowerCommands + GateCommands + PickupCommands, Commands);
+        TestEqual(TEXT("Presentation refresh alone does not publish gameplay changes"), PresentationChanges, Notifications);
+        TestEqual(TEXT("Presentation preserves the gameplay cursor"), Director->GetCurrentElementId(), Cursor);
+        TestEqual(TEXT("Presentation preserves gameplay feedback"), Director->GetStatus(), Status);
+        TestEqual(TEXT("Presentation preserves native power state"), Director->IsPowerRestored(), bWorldPowered);
+        TestEqual(TEXT("Presentation preserves native gate state"), Director->IsGateOpen(), bWorldGateOpen);
+        TestEqual(TEXT("Presentation reset preserves a current HUD text override"), Director->GetUIText(TEXT("hud.station_name")), UpdatedStationName);
+        TestEqual(TEXT("Presentation reset preserves a current world text override"), Director->GetUIText(TEXT("world_text.cell_a_label")), UpdatedWorldLabel);
+        CheckPresentation(ExpectedLeaf);
+        CheckCachedReads(TEXT("Presentation backtracking"));
+        return true;
+    };
+    if (!CheckPresentationRefresh(QuestBindings::PresentationCompletedElement, true, true, true, 2, 2)) return false;
+    if (!CheckPresentationRefresh(QuestBindings::PresentationPoweredElement, true, true, false, 2, 2)) return false;
+    if (!CheckPresentationRefresh(QuestBindings::PresentationUnacceptedElement, false, false, false, 0, 2)) return false;
+    if (!CheckPresentationRefresh(QuestBindings::PresentationReadyElement, true, false, false, 2, 2)) return false;
+    if (!CheckPresentationRefresh(QuestBindings::PresentationCollectingElement, true, false, false, 1, 2)) return false;
+    if (!CheckPresentationRefresh(QuestBindings::PresentationReadyElement, true, false, false, 1, 1)) return false;
     if (!CheckRestart()) return false;
     return true;
 }

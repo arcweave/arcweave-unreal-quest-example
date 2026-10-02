@@ -2,7 +2,7 @@
 
 Open [Restore Power — Unreal C++ Quest Sample](https://arcweave.com/app/project/MWEZgMb62g) in [workspace Z7gAR6XY](https://arcweave.com/app/workspace/Z7gAR6XY/projects). Access requires permission to the workspace or project. The bundled export runs locally without an API key.
 
-Arcweave owns quest decisions, feedback, objectives, interaction prompts, and station labels. Unreal supplies physical events and implements three authored world commands. The project has two boards: **01 · World event flows** has separate, labeled event lanes; **02 · Objectives and interface** selects the current display. A standalone **UI** component stores the shared interface strings.
+Arcweave owns quest decisions, feedback, objectives, interaction prompts, and station labels. Unreal supplies physical events and implements three authored world commands. The project has two boards: **01 · World event flows** has separate, labeled event lanes; **02 · Objectives and interface** selects the current display. The **UI** component folder groups the interface strings by purpose.
 
 ## World events
 
@@ -39,11 +39,51 @@ Command names are component **custom IDs** understood by this sample's C++ regis
 | `powerRestored` | `false` | Arcweave records generator success. |
 | `questCompleted` | `false` | Arcweave records arrival at the powered exit. |
 
-The scene contains two pickups. Change `requiredPowerCells` to `1` to try a shorter task; a target above `2` needs additional Unreal pickups. Arcweave Play Mode can exercise the lanes by starting at their entries and changing these variables in the Debugger. Physical collection, lighting, and gate commands execute in Unreal. The UI component adds twelve scoped string variables, giving the imported project **17 runtime variables** in total.
+The scene contains two pickups. Change `requiredPowerCells` to `1` to try a shorter task; a target above `2` needs additional Unreal pickups. Arcweave Play Mode can exercise the lanes by starting at their entries and changing these variables in the Debugger. Physical collection, lighting, and gate commands execute in Unreal. The UI components add nineteen scoped string variables, giving the imported project **24 runtime variables** in total.
+
+## UI components
+
+The **UI** folder contains three standalone data components:
+
+| Component | Custom ID / C++ binding | String attribute custom IDs |
+| --- | --- | --- |
+| HUD text | `hud` / `HUDTextComponent` | `brand`, `station_name`, `mission_tagline`, `cells_label`, `station_footer` |
+| World text | `world_text` / `WorldTextComponent` | `terminal_label`, `cell_a_label`, `cell_b_label`, `sign_station`, `sign_distribution`, `sign_gate`, `sign_exit` |
+| Quest display | `quest_ui` / `QuestUIComponent` | `mission_heading`, `grid_status`, `terminal_prompt`, `cell_prompt`, `generator_prompt`, `generator_label`, `gate_label` |
+
+Each attribute is a plain string with a stable custom ID. Component and attribute labels can change while those custom IDs remain stable. The folder organizes the components without creating another variable scope, and none of these components is attached to an element as a gameplay command.
+
+Arcscript uses names such as `hud.station_name`, `world_text.terminal_label`, and `quest_ui.generator_prompt`. At initialization, C++ maps attribute custom IDs to runtime variable UUIDs. After the presentation path finishes, it caches their current values under qualified keys for the HUD, world labels, and quest display. HUD drawing and focus queries only read that cache.
+
+For example, an event may assign `hud.station_name = "RELAY 08"`. That value appears when the director runs its internal `RefreshPresentation()` after an event, and persists through later presentation refreshes. Restarting restores all authored defaults. Presentation owns `quest_ui.*`, so those seven fields are reset and recomputed on each refresh.
 
 ## Objectives and interface
 
-After every event, C++ runs `PresentationEntryElement` and caches the chosen leaf's content and named attributes. The presentation branch checks these states in order:
+After every event, C++ runs `PresentationEntryElement`, which restores the seven Quest display attributes to their authored defaults. Each call occupies its own Arcscript code block:
+
+- `reset(quest_ui.mission_heading)`
+- `reset(quest_ui.grid_status)`
+- `reset(quest_ui.terminal_prompt)`
+- `reset(quest_ui.cell_prompt)`
+- `reset(quest_ui.generator_prompt)`
+- `reset(quest_ui.generator_label)`
+- `reset(quest_ui.gate_label)`
+
+These defaults describe the collecting state. The connected graph applies small overrides for other states, then ends on one of the five objective leaves. Only `quest_ui.*` is reset; quest progress and HUD/world text overrides survive the refresh.
+
+```mermaid
+flowchart LR
+    Entry[Reset seven quest_ui defaults] --> Main{PresentationBranch}
+    Main -->|if questCompleted OR powerRestored| Setup[Apply four powered fields]
+    Main -->|elseif !questStarted| Unaccepted[Override two prompts]
+    Main -->|elseif powerCells below required| Collecting[Collecting objective]
+    Main -->|else| Ready[Override generator prompt]
+    Setup --> Completion{PresentationCompletionBranch}
+    Completion -->|if questCompleted| Completed[Override heading; completed objective]
+    Completion -->|else| Powered[Powered objective]
+```
+
+`PresentationPoweredSetupElement` assigns the online grid status, review-generator prompt, online generator label, and open-gate label once for both powered outcomes. Completed then changes the mission heading to **MISSION COMPLETE**. Unaccepted overrides the terminal and cell prompts; Ready changes only the generator prompt. Collecting and Powered need only their objective content. The final objectives are:
 
 | Condition | Objective |
 | --- | --- |
@@ -53,29 +93,19 @@ After every event, C++ runs `PresentationEntryElement` and caches the chosen lea
 | `powerCells < requiredPowerCells` | Collect power cells (0/2), then use the generator. |
 | Otherwise | Return to the generator and restore power. |
 
-The collecting objective renders both numbers with `show()`, using the same variables as the generator condition. Presentation content contains only text and `show()` expressions, with no assignments or command components. Refreshing the cache records presentation visits once per event; HUD drawing and focus queries only read the cache.
+The collecting objective renders both numbers with `show()`, using the same variables as the generator condition. The powered and completed displays retain the **Review running generator** prompt so the authored repeat response remains accessible. The leaves carry objective content and their few Arcscript overrides; display fields live on the Quest display component.
 
-Each display leaf has seven named plain-string attributes: `mission_heading`, `grid_status`, `terminal_prompt`, `cell_prompt`, `generator_prompt`, `generator_label`, and `gate_label`. The powered and completed displays retain the **Review running generator** prompt so the authored repeat response remains accessible.
-
-The seven state-dependent attributes remain element metadata with `value.type = "string"`, `value.plain = true`, and no custom ID. Their values are literal display strings, without HTML or Arcscript. Keep dynamic text in element content; the plugin does not transpile attribute values.
-
-## Shared UI strings
-
-The standalone **UI** component has custom ID `ui` and is bound as `UIComponent`. Its twelve plain string attributes use these custom IDs: `brand`, `station_name`, `mission_tagline`, `cells_label`, `station_footer`, `terminal_label`, `cell_a_label`, `cell_b_label`, `sign_station`, `sign_distribution`, `sign_gate`, and `sign_exit`. Attribute labels can change while these custom IDs remain stable. The component is data and is not attached to elements as a gameplay command.
-
-These attributes are scoped Arcscript variables, such as `ui.station_name`. At initialization, C++ maps each attribute's custom ID to its runtime variable UUID. After every event and presentation refresh, it reads the current variable values into the shared-label cache. Changing a value with `SetVariable` or an event's Arcscript therefore updates the UI on the next event refresh; drawing the HUD only reads the cache. Restarting restores the authored defaults.
-
-For example, an event may assign `ui.station_name = "RELAY 08"`. A presentation element can read it with `show(ui.station_name)`. Presentation validation permits reads of the twelve known `ui.*` fields and rejects unknown fields, method calls, and assignments. The current objective content continues to use the five quest variables.
+Presentation may read known quest and UI variables, show text, and assign the seven `quest_ui.*` fields. Its conditions only read state, and its paths dispatch no command components. The entry's seven individual resets prevent stale display values when moving between states; it never calls `resetAll()`. Refreshing records presentation visits once per execution. The released native plugin requires **one statement per Arcscript code block**; consecutive blocks execute in order. Use separate blocks for the powered setup's four assignments and the unaccepted state's two assignments as well.
 
 ## Files and editing
 
-- `Narrative/bindings.json` and `Source/ArcweaveQuest/QuestBindings.h` identify the entry points, feedback/display leaves, global variables, UI component, and command components used by C++ or its tests. Conditions, connections, notes, and attributes retain their IDs in the graph without becoming C++ bindings.
+- `Narrative/bindings.json` and `Source/ArcweaveQuest/QuestBindings.h` identify the entry points, feedback/display leaves, global variables, three UI components, and command components used by C++ or its tests. Conditions, connections, notes, and attributes retain their IDs in the graph without becoming C++ bindings.
 - `Narrative/project.json` records the online project/workspace, export URLs, export time, and SHA-256 checksums. It contains no credential.
 - `Narrative/import.json` reproduces this graph and its board layout using the all-locales authoring export plus coordinates from the Unreal export. Importing its `project` creates a separate project; it does not update the linked one.
 - `Narrative/authoring.json` is the actual Arcweave JSON API export. That endpoint omits coordinates.
 - `Content/ArcweaveExport/quest.json` is the actual Unreal API response, including its `project` envelope and layout. It is the only JSON file in that import directory.
 
-Keep the bound IDs, command and UI custom IDs, variable meanings, and named presentation metadata fields when editing. Text, conditions, notes, node positions, and internal automatic paths can change without adding C++ bindings. Automatic paths must remain acyclic, stay within one board, and have at most one output per element. Each condition row has exactly one outgoing connection; use separate condition rows for separate outcomes. Changing the event interface, supported commands, or presentation contract requires corresponding C++ changes.
+Keep the bound IDs, command and UI custom IDs, and variable meanings when editing. Text, attribute defaults, conditions, notes, node positions, and internal automatic paths can change without adding C++ bindings. Automatic paths must remain acyclic, stay within one board, and have at most one output per element. Each condition row has exactly one outgoing connection; use separate condition rows for separate outcomes. Changing the event interface, supported commands, or presentation contract requires corresponding C++ changes.
 
 ## Refresh the bundled narrative
 
@@ -85,7 +115,7 @@ Use Python 3.9 or later and an API key with **Read projects** access to the samp
 python Scripts/sync-narrative.py --token-file "/path/outside/repository/arcweave-token.txt"
 ```
 
-The script downloads both exports from `https://arcweave.com` and validates them before replacing either file. It checks required bindings, five global variables and their new-game defaults, exactly twelve scoped UI strings, graph connections and cycles, separate world-event entries, nonempty executable content, command placement, complete plain presentation metadata, and presentation content that only reads state. New designer notes and internal graph objects do not require bindings. It updates export checksums, does not edit online projects, and never stores or prints the key. Two requests count against the workspace's import/export rate limit; on HTTP 429, wait for the reported interval and rerun. The layout-preserving `import.json` is maintained separately as a reproducible snapshot.
+The script downloads both exports from `https://arcweave.com` and validates them before replacing either file. It checks required bindings, five global variables and their new-game defaults, the three UI components and their nineteen strings, graph connections and cycles, separate world-event entries, nonempty executable content, and command placement. Presentation checks require the seven unconditional entry resets, one statement per code block, read-only conditions, and writes restricted to known `quest_ui.*` fields. New designer notes and internal graph objects do not require bindings. It updates export checksums, does not edit online projects, and never stores or prints the key. Two requests count against the workspace's import/export rate limit; on HTTP 429, wait for the reported interval and rerun. The layout-preserving `import.json` is maintained separately as a reproducible snapshot.
 
 Run `python Scripts/test-sync-narrative.py` to check the bundled exports and validator regressions offline, without an API key.
 

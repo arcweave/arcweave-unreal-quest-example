@@ -37,16 +37,20 @@ bool UQuestDirector::StartNewGame(FString& Error)
     bGateOpen = false;
 
     const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
-    const FArcweaveComponentData* UI = Project.Components.FindByPredicate(
-        [](const FArcweaveComponentData& Component) { return Component.Id == QuestBindings::UIComponent; });
-    if (!UI)
+    UIVariableIds.Reset();
+    for (const TCHAR* ComponentId : {QuestBindings::HUDTextComponent,
+        QuestBindings::WorldTextComponent, QuestBindings::QuestUIComponent})
     {
-        return RejectInteraction(TEXT("The narrative export is missing its UI component."), Error);
-    }
-    CatalogVariableIds.Reset();
-    for (const FArcweaveAttributeData& Attribute : UI->Attributes)
-    {
-        CatalogVariableIds.Add(FName(*Attribute.CustomId), Attribute.Id);
+        const FArcweaveComponentData* UI = Project.Components.FindByPredicate(
+            [ComponentId](const FArcweaveComponentData& Component) { return Component.Id == ComponentId; });
+        if (!UI)
+        {
+            return RejectInteraction(TEXT("The narrative export is missing a required UI component."), Error);
+        }
+        for (const FArcweaveAttributeData& Attribute : UI->Attributes)
+        {
+            UIVariableIds.Add(FName(*(UI->CustomId + TEXT(".") + Attribute.CustomId)), Attribute.Id);
+        }
     }
     bProjectLoaded = true;
 
@@ -178,8 +182,8 @@ bool UQuestDirector::RunGraph(const FString& EntryElementId, bool bDispatchComma
 
 bool UQuestDirector::RefreshPresentation(FString& Error)
 {
-    // Presentation nodes contain text/show() only and have no command components.
-    // Rendering records their visits once per event; HUD and focus getters never execute nodes.
+    // The graph resets quest_ui defaults and applies state-specific overrides without
+    // world commands. It runs once per event; HUD and focus getters only read the cache.
     FArcweaveElementData Presentation;
     if (!RunGraph(QuestBindings::PresentationEntryElement, false, Presentation, Error))
     {
@@ -187,19 +191,13 @@ bool UQuestDirector::RefreshPresentation(FString& Error)
     }
     PresentationElementId = Presentation.Id;
     Objective = Presentation.Content;
-    PresentationText.Reset();
-    for (const FArcweaveAttributeData& Attribute : Presentation.Attributes)
-    {
-        PresentationText.Add(FName(*Attribute.Name), Attribute.Value.Data);
-    }
-
-    // Component attributes describe the authored defaults. Read CurrentVars so ui.*
-    // changes made by Arcscript or SetVariable are reflected after this event.
+    // Read current values after Arcscript has updated quest_ui. Shared hud and world_text
+    // variables also retain runtime changes until the game explicitly changes or resets them.
     const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
-    CatalogText.Reset();
-    for (const auto& Variable : CatalogVariableIds)
+    UIText.Reset();
+    for (const auto& Variable : UIVariableIds)
     {
-        CatalogText.Add(Variable.Key, Project.CurrentVars.FindChecked(Variable.Value).Value);
+        UIText.Add(Variable.Key, Project.CurrentVars.FindChecked(Variable.Value).Value);
     }
     return true;
 }

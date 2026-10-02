@@ -64,7 +64,7 @@ void AQuestGameMode::AddBlock(FVector Location, FVector Dimensions, FLinearColor
     Mesh->RegisterComponent();
 }
 
-void AQuestGameMode::AddSign(FName CatalogKey, FVector Location, float Size, FColor Color)
+void AQuestGameMode::AddSign(FName TextKey, FVector Location, float Size, FColor Color)
 {
     AActor* Sign = GetWorld()->SpawnActor<AActor>();
     UTextRenderComponent* Text = NewObject<UTextRenderComponent>(Sign);
@@ -74,10 +74,10 @@ void AQuestGameMode::AddSign(FName CatalogKey, FVector Location, float Size, FCo
     Text->SetVerticalAlignment(EVRTA_TextCenter);
     Text->SetWorldSize(Size);
     Text->SetTextRenderColor(Color);
-    Text->SetText(FText::FromString(Director->GetCatalogText(CatalogKey)));
+    Text->SetText(FText::FromString(Director->GetUIText(TextKey)));
     Text->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Text->RegisterComponent();
-    StationSigns.Add(CatalogKey, Text);
+    StationSigns.Add(TextKey, Text);
 }
 
 void AQuestGameMode::BuildStation()
@@ -156,10 +156,10 @@ void AQuestGameMode::BuildStation()
         AddBlock(FVector(190 + Index * 65, 865, 77), FVector(30, 5, 90), Wall);
     }
 
-    AddSign(TEXT("sign_station"), FVector(2175, -755, 324), 58, FColor(175, 205, 218));
-    AddSign(TEXT("sign_distribution"), FVector(2173, -755, 250), 21, FColor(93, 153, 174));
-    AddSign(TEXT("sign_gate"), FVector(2175, 785, 295), 124, FColor(65, 96, 115));
-    AddSign(TEXT("sign_exit"), FVector(2818, 0, 262), 28, FColor(91, 210, 225));
+    AddSign(TEXT("world_text.sign_station"), FVector(2175, -755, 324), 58, FColor(175, 205, 218));
+    AddSign(TEXT("world_text.sign_distribution"), FVector(2173, -755, 250), 21, FColor(93, 153, 174));
+    AddSign(TEXT("world_text.sign_gate"), FVector(2175, 785, 295), 124, FColor(65, 96, 115));
+    AddSign(TEXT("world_text.sign_exit"), FVector(2818, 0, 262), 28, FColor(91, 210, 225));
 
     AActor* Exit = GetWorld()->SpawnActor<AActor>();
     ExitTrigger = NewObject<UBoxComponent>(Exit, TEXT("QuestExitTrigger"));
@@ -215,7 +215,7 @@ void AQuestGameMode::RefreshStation()
     }
     for (const auto& Sign : StationSigns)
     {
-        Sign.Value->SetText(FText::FromString(Director->GetCatalogText(Sign.Key)));
+        Sign.Value->SetText(FText::FromString(Director->GetUIText(Sign.Key)));
     }
 }
 

@@ -20,8 +20,10 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-CATALOG_FIELDS = {
+HUD_FIELDS = {
     "brand", "station_name", "mission_tagline", "cells_label", "station_footer",
+}
+WORLD_FIELDS = {
     "terminal_label", "cell_a_label", "cell_b_label", "sign_station",
     "sign_distribution", "sign_gate", "sign_exit",
 }
@@ -29,6 +31,12 @@ DISPLAY_FIELDS = {
     "mission_heading", "grid_status", "terminal_prompt", "cell_prompt",
     "generator_prompt", "generator_label", "gate_label",
 }
+UI_COMPONENTS = {
+    "HUDTextComponent": ("hud", HUD_FIELDS),
+    "WorldTextComponent": ("world_text", WORLD_FIELDS),
+    "QuestUIComponent": ("quest_ui", DISPLAY_FIELDS),
+}
+SCOPED_FIELDS = dict(UI_COMPONENTS.values())
 VARIABLES = {
     "QuestStartedVariable": ("questStarted", "boolean", False),
     "PowerCellsVariable": ("powerCells", "integer", 0),
@@ -67,6 +75,25 @@ class CodeBlocks(HTMLParser):
             self.blocks[-1] += data
 
 
+def arcscript_expression(script):
+    # Translate operators outside string literals before parsing the read-only subset.
+    operators = {"&&": " and ", "||": " or ", "!": "not "}
+    return re.sub(
+        r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(&&|\|\||!(?!=))''',
+        lambda match: match[1] if match[1] is not None else operators[match[2]],
+        script,
+    )
+
+
+def scoped_field(node, scope=None):
+    return (
+        isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+        and node.value.id in SCOPED_FIELDS
+        and (scope is None or node.value.id == scope)
+        and node.attr in SCOPED_FIELDS[node.value.id]
+    )
+
+
 def read_expression(node):
     # Presentation supports a deliberately small, side-effect-free expression subset.
     allowed = (
@@ -78,33 +105,48 @@ def read_expression(node):
     names = {item[0] for item in VARIABLES.values()} | {"true", "false"}
     attributes = [part for part in ast.walk(node) if isinstance(part, ast.Attribute)]
     for attribute in attributes:
-        if not (isinstance(attribute.value, ast.Name) and attribute.value.id == "ui"
-                and attribute.attr in CATALOG_FIELDS):
+        if not scoped_field(attribute):
             return False
     return all(
         isinstance(part, allowed) and (
             not isinstance(part, ast.Name) or part.id in names
-            or (part.id == "ui" and any(part is attribute.value for attribute in attributes))
+            or (part.id in SCOPED_FIELDS and any(part is attribute.value for attribute in attributes))
         ) for part in ast.walk(node)
     )
 
 
-def validate_display_content(content):
+def validate_display_content(content, entry=False):
     blocks = CodeBlocks()
     blocks.feed(content or "")
+    statements = []
     for script in blocks.blocks:
         try:
-            statements = ast.parse(script).body
+            parsed = ast.parse(arcscript_expression(script).strip()).body
         except SyntaxError as error:
-            raise ValueError("Display content must contain only text and show() calls.") from error
-        for statement in statements:
-            call = statement.value if isinstance(statement, ast.Expr) else None
-            if not (
-                isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
-                and call.func.id == "show" and not call.keywords
-                and all(read_expression(argument) for argument in call.args)
-            ):
-                raise ValueError("Display content cannot assign state or call functions other than show().")
+            raise ValueError("Presentation scripts must use simple assignments, show(), or entry resets.") from error
+        if len(parsed) != 1:
+            raise ValueError("Each presentation code block must contain exactly one simple statement for the native plugin.")
+        statements.extend(parsed)
+    resets = []
+    for index, statement in enumerate(statements):
+        if isinstance(statement, ast.Assign):
+            if (len(statement.targets) == 1 and scoped_field(statement.targets[0], "quest_ui")
+                    and read_expression(statement.value)):
+                continue
+        call = statement.value if isinstance(statement, ast.Expr) else None
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and not call.keywords:
+            if call.func.id == "show" and all(read_expression(argument) for argument in call.args):
+                continue
+            if call.func.id == "reset":
+                if not (entry and len(call.args) == 1 and scoped_field(call.args[0], "quest_ui")):
+                    raise ValueError("Only the presentation entry may reset known quest_ui fields.")
+                if index != len(resets):
+                    raise ValueError("Presentation entry must reset all seven fields before any other statements.")
+                resets.append(call.args[0].attr)
+                continue
+        raise ValueError("Presentation may only assign quest_ui fields, show known values, or reset its entry defaults.")
+    if entry and (len(resets) != len(DISPLAY_FIELDS) or set(resets) != DISPLAY_FIELDS):
+        raise ValueError("Presentation entry must reset each of the seven quest_ui fields exactly once.")
 
 
 def element_content(project, element_id):
@@ -117,30 +159,13 @@ def element_content(project, element_id):
     return contents.get("content", {}).get(locale, {}).get("text")
 
 
-def validate_metadata(project, element_id, fields):
-    element = project["elements"][element_id]
-    attributes = [project["attributes"][key] for key in element.get("attributes", [])]
-    if len(attributes) != len(fields) or {item["name"] for item in attributes} != fields:
-        raise ValueError("A display element is missing its required named metadata.")
-    for attribute in attributes:
-        value = attribute["value"]
-        text = value.get("data")
-        if (
-            attribute.get("customId") or attribute["cType"] != "elements"
-            or attribute["cId"] != element_id or value["type"] != "string"
-            or value.get("plain") is not True or not isinstance(text, str) or not text.strip()
-            or re.search(r"<[^>]+>|\$\{|\bshow\s*\(", text)
-        ):
-            raise ValueError("Display metadata must be nonempty plain strings without HTML, Arcscript, or custom IDs.")
-
-
-def validate_ui_component(project, component_id):
+def validate_ui_component(project, component_id, scope, fields):
     component = project["components"][component_id]
-    if component.get("customId") != "ui":
-        raise ValueError("The UI component must have custom ID ui.")
+    if component.get("customId") != scope or "children" in component:
+        raise ValueError(f"The {scope} data component must have its required custom ID and cannot be a folder.")
     attributes = [project["attributes"][key] for key in component.get("attributes", []) or []]
-    if len(attributes) != len(CATALOG_FIELDS) or {item.get("customId") for item in attributes} != CATALOG_FIELDS:
-        raise ValueError("The UI component must have exactly twelve string attributes with the required custom IDs.")
+    if len(attributes) != len(fields) or {item.get("customId") for item in attributes} != fields:
+        raise ValueError(f"The {scope} component must have exactly its required string attributes and custom IDs.")
     for attribute in attributes:
         value = attribute["value"]
         text = value.get("data")
@@ -179,15 +204,34 @@ def validate_bindings(project, bindings):
                     if not item.get("root") and "children" not in item}
     if variable_ids != {bindings[name] for name in VARIABLES}:
         raise ValueError("The sample requires exactly five global variables.")
-    ui_id = bindings["UIComponent"]
-    ui_attributes = set(project["components"][ui_id].get("attributes", []) or [])
+    ui_ids = {bindings[name] for name in UI_COMPONENTS}
+    ui_attributes = {}
+    for binding, (scope, fields) in UI_COMPONENTS.items():
+        component_id = bindings[binding]
+        validate_ui_component(project, component_id, scope, fields)
+        for attribute_id in project["components"][component_id]["attributes"]:
+            ui_attributes[attribute_id] = component_id
     for attribute_id, attribute in project["attributes"].items():
         if attribute.get("cType") in {"boards", "components"}:
             value = attribute["value"]
             if value["type"] in {"boolean", "integer", "float"} or (value["type"] == "string" and value.get("plain")):
-                if attribute_id not in ui_attributes or attribute["cType"] != "components" or attribute.get("cId") != ui_id:
-                    raise ValueError("Only the twelve UI string attributes may add scoped variables.")
-    validate_ui_component(project, ui_id)
+                if (attribute_id not in ui_attributes or attribute["cType"] != "components"
+                        or attribute.get("cId") != ui_attributes[attribute_id]):
+                    raise ValueError("Only the nineteen UI string attributes may add scoped variables.")
+    for component_id, component in project["components"].items():
+        if component_id not in ui_ids and component.get("customId") in SCOPED_FIELDS:
+            raise ValueError("UI data component scopes must be unique.")
+
+    # Runtime exports flatten folders; validate organization when the tree is serialized.
+    folders = [item for item in project["components"].values() if "children" in item]
+    if folders:
+        ui_folders = [item for item in folders if not item.get("root")
+                      and set(item.get("children", [])) == ui_ids]
+        memberships = [child for item in folders for child in item.get("children", []) if child in ui_ids]
+        if len(ui_folders) != 1 or len(memberships) != len(ui_ids):
+            raise ValueError("The UI folder must contain exactly the three data components together.")
+        if ui_folders[0].get("customId") or ui_folders[0].get("attributes"):
+            raise ValueError("The UI folder is organizational and must not define a runtime scope or attributes.")
 
     commands = {
         "RestorePowerComponent": "restore_power", "OpenGateComponent": "open_gate",
@@ -236,8 +280,8 @@ def validate_bindings(project, bindings):
         for output in outputs:
             edge(ident, ident, "elements", output)
         components = element.get("components", []) or []
-        if ui_id in components:
-            raise ValueError("The UI component must remain standalone data, not an attached gameplay command.")
+        if ui_ids.intersection(components):
+            raise ValueError("UI components must remain standalone data, not attached gameplay commands.")
         expected = command_elements.get(ident, set())
         if set(components) != expected or len(components) != len(expected):
             raise ValueError("Only PickupAction may collect a cell; only Success may restore power and open the gate.")
@@ -277,53 +321,65 @@ def validate_bindings(project, bindings):
     for ident in edges:
         visit(ident)
 
-    event_ids = {bindings[name] for name in EVENT_ENTRIES}
-    for source in event_ids:
-        pending = list(edges[source])
+    def reachable(starts):
+        result = set()
+        pending = list(starts)
         while pending:
-            current = pending.pop()
-            if current in event_ids:
-                raise ValueError("Separate world-event entry points must not execute one another automatically.")
-            if current == bindings["PickupActionElement"] and source != bindings["PickupEntryElement"]:
-                raise ValueError("Only the pickup event supplies the physical identity needed by collect_cell.")
-            pending.extend(edges[current])
+            ident = pending.pop()
+            if ident not in result:
+                result.add(ident)
+                pending.extend(edges[ident])
+        return result
 
     display_entry = bindings["PresentationEntryElement"]
-    display_branch = bindings["PresentationBranch"]
-    executable = set()
-    pending = list(event_ids | {display_entry})
-    while pending:
-        ident = pending.pop()
-        if ident in executable:
-            continue
-        executable.add(ident)
-        pending.extend(edges[ident])
+    display_ids = reachable({display_entry})
+    required_display = {bindings[name] for name in (
+        "PresentationBranch", "PresentationPoweredSetupElement", "PresentationCompletionBranch",
+    )}
+    if not required_display.issubset(display_ids):
+        raise ValueError("Presentation must reach its shared power setup and bound state branches.")
+    leaves = {bindings[name] for name in DISPLAY_LEAVES}
+    terminal_ids = {ident for ident in display_ids if not edges[ident]}
+    if terminal_ids != leaves:
+        raise ValueError("Presentation must terminate at exactly its five bound display leaves.")
+    if any(item.get("cType") == "elements" and item.get("cId") in display_ids
+           for item in project["attributes"].values()):
+        raise ValueError("Presentation elements must not retain metadata; use quest_ui component fields.")
+
+    event_ids = {bindings[name] for name in EVENT_ENTRIES}
+    for source in event_ids:
+        for current in reachable(edges[source]):
+            if current in event_ids:
+                raise ValueError("Separate world-event entry points must not execute one another automatically.")
+            if current in display_ids:
+                raise ValueError("World events must not automatically enter the presentation graph.")
+            if current == bindings["PickupActionElement"] and source != bindings["PickupEntryElement"]:
+                raise ValueError("Only the pickup event supplies the physical identity needed by collect_cell.")
+    if display_ids.intersection(reachable(event_ids)):
+        raise ValueError("World-event and presentation graphs must execute separately.")
+
+    for ident in reachable(event_ids | {display_entry}):
         if ident in project["elements"]:
             content = element_content(project, ident)
             parsed = CodeBlocks()
             parsed.feed(content or "")
             if not parsed.text.strip():
                 raise ValueError("Executable elements need nonempty content for the released v2.1.0 plugin.")
-    leaves = {bindings[name] for name in DISPLAY_LEAVES}
-    if edges[display_entry] != [display_branch] or set(edges[display_branch]) != leaves:
-        raise ValueError("Presentation must select one of its five bound display leaves.")
-    for condition_id in branch_conditions[display_branch]:
-        script = project["conditions"][condition_id].get("script")
-        if script:
-            expression = re.sub(r"!(?!=)", "not ", script).replace("&&", " and ").replace("||", " or ")
-            try:
-                parsed = ast.parse(expression.strip(), mode="eval")
-            except SyntaxError as error:
-                raise ValueError("Presentation conditions must be read-only expressions.") from error
-            if not read_expression(parsed):
-                raise ValueError("Presentation conditions cannot call functions or change state.")
-    for ident in leaves | {display_entry}:
-        element = project["elements"][ident]
-        if element.get("components") or (ident in leaves and edges[ident]):
-            raise ValueError("Presentation leaves must terminate without dispatching commands.")
-        validate_display_content(element_content(project, ident))
-    for ident in leaves:
-        validate_metadata(project, ident, DISPLAY_FIELDS)
+    for ident in display_ids:
+        if ident in project["branches"]:
+            for condition_id in branch_conditions[ident]:
+                script = project["conditions"][condition_id].get("script")
+                if script:
+                    try:
+                        parsed = ast.parse(arcscript_expression(script).strip(), mode="eval")
+                    except SyntaxError as error:
+                        raise ValueError("Presentation conditions must be read-only expressions.") from error
+                    if not read_expression(parsed):
+                        raise ValueError("Presentation conditions cannot call functions or change state.")
+        else:
+            if project["elements"][ident].get("attributes"):
+                raise ValueError("Presentation elements must not retain metadata; use quest_ui component fields.")
+            validate_display_content(element_content(project, ident), entry=ident == display_entry)
 
 
 def main():
