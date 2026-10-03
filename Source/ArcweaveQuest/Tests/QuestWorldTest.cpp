@@ -85,6 +85,9 @@ public:
                 return true;
             }
             ClosedPanelHeight = GatePanel->GetComponentLocation().Z;
+            InitialGateLabelTransform = Gate->FindComponentByClass<UTextRenderComponent>()->GetComponentTransform();
+            Test.TestTrue(TEXT("Gate sign faces into the station like the fixed wall signs"),
+                InitialGateLabelTransform.GetRotation().GetForwardVector().Equals(FVector(-1, 0, 0), 0.001));
             for (TActorIterator<APointLight> It(World.Get()); It; ++It)
             {
                 UPointLightComponent* Light = Cast<UPointLightComponent>(It->GetLightComponent());
@@ -125,6 +128,8 @@ public:
             return false;
 
         case 3:
+            Test.TestTrue(TEXT("Moving the camera around the station leaves the gate sign fixed"),
+                Gate->FindComponentByClass<UTextRenderComponent>()->GetComponentTransform().Equals(InitialGateLabelTransform, 0.001));
             // Teleporting uses the character capsule's normal overlap path; never call ReachExit here.
             if (World->GetTimeSeconds() - PhaseStart < 0.1) return false;
             Test.TestEqual(TEXT("Real exit overlap before power executes authored denial"),
@@ -206,6 +211,8 @@ public:
             Test.TestTrue(TEXT("The collision panel itself moved upward through its normal animation"),
                 GatePanel->GetComponentLocation().Z > ClosedPanelHeight + 400.0);
             Test.TestFalse(TEXT("Finishing the gate animation still waits for the physical exit"), Director->IsQuestCompleted());
+            Test.TestTrue(TEXT("Opening the moving panel leaves the gate sign fixed on its frame"),
+                Gate->FindComponentByClass<UTextRenderComponent>()->GetComponentTransform().Equals(InitialGateLabelTransform, 0.001));
             const FArcweaveProjectData Before = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData();
             for (int32 Read = 0; Read < 32; ++Read)
             {
@@ -287,6 +294,8 @@ public:
             Test.TestTrue(TEXT("Reset doorway obstruction belongs to the same gate actor"), Hit.GetActor() == Gate.Get());
             Test.TestTrue(TEXT("Reset returns the panel to its closed position"),
                 FMath::IsNearlyEqual(GatePanel->GetComponentLocation().Z, ClosedPanelHeight, 0.1));
+            Test.TestTrue(TEXT("Reset preserves the fixed gate sign transform"),
+                Gate->FindComponentByClass<UTextRenderComponent>()->GetComponentTransform().Equals(InitialGateLabelTransform, 0.001));
             for (const auto& Light : StationLights)
             {
                 Test.TestEqual(TEXT("World restart restores each fixture's original intensity"), Light.Key->Intensity, Light.Value);
@@ -375,6 +384,7 @@ private:
     double AnimationStart = 0.0;
     double PhaseStart = 0.0;
     double ClosedPanelHeight = 0.0;
+    FTransform InitialGateLabelTransform;
 };
 }
 

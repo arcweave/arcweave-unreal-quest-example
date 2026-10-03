@@ -120,6 +120,7 @@ void AQuestWorldActor::Configure(EQuestStationObject InKind, FName InCellId)
             AddPart(TEXT("Cube"), FVector(-56, Side * 325, 260), FVector(0.08f, 0.16f, 2.35f), Amber, true, RootComponent);
         }
         Label->SetRelativeLocation(FVector(-70, 0, 486));
+        Label->SetRelativeRotation(FRotator(0, 180, 0));
         Label->SetWorldSize(30.0f);
         StatusLight->SetRelativeLocation(FVector(-140, 0, 385));
         StatusLight->SetAttenuationRadius(680.0f);
@@ -208,6 +209,8 @@ void AQuestWorldActor::Tick(float DeltaSeconds)
     {
         GateOpenAmount = FMath::FInterpConstantTo(GateOpenAmount, GateTarget, DeltaSeconds, 0.42f);
         VisualRoot->SetRelativeLocation(FVector(0, 0, GateOpenAmount * 440.0f));
+        // The gate sign stays aligned with its frame instead of facing the camera.
+        return;
     }
     else if (Kind == EQuestStationObject::PowerCell)
     {
