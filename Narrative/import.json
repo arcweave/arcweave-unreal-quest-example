@@ -107,7 +107,7 @@
     "notes": {
       "6c069694-7fea-4980-b59d-d9dc2c857cc4": {
         "theme": "purple",
-        "content": "<p><strong>WORLD EVENTS · one entry, four interaction routes</strong></p><p>Unreal supplies game_event.type and game_event.cell_already_collected, then runs Handle world event. The router connects use_terminal, collect_cell, check_generator, and enter_exit directly to their condition branches. There are no intermediate event elements or else route; an unsupported type is an Unreal integration error. Every condition row has one output. Each selected lane runs to its final response and then waits for the next Unreal interaction.</p><p>Startup imports project defaults and refreshes Objectives and interface directly. There is no station-arrival event and no automatic terminal interaction. Five global quest variables track narrative progress and the collected-cell count. The standalone Game event component holds the two current interaction inputs. The UI folder holds nineteen scoped strings, for twenty-six runtime variables in total.</p><p>Inside the pickup lane, check the physical duplicate input first, then task acceptance. Only the permitted path requests collect_cell. Unreal records that pickup and updates powerCells before the next feedback element runs. restore_power and open_gate are C++ world actions. Powering the generator does not complete the quest: the player must enter the exit.</p><p>Objectives and interface refreshes the current objective and prompts after each event. Only quest_ui fields are reset, preserving quest state, event inputs, and shared text overrides. HUD drawing and focus queries only read the resulting cache.</p>",
+        "content": "<p><strong>WORLD EVENTS</strong></p><p>One entry routes terminal, pickup, generator, and exit interactions. Each flow ends at its response. Keep one output per condition.</p>",
         "x": 6800,
         "y": 7400,
         "width": 5100,
@@ -116,7 +116,7 @@
       },
       "e1d06b05-73ac-4040-97d1-04a6f8091204": {
         "theme": "purple",
-        "content": "<p><strong>EVENT INPUTS · supplied by Unreal</strong></p><p>Game event (game_event) is a standalone data component. type is an empty string at startup; cell_already_collected is false. Before each interaction, Unreal writes both values, using false for non-pickup events. These describe the current request, not persistent quest progress.</p><p>In Arcweave Play Mode, set the desired type in the Debugger before running Handle world event. An empty or unknown type matches no route. Unreal reports this through its existing integration error path; no gameplay branch runs.</p>",
+        "content": "<p><strong>TRY A FLOW</strong></p><p>In Play Mode, set game_event.type and game_event.cell_already_collected in the Debugger, then run Handle world event. Unreal supplies pickup counts and world actions.</p>",
         "x": 6780,
         "y": 10260,
         "width": 701,
@@ -125,34 +125,34 @@
       },
       "b7583d4b-fa40-4507-9057-7d2538281cc6": {
         "theme": "purple",
-        "content": "<p><strong>TERMINAL · game_event.type == \"use_terminal\"</strong></p><p>The terminal accepts the task once, then responds to accepted, powered, or completed state.</p>",
-        "x": 9000,
-        "y": 8150,
-        "width": 2500,
-        "height": 140,
+        "content": "<p><strong>TERMINAL · use_terminal</strong></p><p>Accept the task once. Later visits show quest progress.</p>",
+        "x": 9600,
+        "y": 8780,
+        "width": 501,
+        "height": 106,
         "autoHeight": true
       },
       "63297b78-e94e-4676-9e36-7dbdb9b02061": {
         "theme": "purple",
-        "content": "<p><strong>GENERATOR · game_event.type == \"check_generator\"</strong></p><p>Check already-powered state first, then task acceptance, then the authored cell requirement. Success opens the gate; it does not finish the quest.</p>",
-        "x": 9080,
-        "y": 10800,
+        "content": "<p><strong>GENERATOR · check_generator</strong></p><p>Restore power after accepting the task and collecting enough cells. Then reach the exit.</p>",
+        "x": 9660,
+        "y": 11060,
         "width": 441,
         "height": 127,
         "autoHeight": true
       },
       "567ce162-983d-43ba-b0d6-409dce845e18": {
         "theme": "purple",
-        "content": "<p><strong>PICKUP · game_event.type == \"collect_cell\"</strong></p><p>If game_event.cell_already_collected, show the duplicate response. Else if !questStarted, require terminal acceptance. Otherwise request collect_cell; Unreal records the physical pickup and updates powerCells before the following progress feedback.</p>",
-        "x": 9040,
-        "y": 9620,
+        "content": "<p><strong>PICKUP · collect_cell</strong></p><p>Check duplicates, then task acceptance. Unreal collects the cell before the next element displays the updated count.</p>",
+        "x": 9620,
+        "y": 9860,
         "width": 501,
         "height": 148,
         "autoHeight": true
       },
       "617a47ca-5627-4dd4-a761-e4e9436af53c": {
         "theme": "purple",
-        "content": "<p><strong>OBJECTIVE AND INTERACTION DISPLAY · defaults, then small overrides</strong></p><p>The UI folder contains HUD text (hud), World text (world_text), and Quest display (quest_ui). Shared interface strings live in the first two components; the seven quest_ui attributes hold the authored default display.</p><p>Entry resets each quest_ui field individually, then this graph overrides only what changes for the current state. It never resets quest globals, hud, or world_text. Unaccepted changes two prompts; Ready changes the generator prompt. The shared Powered setup changes four fields for both powered outcomes; Completed adds its mission-heading override.</p><p>The five final leaves retain their objective text. C++ executes the path, then caches the current hud, world_text, and quest_ui values. HUD drawing and focus queries only read that cache. Each condition row has one outgoing connection.</p><p>For the released Unreal plugin, put each Arcscript reset or assignment in its own code block. Consecutive code blocks execute in order.</p>",
+        "content": "<p><strong>OBJECTIVES AND UI</strong></p><p>Reset quest_ui defaults, then override only the fields that change. The final element supplies the objective.</p><p>Keep one Arcscript statement per code block. Shared HUD and world text live in UI components.</p>",
         "x": 8500,
         "y": 8850,
         "width": 4900,
@@ -161,12 +161,12 @@
       },
       "8a1702ae-b5fe-44cb-bacd-97868065a17c": {
         "theme": "purple",
-        "content": "<p><strong>EXIT · game_event.type == \"enter_exit\"</strong></p><p>Called by the exit overlap. Only a powered exit can set questCompleted; repeated overlaps produce feedback without repeating completion.</p>",
-        "x": 9060,
-        "y": 11800,
-        "width": 681,
+        "content": "<p><strong>EXIT · enter_exit</strong></p><p>Entering the powered exit completes the task. Repeat entry only shows feedback.</p>",
+        "x": 9820,
+        "y": 12180,
+        "width": 361,
         "height": 106,
-        "autoHeight": true
+        "autoHeight": false
       }
     },
     "elements": {
@@ -226,7 +226,7 @@
           "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9"
         ],
         "x": 7100,
-        "y": 10660,
+        "y": 10620,
         "width": 420,
         "height": 150,
         "autoHeight": true
@@ -786,7 +786,7 @@
       "10be7825-974e-4306-b8e4-d2bbc63486dd": {
         "title": {
           "en": {
-            "text": "<p>02b · More cells needed</p>"
+            "text": "<p>Generator · missing cells</p>"
           }
         },
         "content": {
@@ -844,7 +844,7 @@
       "bfc100c0-7b99-4404-a71c-c1b42b102c02": {
         "title": {
           "en": {
-            "text": "<p>03 · Power restored</p>"
+            "text": "<p>Generator · restore power</p>"
           }
         },
         "content": {
@@ -873,7 +873,7 @@
       "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7": {
         "title": {
           "en": {
-            "text": "<p>01 · Restore power</p>"
+            "text": "<p>Terminal · accept task</p>"
           }
         },
         "content": {
@@ -886,7 +886,7 @@
       "05d919db-a991-45b7-b20f-db02dbd6f307": {
         "title": {
           "en": {
-            "text": "<p>02a · Accept the task first</p>"
+            "text": "<p>Generator · terminal required</p>"
           }
         },
         "content": {

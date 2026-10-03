@@ -10,9 +10,9 @@ Unreal writes the two current interaction inputs on the standalone **Game event*
 
 | Event router condition | Destination | Authored behavior |
 | --- | --- | --- |
-| **IF** `game_event.type == "use_terminal"` | `TerminalBranch` | Checks completed, powered, and accepted states in order. Otherwise, `StartElement` sets `questStarted = true`. Repeated interactions have their own feedback. |
+| **IF** `game_event.type == "use_terminal"` | `TerminalBranch` | Checks completed, powered, and accepted states in order. Otherwise, **Terminal · accept task** (`StartElement`) sets `questStarted = true`. Repeated interactions have their own feedback. |
 | **ELSE IF** `game_event.type == "collect_cell"` | `PickupBranch` | Checks whether that physical cell was already collected, then task acceptance. Only the permitted path requests `collect_cell`; its next element renders the updated count. |
-| **ELSE IF** `game_event.type == "check_generator"` | `GeneratorBranch` | Checks already powered, task not accepted, and sufficient cells in order. Success sets `powerRestored = true` and requests `restore_power` and `open_gate`; otherwise it gives guidance. |
+| **ELSE IF** `game_event.type == "check_generator"` | `GeneratorBranch` | Checks already powered, task not accepted, and sufficient cells in order. **Generator · restore power** (`SuccessElement`) sets `powerRestored = true` and requests `restore_power` and `open_gate`; otherwise it gives guidance. |
 | **ELSE IF** `game_event.type == "enter_exit"` | `ExitBranch` | Gives repeat feedback if completed; sets `questCompleted = true` only when power is restored; otherwise denies exit. |
 
 ```mermaid
