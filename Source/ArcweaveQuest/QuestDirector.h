@@ -25,7 +25,7 @@ public:
 
     bool IsQuestStarted() const;
     bool IsQuestCompleted() const;
-    bool IsPowerRestored() const { return bPowerRestored; }
+    bool IsPowerRestored() const;
     bool IsGateOpen() const { return bGateOpen; }
     bool HasCollectedCell(FName CellId) const { return CollectedCells.Contains(CellId); }
     int32 GetPowerCellCount() const;
@@ -61,6 +61,5 @@ private:
     FString Objective;
     FString Status;
     bool bProjectLoaded = false;
-    bool bPowerRestored = false;
     bool bGateOpen = false;
 };

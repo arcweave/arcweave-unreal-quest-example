@@ -137,30 +137,29 @@
             "theme": "orange",
             "outputs": [],
             "components": [],
-            "content": "<pre><code>show(\"The generator needs \", requiredPowerCells, \" power cells. You have \", powerCells, \". Collect the missing cells, then try again.\")<\/code><\/pre>",
+            "content": "<pre><code>show(\"The generator needs \", quest.required_power_cells, \" power cells. You have \", player.power_cells, \". Collect the missing cells, then try again.\")<\/code><\/pre>",
             "title": "<p>Generator \u00b7 missing cells<\/p>"
         },
         "825244f4-6345-4314-b731-1f378ae010a1": {
             "theme": "orange",
             "attributes": [],
-            "content": "<pre><code>show(\"Collect power cells (\", powerCells, \"\/\", requiredPowerCells, \"), then use the generator.\")<\/code><\/pre>",
+            "content": "<pre><code>show(\"Collect power cells (\", player.power_cells, \"\/\", quest.required_power_cells, \"), then use the generator.\")<\/code><\/pre>",
             "title": "<p>Display \u00b7 collecting<\/p>"
         },
         "bfc100c0-7b99-4404-a71c-c1b42b102c02": {
             "theme": "green",
             "outputs": [],
             "components": [
-                "defba3c3-cdce-4b80-91cc-b75118f1f512",
                 "80c7c42c-bb19-4065-8afa-7cd5b54776fc"
             ],
-            "content": "<pre><code>powerRestored = true<\/code><\/pre><p><strong>Power restored.<\/strong> The lights come on and the exit gate opens. Reach the illuminated exit to complete your escape.<\/p>",
+            "content": "<pre><code>quest.power_restored = true<\/code><\/pre><p><strong>Power restored.<\/strong> The lights come on and the exit gate opens. Reach the illuminated exit to complete your escape.<\/p>",
             "title": "<p>Generator \u00b7 restore power<\/p>"
         },
         "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7": {
             "theme": "cyan",
             "outputs": [],
             "components": [],
-            "content": "<pre><code>questStarted = true<\/code><\/pre><pre><code>show(\"The outpost is dark. Collect \", requiredPowerCells, \" power cells, then use the generator to restore the lights and open the exit gate.\")<\/code><\/pre><p>You can try the generator before collecting all required cells.<\/p>",
+            "content": "<pre><code>quest.started = true<\/code><\/pre><pre><code>show(\"The outpost is dark. Collect \", quest.required_power_cells, \" power cells, then use the generator to restore the lights and open the exit gate.\")<\/code><\/pre><p>You can try the generator before collecting all required cells.<\/p>",
             "title": "<p>Terminal \u00b7 accept task<\/p>"
         },
         "05d919db-a991-45b7-b20f-db02dbd6f307": {
@@ -217,12 +216,12 @@
         },
         "6af8cc14-6034-4e97-ab3f-6ebbdc207161": {
             "theme": "green",
-            "content": "<pre><code>show(\"Collected a power cell (\", powerCells, \"\/\", requiredPowerCells, \").\")<\/code><\/pre>",
+            "content": "<pre><code>show(\"Collected a power cell (\", player.power_cells, \"\/\", quest.required_power_cells, \").\")<\/code><\/pre>",
             "title": "<p>Pickup accepted \u00b7 updated inventory<\/p>"
         },
         "f2d75b83-f348-4b58-8190-b68d119db86d": {
             "theme": "green",
-            "content": "<pre><code>questCompleted = true<\/code><\/pre><p>You reached the exit. Task complete.<\/p>",
+            "content": "<pre><code>quest.completed = true<\/code><\/pre><p>You reached the exit. Task complete.<\/p>",
             "title": "<p>Exit reached \u00b7 task complete<\/p>"
         },
         "2689f5bc-f257-4b93-8d03-16760617ef62": {
@@ -446,7 +445,7 @@
             "type": "Bezier",
             "theme": "green",
             "targetType": "elements",
-            "label": "<p>After C++ updates powerCells<\/p>"
+            "label": "<p>After Unreal updates the cell count<\/p>"
         },
         "001db9e3-0994-414e-aa9d-f0d8df03efd1": {
             "sourceType": "conditions",
@@ -694,11 +693,10 @@
         "02cc2866-2b60-4b6b-81fe-e8c29aadbf6d": {
             "root": true,
             "children": [
-                "defba3c3-cdce-4b80-91cc-b75118f1f512",
-                "80c7c42c-bb19-4065-8afa-7cd5b54776fc",
-                "06f4de3e-a022-472e-a2f9-bd73ee5875ee",
-                "db068631-e0b6-47cd-a534-fa42111f70c3",
-                "c6d692fd-c0f0-4045-9fe4-c69315169526"
+                "33cf89ec-ed95-4572-9467-0f298b8abe2d",
+                "529901bb-a287-4b51-81a1-8f73c5c193af",
+                "5497b47e-322a-43c9-99c6-6907ae05ca3f",
+                "db068631-e0b6-47cd-a534-fa42111f70c3"
             ],
             "name": "Root"
         },
@@ -713,10 +711,15 @@
             },
             "name": "Open gate"
         },
-        "defba3c3-cdce-4b80-91cc-b75118f1f512": {
-            "customId": "restore_power",
-            "attributes": [],
-            "name": "Restore power"
+        "9978622e-a962-4237-a479-07b28cc0e97f": {
+            "customId": "quest",
+            "attributes": [
+                "f7d8db2c-0c08-4522-a364-536ada25d6f2",
+                "6c9b981f-563b-4dfd-af02-d97bf2e92a81",
+                "3431c35c-5ff4-4f7d-a153-0ceb186178a3",
+                "14eb1e2e-757b-4712-9b8b-a3c0512ddb2d"
+            ],
+            "name": "Restore power quest"
         },
         "06f4de3e-a022-472e-a2f9-bd73ee5875ee": {
             "customId": "collect_cell",
@@ -781,6 +784,33 @@
                 "7d1df7b7-0fdc-47bd-80aa-0374c9e43f04"
             ],
             "name": "Game event"
+        },
+        "33cf89ec-ed95-4572-9467-0f298b8abe2d": {
+            "children": [
+                "a6aefedf-a182-40f1-afc6-eb6d2ef9509d",
+                "9978622e-a962-4237-a479-07b28cc0e97f"
+            ],
+            "name": "State"
+        },
+        "529901bb-a287-4b51-81a1-8f73c5c193af": {
+            "children": [
+                "c6d692fd-c0f0-4045-9fe4-c69315169526"
+            ],
+            "name": "Inputs"
+        },
+        "5497b47e-322a-43c9-99c6-6907ae05ca3f": {
+            "children": [
+                "06f4de3e-a022-472e-a2f9-bd73ee5875ee",
+                "80c7c42c-bb19-4065-8afa-7cd5b54776fc"
+            ],
+            "name": "Actions"
+        },
+        "a6aefedf-a182-40f1-afc6-eb6d2ef9509d": {
+            "customId": "player",
+            "attributes": [
+                "04344dba-b4a2-41a7-9b2e-e96f40c121eb"
+            ],
+            "name": "Player"
         }
     },
     "attributes": {
@@ -1013,6 +1043,56 @@
             "customId": "cell_already_collected",
             "cType": "components",
             "cId": "c6d692fd-c0f0-4045-9fe4-c69315169526"
+        },
+        "04344dba-b4a2-41a7-9b2e-e96f40c121eb": {
+            "name": "power_cells",
+            "value": {
+                "data": 0,
+                "type": "integer"
+            },
+            "customId": "power_cells",
+            "cType": "components",
+            "cId": "a6aefedf-a182-40f1-afc6-eb6d2ef9509d"
+        },
+        "f7d8db2c-0c08-4522-a364-536ada25d6f2": {
+            "name": "started",
+            "value": {
+                "data": false,
+                "type": "boolean"
+            },
+            "customId": "started",
+            "cType": "components",
+            "cId": "9978622e-a962-4237-a479-07b28cc0e97f"
+        },
+        "6c9b981f-563b-4dfd-af02-d97bf2e92a81": {
+            "name": "power_restored",
+            "value": {
+                "data": false,
+                "type": "boolean"
+            },
+            "customId": "power_restored",
+            "cType": "components",
+            "cId": "9978622e-a962-4237-a479-07b28cc0e97f"
+        },
+        "3431c35c-5ff4-4f7d-a153-0ceb186178a3": {
+            "name": "completed",
+            "value": {
+                "data": false,
+                "type": "boolean"
+            },
+            "customId": "completed",
+            "cType": "components",
+            "cId": "9978622e-a962-4237-a479-07b28cc0e97f"
+        },
+        "14eb1e2e-757b-4712-9b8b-a3c0512ddb2d": {
+            "name": "required_power_cells",
+            "value": {
+                "data": 2,
+                "type": "integer"
+            },
+            "customId": "required_power_cells",
+            "cType": "components",
+            "cId": "9978622e-a962-4237-a479-07b28cc0e97f"
         }
     },
     "assets": {
@@ -1022,62 +1102,26 @@
         }
     },
     "variables": {
-        "6546037a-fcdf-4b42-9fe3-d697bc156d79": {
-            "name": "powerCells",
-            "type": "integer",
-            "cType": "global",
-            "value": 0
-        },
-        "882765ae-0eef-4aae-b430-84006b4a0a9e": {
-            "name": "questStarted",
-            "type": "boolean",
-            "cType": "global",
-            "value": false
-        },
-        "ae62d51d-cd04-4022-a643-580921115260": {
-            "name": "powerRestored",
-            "type": "boolean",
-            "cType": "global",
-            "value": false
-        },
         "ce51a0dc-ffed-4d95-b411-10df0c97dcf5": {
             "root": true,
-            "children": [
-                "6546037a-fcdf-4b42-9fe3-d697bc156d79",
-                "882765ae-0eef-4aae-b430-84006b4a0a9e",
-                "ae62d51d-cd04-4022-a643-580921115260",
-                "97c232d5-287e-43f2-a25c-b32cf7e0a076",
-                "902e425d-c870-4206-aca6-f0e288d925f5"
-            ]
-        },
-        "97c232d5-287e-43f2-a25c-b32cf7e0a076": {
-            "type": "integer",
-            "name": "requiredPowerCells",
-            "cType": "global",
-            "value": 2
-        },
-        "902e425d-c870-4206-aca6-f0e288d925f5": {
-            "type": "boolean",
-            "name": "questCompleted",
-            "cType": "global",
-            "value": false
+            "children": []
         }
     },
     "conditions": {
         "67dca5b4-dd8c-4a74-a492-5b2d26c94425": {
             "output": "7f315855-0c73-4087-bf3e-adbebfa82eae",
-            "script": "powerRestored"
+            "script": "quest.power_restored"
         },
         "f6c4d07b-b123-45ec-992a-0b6c6333ae91": {
             "output": "35020249-1368-47c3-a8ca-358dce19746d",
             "script": null
         },
         "2f225626-b228-4606-9cdf-a0a2729a640f": {
-            "script": "powerCells >= requiredPowerCells",
+            "script": "player.power_cells >= quest.required_power_cells",
             "output": "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8"
         },
         "563fb90d-52bd-4c5f-8487-daad4b7f0355": {
-            "script": "questCompleted",
+            "script": "quest.completed",
             "output": "445828a6-f158-4e76-bbb1-34351ca30e48"
         },
         "8325fa90-67f9-4d9e-96be-6544f1cce479": {
@@ -1085,15 +1129,15 @@
             "output": "5ccb6af8-2cd3-4061-9443-8fe6c31e23e9"
         },
         "17ec8cca-20d5-48d2-9df9-58aea243f620": {
-            "script": "powerRestored",
+            "script": "quest.power_restored",
             "output": "3c3ab1e7-4dc5-473e-9c75-c436ead68314"
         },
         "97373ffb-7da0-4bd5-a44f-c1c2a7ab5021": {
-            "script": "questStarted",
+            "script": "quest.started",
             "output": "7cfc50ee-e91b-4134-b4b3-e1c7fe49418e"
         },
         "0f18d32f-bc8a-4114-9383-6b20ff2a0d52": {
-            "script": "!questStarted",
+            "script": "!quest.started",
             "output": "125db735-28b7-4f4c-9ff1-f3d61a086977"
         },
         "feab59f4-adc6-4a46-a584-6ebfc74c6a0c": {
@@ -1105,7 +1149,7 @@
             "output": "5491040d-2070-41f1-87d0-f50380a0560a"
         },
         "55489045-e208-4945-b2d4-25bccba42cfa": {
-            "script": "questCompleted",
+            "script": "quest.completed",
             "output": "001db9e3-0994-414e-aa9d-f0d8df03efd1"
         },
         "37f79005-9a5b-408d-804f-99a345f838a1": {
@@ -1113,11 +1157,11 @@
             "output": "d615dd01-51af-4054-a2e6-0150e6f7b06e"
         },
         "0abd877a-bc8e-4fe1-9df5-1ef55dab88bf": {
-            "script": "powerRestored",
+            "script": "quest.power_restored",
             "output": "bad0e004-b1c5-497f-89b0-f18585d4e881"
         },
         "17f2cb78-ea25-451d-bb2b-36188d172e5d": {
-            "script": "questCompleted || powerRestored",
+            "script": "quest.completed || quest.power_restored",
             "output": "9c12295b-eedf-4ffc-88e3-14d3b68db577"
         },
         "582cddb7-3336-47f0-99c1-968013d2a130": {
@@ -1129,15 +1173,15 @@
             "output": "e58f809d-92d9-43b1-b49a-4a522f5ecaba"
         },
         "e181d4d1-2710-4adb-ac82-d842cdad12d4": {
-            "script": "!questStarted",
+            "script": "!quest.started",
             "output": "cc38c1c6-ac22-4f84-9b6a-504c9f229da3"
         },
         "ed3028da-4dcc-46b5-a32e-8ee61b07d43f": {
-            "script": "powerCells < requiredPowerCells",
+            "script": "player.power_cells < quest.required_power_cells",
             "output": "ded4ebaf-f02c-42e7-ba16-51f3605afe1e"
         },
         "ee3c74da-7f14-4583-adba-f673ce574696": {
-            "script": "questCompleted",
+            "script": "quest.completed",
             "output": "b782ed46-246d-4c30-aa99-73753c446c1e"
         },
         "4217abbe-746f-43f2-a371-d23bb30a00d0": {
@@ -1145,7 +1189,7 @@
             "output": "3b7e9da7-09f5-4541-a0b0-e1f6484403be"
         },
         "1df2d73c-5ea9-4fd8-a20a-148c183d6faa": {
-            "script": "!questStarted",
+            "script": "!quest.started",
             "output": "b06807ec-d45c-4751-9548-8b1fda1f9da2"
         },
         "c90132f9-67bf-480d-a15d-9f343e1ad3d6": {

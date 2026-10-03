@@ -10,12 +10,11 @@
 UQuestDirector::UQuestDirector()
 {
     // Arcweave decides when to request an action; these handlers implement its world effect.
-    CommandHandlers.Add(TEXT("restore_power"), [this] { bPowerRestored = true; });
     CommandHandlers.Add(TEXT("open_gate"), [this] { bGateOpen = true; });
     CommandHandlers.Add(TEXT("collect_cell"), [this]
     {
         CollectedCells.Add(PendingCellId);
-        Arcweave->SetVariable(QuestBindings::PowerCellsVariable, FString::FromInt(CollectedCells.Num()));
+        Arcweave->SetVariable(QuestBindings::PowerCellsAttribute, FString::FromInt(CollectedCells.Num()));
     });
 }
 
@@ -33,7 +32,6 @@ bool UQuestDirector::StartNewGame(FString& Error)
     CurrentElementId.Empty();
     PresentationElementId.Empty();
     Status.Empty();
-    bPowerRestored = false;
     bGateOpen = false;
 
     const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
@@ -91,25 +89,31 @@ bool UQuestDirector::ReachExit(FString& Error)
 bool UQuestDirector::IsQuestStarted() const
 {
     return bProjectLoaded && Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
-        QuestBindings::QuestStartedVariable).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
+        QuestBindings::QuestStartedAttribute).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
 }
 
 bool UQuestDirector::IsQuestCompleted() const
 {
     return bProjectLoaded && Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
-        QuestBindings::QuestCompletedVariable).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
+        QuestBindings::QuestCompletedAttribute).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
+}
+
+bool UQuestDirector::IsPowerRestored() const
+{
+    return bProjectLoaded && Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
+        QuestBindings::PowerRestoredAttribute).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
 }
 
 int32 UQuestDirector::GetPowerCellCount() const
 {
     return bProjectLoaded ? FCString::Atoi(*Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
-        QuestBindings::PowerCellsVariable).Value) : 0;
+        QuestBindings::PowerCellsAttribute).Value) : 0;
 }
 
 int32 UQuestDirector::GetRequiredPowerCellCount() const
 {
     return bProjectLoaded ? FCString::Atoi(*Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
-        QuestBindings::RequiredPowerCellsVariable).Value) : 0;
+        QuestBindings::RequiredPowerCellsAttribute).Value) : 0;
 }
 
 bool UQuestDirector::RunEvent(const FString& EventType, FString& Error, bool bCellAlreadyCollected)

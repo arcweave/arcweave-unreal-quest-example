@@ -3,14 +3,8 @@
   "StartElement": "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7",
   "SuccessElement": "bfc100c0-7b99-4404-a71c-c1b42b102c02",
   "MissingCellsElement": "10be7825-974e-4306-b8e4-d2bbc63486dd",
-  "PowerCellsVariable": "6546037a-fcdf-4b42-9fe3-d697bc156d79",
-  "QuestStartedVariable": "882765ae-0eef-4aae-b430-84006b4a0a9e",
-  "PowerRestoredVariable": "ae62d51d-cd04-4022-a643-580921115260",
-  "RestorePowerComponent": "defba3c3-cdce-4b80-91cc-b75118f1f512",
   "OpenGateComponent": "80c7c42c-bb19-4065-8afa-7cd5b54776fc",
   "TerminalRequiredElement": "05d919db-a991-45b7-b20f-db02dbd6f307",
-  "RequiredPowerCellsVariable": "97c232d5-287e-43f2-a25c-b32cf7e0a076",
-  "QuestCompletedVariable": "902e425d-c870-4206-aca6-f0e288d925f5",
   "PresentationBoard": "a9ad17ae-15e4-49b7-aff7-7df07bc1f5a2",
   "CollectCellComponent": "06f4de3e-a022-472e-a2f9-bd73ee5875ee",
   "EventEntryElement": "76724a0b-9935-4c27-9941-90c63f3a795c",
@@ -44,5 +38,12 @@
   "EventRouterBranch": "e025a541-5646-496a-bb27-4bde51e34596",
   "TerminalBranch": "270da112-6a6e-466e-b090-d0c0bb7c74ee",
   "GeneratorBranch": "e110b153-2cfa-4294-adcc-e4b14cd0aef3",
-  "ExitBranch": "5a5c96ae-ef6f-421e-b2da-efca55bc5bc3"
+  "ExitBranch": "5a5c96ae-ef6f-421e-b2da-efca55bc5bc3",
+  "PlayerComponent": "a6aefedf-a182-40f1-afc6-eb6d2ef9509d",
+  "QuestStateComponent": "9978622e-a962-4237-a479-07b28cc0e97f",
+  "PowerCellsAttribute": "04344dba-b4a2-41a7-9b2e-e96f40c121eb",
+  "QuestStartedAttribute": "f7d8db2c-0c08-4522-a364-536ada25d6f2",
+  "PowerRestoredAttribute": "6c9b981f-563b-4dfd-af02-d97bf2e92a81",
+  "QuestCompletedAttribute": "3431c35c-5ff4-4f7d-a153-0ceb186178a3",
+  "RequiredPowerCellsAttribute": "14eb1e2e-757b-4712-9b8b-a3c0512ddb2d"
 }

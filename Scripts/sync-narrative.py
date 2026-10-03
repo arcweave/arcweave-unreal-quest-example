@@ -42,13 +42,20 @@ EVENT_INPUTS = {
     "CellAlreadyCollectedAttribute": ("cell_already_collected", "boolean", False),
 }
 SCOPED_FIELDS["game_event"] = {item[0] for item in EVENT_INPUTS.values()}
-VARIABLES = {
-    "QuestStartedVariable": ("questStarted", "boolean", False),
-    "PowerCellsVariable": ("powerCells", "integer", 0),
-    "RequiredPowerCellsVariable": ("requiredPowerCells", "integer", None),
-    "PowerRestoredVariable": ("powerRestored", "boolean", False),
-    "QuestCompletedVariable": ("questCompleted", "boolean", False),
+STATE_COMPONENTS = {
+    "PlayerComponent": ("player", {
+        "PowerCellsAttribute": ("power_cells", "integer", 0),
+    }),
+    "QuestStateComponent": ("quest", {
+        "QuestStartedAttribute": ("started", "boolean", False),
+        "PowerRestoredAttribute": ("power_restored", "boolean", False),
+        "QuestCompletedAttribute": ("completed", "boolean", False),
+        "RequiredPowerCellsAttribute": ("required_power_cells", "integer", None),
+    }),
 }
+SCOPED_FIELDS.update({scope: {item[0] for item in attributes.values()}
+                      for scope, attributes in STATE_COMPONENTS.values()})
+COMMANDS = {"OpenGateComponent": "open_gate", "CollectCellComponent": "collect_cell"}
 EVENT_ROUTES = {
     "use_terminal": "TerminalBranch",
     "collect_cell": "PickupBranch",
@@ -122,7 +129,7 @@ def read_expression(node):
         ast.UAdd, ast.USub, ast.Not, ast.And, ast.Or, ast.Eq, ast.NotEq,
         ast.Lt, ast.LtE, ast.Gt, ast.GtE,
     )
-    names = {item[0] for item in VARIABLES.values()} | {"true", "false"}
+    names = {"true", "false"}
     attributes = [part for part in ast.walk(node) if isinstance(part, ast.Attribute)]
     for attribute in attributes:
         if not scoped_field(attribute):
@@ -186,6 +193,13 @@ def validate_feedback_content(content, label):
             raise ValueError(f"{label} must be feedback only, without changing state or calling commands.")
 
 
+def validate_state_names(script):
+    # Former globals are no longer imported. Ignore narrative text inside string literals.
+    code = re.sub(r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')''', "", script or "")
+    if re.search(r"\b(?:questStarted|powerCells|requiredPowerCells|powerRestored|questCompleted)\b", code):
+        raise ValueError("Arcscript must use player and quest state fields instead of former global names.")
+
+
 def condition_expression(script):
     try:
         return ast.dump(ast.parse(arcscript_expression(script or "").strip(), mode="eval"))
@@ -235,19 +249,32 @@ def validate_bindings(project, bindings):
     if project["startingElement"] != bindings["EventEntryElement"]:
         raise ValueError("The starting element must be the shared world-event entry.")
 
-    for binding, (name, kind, default) in VARIABLES.items():
-        variable = project["variables"][bindings[binding]]
-        value = variable["value"]
-        if variable["name"] != name or variable["type"] != kind or variable.get("cType") != "global":
-            raise ValueError(f"The {name} variable no longer matches its runtime contract.")
-        if type(value) is not (bool if kind == "boolean" else int):
-            raise ValueError(f"The {name} initial value has the wrong type.")
-        if (default is None and value < 1) or (default is not None and value != default):
-            raise ValueError(f"The {name} initial value is not a valid new-game default.")
     variable_ids = {key for key, item in project["variables"].items()
                     if not item.get("root") and "children" not in item}
-    if variable_ids != {bindings[name] for name in VARIABLES}:
-        raise ValueError("The sample requires exactly five global variables.")
+    if variable_ids:
+        raise ValueError("The sample uses component state and must not define global variables.")
+    state_attributes = {}
+    for binding, (scope, fields) in STATE_COMPONENTS.items():
+        component_id = bindings[binding]
+        component = project["components"][component_id]
+        if component.get("customId") != scope or "children" in component:
+            raise ValueError(f"The {scope} data component must have its required custom ID and cannot be a folder.")
+        attributes = component.get("attributes", []) or []
+        if len(attributes) != len(fields) or set(attributes) != {bindings[name] for name in fields}:
+            raise ValueError(f"The {scope} component must contain exactly its bound state attributes.")
+        for name, (field, kind, default) in fields.items():
+            attribute_id = bindings[name]
+            attribute = project["attributes"][attribute_id]
+            value = attribute["value"]
+            data = value.get("data")
+            if (attribute.get("customId") != field or attribute.get("cType") != "components"
+                    or attribute.get("cId") != component_id or value.get("type") != kind):
+                raise ValueError(f"The {scope}.{field} state attribute must keep its bound owner, name, and type.")
+            if "data" not in value or type(data) is not (bool if kind == "boolean" else int):
+                raise ValueError(f"The {scope}.{field} initial value has the wrong type.")
+            if (default is None and data < 1) or (default is not None and data != default):
+                raise ValueError(f"The {scope}.{field} initial value is not a valid new-game default.")
+            state_attributes[attribute_id] = component_id
     ui_ids = {bindings[name] for name in UI_COMPONENTS}
     ui_attributes = {}
     for binding, (scope, fields) in UI_COMPONENTS.items():
@@ -276,39 +303,55 @@ def validate_bindings(project, bindings):
             or (kind == "string" and value.get("plain") is not True)
         ):
             raise ValueError(f"The game_event.{name} input must keep its bound owner, type, and empty/false default.")
-    scoped_attributes = {**ui_attributes, **{ident: event_component_id for ident in event_attributes}}
+    scoped_attributes = {**state_attributes, **ui_attributes,
+                         **{ident: event_component_id for ident in event_attributes}}
     for attribute_id, attribute in project["attributes"].items():
         if attribute.get("cType") in {"boards", "components"}:
             value = attribute["value"]
             if value["type"] in {"boolean", "integer", "float"} or (value["type"] == "string" and value.get("plain")):
                 if (attribute_id not in scoped_attributes or attribute["cType"] != "components"
                         or attribute.get("cId") != scoped_attributes[attribute_id]):
-                    raise ValueError("Only the nineteen UI strings and two game_event inputs may add scoped variables.")
+                    raise ValueError("Only the five state values, nineteen UI strings, and two game_event inputs may add scoped variables.")
+    state_ids = {bindings[name] for name in STATE_COMPONENTS}
+    data_ids = ui_ids | state_ids | {event_component_id}
     for component_id, component in project["components"].items():
-        if component_id not in ui_ids | {event_component_id} and component.get("customId") in SCOPED_FIELDS:
-            raise ValueError("UI and game_event data component scopes must be unique.")
+        if component_id not in data_ids and component.get("customId") in SCOPED_FIELDS:
+            raise ValueError("State, UI, and game_event data component scopes must be unique.")
 
-    # Runtime exports flatten folders; validate organization when the tree is serialized.
-    folders = [item for item in project["components"].values() if "children" in item]
+    # Export formats may omit the root or flatten all folders.
+    folders = {ident: item for ident, item in project["components"].items() if "children" in item}
     if folders:
-        ui_folders = [item for item in folders if not item.get("root")
-                      and set(item.get("children", [])) == ui_ids]
-        memberships = [child for item in folders for child in item.get("children", []) if child in ui_ids]
-        if len(ui_folders) != 1 or len(memberships) != len(ui_ids):
-            raise ValueError("The UI folder must contain exactly the three data components together.")
-        if ui_folders[0].get("customId") or ui_folders[0].get("attributes"):
-            raise ValueError("The UI folder is organizational and must not define a runtime scope or attributes.")
+        groups = {
+            "UI": ui_ids, "State": state_ids, "Inputs": {event_component_id},
+            "Actions": {bindings[name] for name in COMMANDS},
+        }
+        group_folders = set()
+        for name, children in groups.items():
+            matching = {ident: item for ident, item in folders.items() if not item.get("root")
+                        and set(item.get("children", [])) == children}
+            memberships = [child for item in folders.values() for child in item.get("children", [])
+                           if child in children]
+            if len(matching) != 1 or len(memberships) != len(children):
+                raise ValueError(f"The {name} folder must contain exactly its required components together.")
+            ident, folder = next(iter(matching.items()))
+            if folder.get("customId") or folder.get("attributes"):
+                raise ValueError(f"The {name} folder is organizational and must not define a runtime scope or attributes.")
+            group_folders.add(ident)
+        roots = [item for item in folders.values() if item.get("root")]
+        if (len(roots) > 1 or len(folders) != len(group_folders) + len(roots)
+                or (roots and set(roots[0].get("children", [])) != group_folders)):
+            raise ValueError("State, Inputs, Actions, and UI must be the four top-level component folders.")
 
-    commands = {
-        "RestorePowerComponent": "restore_power", "OpenGateComponent": "open_gate",
-        "CollectCellComponent": "collect_cell",
-    }
-    for name, custom_id in commands.items():
-        if project["components"][bindings[name]]["customId"] != custom_id:
+    for name, custom_id in COMMANDS.items():
+        component = project["components"][bindings[name]]
+        if component.get("customId") != custom_id:
             raise ValueError(f"The {name} custom ID no longer matches C++.")
+    component_ids = {ident for ident, item in project["components"].items() if "children" not in item}
+    if component_ids != data_ids | {bindings[name] for name in COMMANDS}:
+        raise ValueError("The sample requires six data components and exactly the collect_cell and open_gate action components.")
     command_elements = {
         bindings["PickupActionElement"]: {bindings["CollectCellComponent"]},
-        bindings["SuccessElement"]: {bindings["RestorePowerComponent"], bindings["OpenGateComponent"]},
+        bindings["SuccessElement"]: {bindings["OpenGateComponent"]},
     }
 
     # Model automatic execution through elements and every possible branch outcome.
@@ -346,11 +389,11 @@ def validate_bindings(project, bindings):
         for output in outputs:
             edge(ident, ident, "elements", output)
         components = element.get("components", []) or []
-        if (ui_ids | {event_component_id}).intersection(components):
-            raise ValueError("UI and game_event components must remain standalone data, not attached gameplay commands.")
+        if data_ids.intersection(components):
+            raise ValueError("State, UI, and game_event components must remain standalone data, not attached gameplay commands.")
         expected = command_elements.get(ident, set())
         if set(components) != expected or len(components) != len(expected):
-            raise ValueError("Only PickupAction may collect a cell; only Success may restore power and open the gate.")
+            raise ValueError("Only PickupAction may collect a cell; only Success may open the gate.")
     branch_conditions = {}
     condition_outputs = {}
     for connection_id, connection in project["connections"].items():
@@ -439,7 +482,7 @@ def validate_bindings(project, bindings):
         len(pickup_conditions) != 3 or pickup_conditions[-1] != pickup_else
         or project["conditions"][pickup_else].get("script")
         or [condition_expression(project["conditions"][ident].get("script")) for ident in pickup_conditions[:-1]]
-        != [condition_expression("game_event.cell_already_collected"), condition_expression("!questStarted")]
+        != [condition_expression("game_event.cell_already_collected"), condition_expression("!quest.started")]
         or edges[pickup_branch] != [bindings[name] for name in (
             "DuplicatePickupElement", "PickupTerminalRequiredElement", "PickupActionElement",
         )]
@@ -495,6 +538,16 @@ def validate_bindings(project, bindings):
             if project["elements"][ident].get("attributes"):
                 raise ValueError("Presentation elements must not retain metadata; use quest_ui component fields.")
             validate_display_content(element_content(project, ident), entry=ident == display_entry)
+
+    for ident in world_ids:
+        if ident in project["branches"]:
+            for condition_id in branch_conditions[ident]:
+                validate_state_names(project["conditions"][condition_id].get("script"))
+        else:
+            blocks = CodeBlocks()
+            blocks.feed(element_content(project, ident) or "")
+            for script in blocks.blocks:
+                validate_state_names(script)
 
 
 def main():

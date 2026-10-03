@@ -36,8 +36,8 @@ class NarrativeValidationTests(unittest.TestCase):
     def element(self, binding):
         return self.project["elements"][self.bindings[binding]]
 
-    def variable(self, binding):
-        return self.project["variables"][self.bindings[binding]]
+    def state_attribute(self, binding):
+        return self.project["attributes"][self.bindings[binding]]
 
     def ui_attribute(self, binding="HUDTextComponent"):
         component = self.project["components"][self.bindings[binding]]
@@ -101,6 +101,11 @@ class NarrativeValidationTests(unittest.TestCase):
         return next(item for item in self.project["components"].values()
                     if set(item.get("children", [])) == ui_ids)
 
+    def state_folder(self):
+        state_ids = {self.bindings[name] for name in SYNC.STATE_COMPONENTS}
+        return next(item for item in self.project["components"].values()
+                    if set(item.get("children", [])) == state_ids)
+
     def test_bundled_unreal_export(self):
         self.validate()
 
@@ -115,8 +120,86 @@ class NarrativeValidationTests(unittest.TestCase):
         self.validate()
 
     def test_required_cell_count_can_be_tuned(self):
-        self.variable("RequiredPowerCellsVariable")["value"] = 1
+        self.state_attribute("RequiredPowerCellsAttribute")["value"]["data"] = 1
         self.validate()
+
+    def test_state_display_names_can_change_without_affecting_scopes(self):
+        self.project["components"][self.bindings["PlayerComponent"]]["name"] = "Station visitor"
+        self.project["components"][self.bindings["QuestStateComponent"]]["name"] = "Power restoration"
+        self.state_attribute("PowerCellsAttribute")["name"] = "Collected cells"
+        self.validate()
+
+    def test_state_components_require_their_scopes(self):
+        for binding in SYNC.STATE_COMPONENTS:
+            with self.subTest(binding=binding):
+                component = self.project["components"][self.bindings[binding]]
+                original = component["customId"]
+                component["customId"] = "other_state"
+                self.assert_invalid("data component must have its required custom ID")
+                component["customId"] = original
+
+    def test_state_components_require_their_exact_bound_attributes(self):
+        for binding in SYNC.STATE_COMPONENTS:
+            with self.subTest(binding=binding):
+                attributes = self.project["components"][self.bindings[binding]]["attributes"]
+                removed = attributes.pop()
+                self.assert_invalid("component must contain exactly its bound state attributes")
+                attributes.append(removed)
+
+    def test_state_attributes_require_their_names_owners_and_types(self):
+        for _, fields in SYNC.STATE_COMPONENTS.values():
+            for binding in fields:
+                original = copy.deepcopy(self.state_attribute(binding))
+                for key, value in (
+                    ("customId", "other_state"), ("cType", "boards"),
+                    ("cId", self.bindings["GameEventComponent"]),
+                    ("value", {"type": "string", "data": "false", "plain": True}),
+                ):
+                    with self.subTest(binding=binding, key=key):
+                        self.project["attributes"][self.bindings[binding]] = dict(original, **{key: value})
+                        self.assert_invalid("state attribute must keep its bound owner, name, and type")
+                self.project["attributes"][self.bindings[binding]] = original
+
+    def test_state_attributes_require_importable_typed_data(self):
+        for _, fields in SYNC.STATE_COMPONENTS.values():
+            for binding, (_, kind, _) in fields.items():
+                value = self.state_attribute(binding)["value"]
+                original = value["data"]
+                for invalid in (None, "0", 0 if kind == "boolean" else False, 0.0):
+                    with self.subTest(binding=binding, data=invalid):
+                        value["data"] = invalid
+                        self.assert_invalid("initial value has the wrong type")
+                del value["data"]
+                self.assert_invalid("initial value has the wrong type")
+                value["data"] = original
+
+    def test_state_cannot_start_with_inventory_power_or_completion(self):
+        for binding, invalid in (
+            ("PowerCellsAttribute", 1), ("PowerRestoredAttribute", True),
+            ("QuestCompletedAttribute", True),
+        ):
+            with self.subTest(binding=binding):
+                value = self.state_attribute(binding)["value"]
+                original = value["data"]
+                value["data"] = invalid
+                self.assert_invalid("not a valid new-game default")
+                value["data"] = original
+
+    def test_state_scope_cannot_be_duplicated(self):
+        for scope, _ in SYNC.STATE_COMPONENTS.values():
+            with self.subTest(scope=scope):
+                self.project["components"][self.bindings["OpenGateComponent"]]["customId"] = scope
+                self.assert_invalid("data component scopes must be unique")
+
+    def test_state_components_are_data_not_referenced_commands(self):
+        for binding in SYNC.STATE_COMPONENTS:
+            with self.subTest(binding=binding):
+                self.element("StartElement")["components"] = [self.bindings[binding]]
+                self.assert_invalid("State, UI, and game_event components must remain standalone data")
+
+    def test_restore_power_command_cannot_duplicate_quest_state(self):
+        self.project["components"]["legacy-restore-power"] = {"customId": "restore_power"}
+        self.assert_invalid("exactly the collect_cell and open_gate action components")
 
     def test_input_display_names_and_feedback_wording_can_change(self):
         self.project["components"][self.bindings["GameEventComponent"]]["name"] = "Interaction inputs"
@@ -217,11 +300,11 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("pickup branch must check duplicate identity first")
 
     def test_pickup_requires_the_supplied_physical_identity_flag(self):
-        self.conditions("PickupBranch")[0]["script"] = "powerCells > 0"
+        self.conditions("PickupBranch")[0]["script"] = "player.power_cells > 0"
         self.assert_invalid("pickup branch must check duplicate identity first")
 
     def test_pickup_acceptance_check_cannot_be_inverted(self):
-        self.conditions("PickupBranch")[1]["script"] = "questStarted"
+        self.conditions("PickupBranch")[1]["script"] = "quest.started"
         self.assert_invalid("pickup branch must check duplicate identity first")
 
     def test_duplicate_feedback_cannot_fall_through_to_collection(self):
@@ -237,21 +320,21 @@ class NarrativeValidationTests(unittest.TestCase):
         self.validate()
 
     def test_duplicate_feedback_cannot_change_quest_or_input_state(self):
-        for script in ('questStarted = true', 'game_event.type = "use_terminal"', 'resetAll()', 'show(random(10))'):
+        for script in ('quest.started = true', 'game_event.type = "use_terminal"', 'resetAll()', 'show(random(10))'):
             with self.subTest(script=script):
                 self.script("DuplicatePickupElement", script)
                 self.assert_invalid("Duplicate-pickup feedback must be feedback only")
 
     def test_duplicate_feedback_cannot_emit_a_world_command(self):
         self.element("DuplicatePickupElement")["components"] = [self.bindings["OpenGateComponent"]]
-        self.assert_invalid("only Success may restore power and open the gate")
+        self.assert_invalid("only Success may open the gate")
 
     def test_duplicate_feedback_cannot_enter_another_lane(self):
         self.add_output("DuplicatePickupElement", "MissingCellsElement")
         self.assert_invalid("world-event lanes must not execute one another")
 
     def test_shared_entry_cannot_accept_the_task_during_routing(self):
-        self.script("EventEntryElement", "questStarted = true")
+        self.script("EventEntryElement", "quest.started = true")
         self.assert_invalid("shared event entry must be feedback only")
 
     def test_shared_entry_cannot_overwrite_the_identity_flag(self):
@@ -260,7 +343,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_localized_duplicate_feedback_cannot_change_state(self):
         self.project = copy.deepcopy(self.localized)
-        self.localized_content("DuplicatePickupElement")["text"] = self.code_block("questStarted = true")
+        self.localized_content("DuplicatePickupElement")["text"] = self.code_block("quest.started = true")
         self.assert_invalid("Duplicate-pickup feedback must be feedback only")
 
     def test_cross_event_interior_node_is_rejected(self):
@@ -316,15 +399,44 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_data_components_must_stay_together_in_the_ui_folder(self):
         self.project = copy.deepcopy(self.localized)
         self.ui_folder()["children"].remove(self.bindings["WorldTextComponent"])
-        self.assert_invalid("UI folder must contain exactly the three data components")
+        self.assert_invalid("UI folder must contain exactly its required components")
+
+    def test_state_components_must_stay_together_in_the_state_folder(self):
+        self.project = copy.deepcopy(self.localized)
+        self.state_folder()["children"].remove(self.bindings["PlayerComponent"])
+        self.assert_invalid("State folder must contain exactly its required components")
+
+    def test_input_component_cannot_be_grouped_with_actions(self):
+        self.project = copy.deepcopy(self.localized)
+        components = self.project["components"]
+        inputs = next(item for item in components.values()
+                      if item.get("children") == [self.bindings["GameEventComponent"]])
+        actions = next(item for item in components.values()
+                       if self.bindings["OpenGateComponent"] in item.get("children", []))
+        inputs["children"].remove(self.bindings["GameEventComponent"])
+        actions["children"].append(self.bindings["GameEventComponent"])
+        self.assert_invalid("Inputs folder must contain exactly its required components")
+
+    def test_state_folder_cannot_introduce_a_runtime_scope(self):
+        self.project = copy.deepcopy(self.localized)
+        self.state_folder()["customId"] = "state"
+        self.assert_invalid("State folder is organizational")
+
+    def test_component_groups_are_top_level_siblings(self):
+        self.project = copy.deepcopy(self.localized)
+        root = next(item for item in self.project["components"].values() if item.get("root"))
+        state_id = next(ident for ident, item in self.project["components"].items()
+                        if item is self.state_folder())
+        root["children"].remove(state_id)
+        self.assert_invalid("four top-level component folders")
 
     def test_ui_scope_cannot_be_duplicated_by_another_component(self):
-        self.project["components"][self.bindings["RestorePowerComponent"]]["customId"] = "quest_ui"
-        self.assert_invalid("UI and game_event data component scopes must be unique")
+        self.project["components"][self.bindings["OpenGateComponent"]]["customId"] = "quest_ui"
+        self.assert_invalid("State, UI, and game_event data component scopes must be unique")
 
     def test_event_scope_cannot_be_duplicated_by_another_component(self):
-        self.project["components"][self.bindings["RestorePowerComponent"]]["customId"] = "game_event"
-        self.assert_invalid("UI and game_event data component scopes must be unique")
+        self.project["components"][self.bindings["OpenGateComponent"]]["customId"] = "game_event"
+        self.assert_invalid("State, UI, and game_event data component scopes must be unique")
 
     def test_event_component_must_keep_its_input_scope(self):
         self.project["components"][self.bindings["GameEventComponent"]]["customId"] = "interaction"
@@ -333,7 +445,7 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_event_component_cannot_be_placed_in_the_ui_folder(self):
         self.project = copy.deepcopy(self.localized)
         self.ui_folder()["children"].append(self.bindings["GameEventComponent"])
-        self.assert_invalid("UI folder must contain exactly the three data components")
+        self.assert_invalid("UI folder must contain exactly its required components")
 
     def test_event_component_cannot_be_attached_as_a_command(self):
         self.element("EventEntryElement")["components"] = [self.bindings["GameEventComponent"]]
@@ -402,7 +514,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("missing the TerminalBranch binding")
 
     def test_display_assignment_is_rejected(self):
-        self.element("PresentationCollectingElement")["content"] = "<pre><code>powerCells = 99</code></pre>"
+        self.element("PresentationCollectingElement")["content"] = "<pre><code>player.power_cells = 99</code></pre>"
         self.assert_invalid("Presentation may only assign quest_ui fields")
 
     def test_nested_display_function_is_rejected(self):
@@ -424,7 +536,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Presentation conditions cannot call functions")
 
     def test_shared_power_setup_cannot_modify_gameplay(self):
-        self.script("PresentationPoweredSetupElement", "questCompleted = true")
+        self.script("PresentationPoweredSetupElement", "quest.completed = true")
         self.assert_invalid("Presentation may only assign quest_ui fields")
 
     def test_presentation_internal_element_needs_no_cpp_binding(self):
@@ -485,7 +597,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("UI attributes must be nonempty plain strings")
 
     def test_ui_attribute_wrong_owner_is_rejected(self):
-        self.ui_attribute()["cId"] = self.bindings["RestorePowerComponent"]
+        self.ui_attribute()["cId"] = self.bindings["OpenGateComponent"]
         self.assert_invalid("UI attributes must be nonempty plain strings")
 
     def test_additional_ui_attribute_is_rejected(self):
@@ -496,31 +608,87 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_additional_command_component_variable_is_rejected(self):
         extra = "ed23bc46-83b3-4937-ab43-91c2c8b85d08"
-        owner = self.bindings["RestorePowerComponent"]
+        owner = self.bindings["OpenGateComponent"]
         self.project["attributes"][extra] = dict(self.ui_attribute(), cId=owner, customId="debug_label")
         self.project["components"][owner]["attributes"] = [extra]
-        self.assert_invalid("Only the nineteen UI strings and two game_event inputs may add scoped variables")
+        self.assert_invalid("Only the five state values, nineteen UI strings, and two game_event inputs may add scoped variables")
 
     def test_additional_board_variable_is_rejected(self):
         extra = "5aa30329-45b8-42df-b65b-1e94f0a76a84"
         owner = self.bindings["Board"]
         self.project["attributes"][extra] = dict(self.ui_attribute(), cType="boards", cId=owner, customId="debug_label")
         self.project["boards"][owner]["attributes"] = [extra]
-        self.assert_invalid("Only the nineteen UI strings and two game_event inputs may add scoped variables")
+        self.assert_invalid("Only the five state values, nineteen UI strings, and two game_event inputs may add scoped variables")
 
     def test_ui_component_cannot_be_attached_as_a_command(self):
         for binding in SYNC.UI_COMPONENTS:
             with self.subTest(component=binding):
                 self.element("EventEntryElement")["components"] = [self.bindings[binding]]
-                self.assert_invalid("UI and game_event components must remain standalone data")
+                self.assert_invalid("State, UI, and game_event components must remain standalone data")
 
     def test_presentation_can_show_known_ui_field(self):
         self.script("PresentationCollectingElement",
-                    "show(hud.station_name, world_text.sign_exit, quest_ui.mission_heading, powerCells)")
+                    "show(hud.station_name, world_text.sign_exit, quest_ui.mission_heading, player.power_cells)")
         self.validate()
 
     def test_presentation_can_read_event_inputs(self):
         self.script("PresentationCollectingElement", "show(game_event.type, game_event.cell_already_collected)")
+        self.validate()
+
+    def test_presentation_can_read_player_and_quest_state(self):
+        self.script("PresentationCollectingElement",
+                    "show(player.power_cells, quest.started, quest.power_restored, quest.completed, quest.required_power_cells)")
+        self.conditions("PresentationBranch")[0]["script"] = (
+            "quest.started && !quest.completed && player.power_cells >= quest.required_power_cells")
+        self.validate()
+
+    def test_presentation_cannot_write_player_or_quest_state(self):
+        for scope, fields in SYNC.STATE_COMPONENTS.values():
+            for field, kind, _ in fields.values():
+                with self.subTest(field=f"{scope}.{field}"):
+                    self.script("PresentationCollectingElement", f"{scope}.{field} = {'true' if kind == 'boolean' else 1}")
+                    self.assert_invalid("Presentation may only assign quest_ui fields")
+
+    def test_presentation_cannot_read_unknown_state_fields_or_bare_components(self):
+        for expression in ("player.started", "quest.power_cells", "player.unknown", "quest.unknown", "player", "quest"):
+            with self.subTest(expression=expression):
+                self.script("PresentationCollectingElement", f"show({expression})")
+                self.assert_invalid("Presentation may only assign quest_ui fields")
+
+    def test_presentation_cannot_read_former_global_names(self):
+        for name in ("powerCells", "questStarted", "powerRestored", "questCompleted", "requiredPowerCells"):
+            with self.subTest(name=name):
+                self.script("PresentationCollectingElement", f"show({name})")
+                self.assert_invalid("Presentation may only assign quest_ui fields")
+
+    def test_world_scripts_cannot_use_former_global_names(self):
+        for name in ("powerCells", "questStarted", "powerRestored", "questCompleted", "requiredPowerCells"):
+            for script in (f"show({name})", f"{name} = 1"):
+                with self.subTest(script=script):
+                    self.script("StartElement", script)
+                    self.assert_invalid("state fields instead of former global names")
+
+    def test_world_conditions_cannot_use_former_global_names(self):
+        self.conditions("GeneratorBranch")[0]["script"] = "questStarted && powerCells >= requiredPowerCells"
+        self.assert_invalid("state fields instead of former global names")
+
+    def test_localized_world_scripts_cannot_use_former_global_names(self):
+        self.project = copy.deepcopy(self.localized)
+        self.localized_content("StartElement")["text"] = self.code_block("questStarted = true")
+        self.assert_invalid("state fields instead of former global names")
+
+    def test_legacy_names_in_narrative_string_literals_are_not_variable_references(self):
+        self.script("StartElement", 'show("The old powerCells value", \'questStarted\', "powerRestored and questCompleted")')
+        self.validate()
+
+    def test_world_events_may_still_update_authored_ui_text(self):
+        self.element("StartElement")["content"] = (
+            self.code_block('hud.station_name = "Powered outpost"')
+            + self.code_block('world_text.sign_exit = "Exit open"'))
+        self.validate()
+
+    def test_feedback_can_read_state_without_changing_it(self):
+        self.script("DuplicatePickupElement", 'show("Already carrying ", player.power_cells, "/", quest.required_power_cells)')
         self.validate()
 
     def test_presentation_cannot_assign_event_inputs(self):
@@ -578,7 +746,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("reset all seven fields before any other statements")
 
     def test_entry_resets_cannot_be_conditional(self):
-        self.script("PresentationEntryElement", "if questStarted:\n"
+        self.script("PresentationEntryElement", "if quest.started:\n"
                     "    reset(quest_ui.mission_heading)")
         self.assert_invalid("Presentation may only assign quest_ui fields")
 
@@ -588,7 +756,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_entry_cannot_reset_gameplay_or_static_ui(self):
         for target in (
-            "questStarted", "hud.station_name", "world_text.sign_exit", "quest_ui.unknown",
+            "quest.started", "player.power_cells", "hud.station_name", "world_text.sign_exit", "quest_ui.unknown",
             "game_event.type", "game_event.cell_already_collected",
         ):
             with self.subTest(target=target):
@@ -644,18 +812,18 @@ class NarrativeValidationTests(unittest.TestCase):
         self.project["variables"]["extra"] = {
             "name": "extra", "type": "integer", "cType": "global", "value": 0,
         }
-        self.assert_invalid("exactly five global variables")
+        self.assert_invalid("must not define global variables")
 
     def test_integer_is_not_accepted_as_boolean_default(self):
-        self.variable("QuestCompletedVariable")["value"] = 0
+        self.state_attribute("QuestCompletedAttribute")["value"]["data"] = 0
         self.assert_invalid("initial value has the wrong type")
 
     def test_already_accepted_new_game_is_rejected(self):
-        self.variable("QuestStartedVariable")["value"] = True
+        self.state_attribute("QuestStartedAttribute")["value"]["data"] = True
         self.assert_invalid("not a valid new-game default")
 
     def test_zero_required_cells_is_rejected(self):
-        self.variable("RequiredPowerCellsVariable")["value"] = 0
+        self.state_attribute("RequiredPowerCellsAttribute")["value"]["data"] = 0
         self.assert_invalid("not a valid new-game default")
 
     def test_multiple_element_outputs_are_rejected(self):
@@ -709,13 +877,13 @@ class NarrativeValidationTests(unittest.TestCase):
         self.element("StartElement")["components"] = [self.bindings["CollectCellComponent"]]
         self.assert_invalid("Only PickupAction")
 
-    def test_power_command_on_shared_event_entry_is_rejected(self):
-        self.element("EventEntryElement")["components"] = [self.bindings["RestorePowerComponent"]]
-        self.assert_invalid("only Success may restore power")
+    def test_gate_command_on_shared_event_entry_is_rejected(self):
+        self.element("EventEntryElement")["components"] = [self.bindings["OpenGateComponent"]]
+        self.assert_invalid("only Success may open the gate")
 
     def test_gate_command_on_exit_is_rejected(self):
         self.element("CompletedElement")["components"] = [self.bindings["OpenGateComponent"]]
-        self.assert_invalid("only Success may restore power")
+        self.assert_invalid("only Success may open the gate")
 
     def test_missing_pickup_command_is_rejected(self):
         self.element("PickupActionElement")["components"] = []
@@ -736,7 +904,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_localized_display_assignment_is_rejected(self):
         self.project = copy.deepcopy(self.localized)
-        self.localized_content("PresentationCollectingElement")["text"] = "<pre><code>powerCells = 99</code></pre>"
+        self.localized_content("PresentationCollectingElement")["text"] = "<pre><code>player.power_cells = 99</code></pre>"
         self.assert_invalid("Presentation may only assign quest_ui fields")
 
 

@@ -89,7 +89,56 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     {
         GlobalVariableCount += Pair.Value.cType == TEXT("global") && Pair.Value.Scope.IsEmpty() ? 1 : 0;
     }
-    TestEqual(TEXT("The five quest variables retain global scope"), GlobalVariableCount, 5);
+    TestEqual(TEXT("All runtime state uses component scopes, with no remaining globals"), GlobalVariableCount, 0);
+    struct FStateField
+    {
+        const TCHAR* Id;
+        const TCHAR* Name;
+        const TCHAR* Type;
+        const TCHAR* Default;
+    };
+    struct FStateComponentScope
+    {
+        const TCHAR* Id;
+        const TCHAR* Scope;
+        TArray<FStateField> Fields;
+    };
+    const FStateComponentScope StateComponents[] = {
+        {QuestBindings::PlayerComponent, TEXT("player"), {
+            {QuestBindings::PowerCellsAttribute, TEXT("power_cells"), TEXT("integer"), TEXT("0")}}},
+        {QuestBindings::QuestStateComponent, TEXT("quest"), {
+            {QuestBindings::QuestStartedAttribute, TEXT("started"), TEXT("boolean"), TEXT("false")},
+            {QuestBindings::PowerRestoredAttribute, TEXT("power_restored"), TEXT("boolean"), TEXT("false")},
+            {QuestBindings::QuestCompletedAttribute, TEXT("completed"), TEXT("boolean"), TEXT("false")},
+            {QuestBindings::RequiredPowerCellsAttribute, TEXT("required_power_cells"), TEXT("integer"), TEXT("2")}}}
+    };
+    for (const FStateComponentScope& Expected : StateComponents)
+    {
+        const FArcweaveComponentData* Component = InitialState.Components.FindByPredicate(
+            [&Expected](const FArcweaveComponentData& Candidate) { return Candidate.Id == Expected.Id; });
+        if (!TestNotNull(TEXT("The state component is imported: ") + FString(Expected.Scope), Component)) return false;
+        TestEqual(TEXT("The state component has its authored scope: ") + FString(Expected.Scope), Component->CustomId, FString(Expected.Scope));
+        TestEqual(TEXT("The state component has only its required fields: ") + FString(Expected.Scope), Component->Attributes.Num(), Expected.Fields.Num());
+        for (const FStateField& Field : Expected.Fields)
+        {
+            const FString Label = FString(Expected.Scope) + TEXT(".") + Field.Name;
+            const FArcweaveAttributeData* Attribute = Component->Attributes.FindByPredicate(
+                [&Field](const FArcweaveAttributeData& Candidate) { return Candidate.Id == Field.Id; });
+            const FArcweaveVariable* RuntimeVariable = InitialState.CurrentVars.Find(Field.Id);
+            if (!TestNotNull(Label + TEXT(" is an authored state attribute"), Attribute)
+                || !TestNotNull(Label + TEXT(" imports as a runtime variable"), RuntimeVariable)) return false;
+            TestEqual(Label + TEXT(" has its authored name"), Attribute->CustomId, FString(Field.Name));
+            TestEqual(Label + TEXT(" belongs to its state component"), Attribute->cId, Component->Id);
+            TestEqual(Label + TEXT(" has component ownership"), Attribute->cType, FString(TEXT("components")));
+            TestEqual(Label + TEXT(" has the required runtime name"), RuntimeVariable->Name, FString(Field.Name));
+            TestEqual(Label + TEXT(" has the required type"), RuntimeVariable->Type, FString(Field.Type));
+            TestEqual(Label + TEXT(" has component runtime ownership"), RuntimeVariable->cType, FString(TEXT("components")));
+            TestEqual(Label + TEXT(" has the required runtime scope"), RuntimeVariable->Scope, Component->CustomId);
+            TestTrue(Label + TEXT(" retains an authored default"), RuntimeVariable->bHasDefaultValue);
+            TestEqual(Label + TEXT(" has the required default"), RuntimeVariable->DefaultValue, FString(Field.Default));
+            TestEqual(Label + TEXT(" starts at its default"), RuntimeVariable->Value, FString(Field.Default));
+        }
+    }
     for (const FUIComponentScope& Expected : UIComponents)
     {
         int32 ScopedVariableCount = 0;
@@ -179,20 +228,15 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         CheckUIValues(*Stage);
     };
 
-    int32 PowerCommands = 0;
     int32 GateCommands = 0;
     int32 PickupCommands = 0;
     int32 PresentationChanges = 0;
-    const TFunction<void()> RestorePower = Director->CommandHandlers.FindChecked(TEXT("restore_power"));
+    TestEqual(TEXT("Only collection and gate opening require engine command handlers"), Director->CommandHandlers.Num(), 2);
     const TFunction<void()> OpenGate = Director->CommandHandlers.FindChecked(TEXT("open_gate"));
     const TFunction<void()> CollectCell = Director->CommandHandlers.FindChecked(TEXT("collect_cell"));
-    Director->CommandHandlers.Add(TEXT("restore_power"), [&PowerCommands, RestorePower]
+    Director->CommandHandlers.Add(TEXT("open_gate"), [this, Director, &GateCommands, OpenGate]
     {
-        ++PowerCommands;
-        RestorePower();
-    });
-    Director->CommandHandlers.Add(TEXT("open_gate"), [&GateCommands, OpenGate]
-    {
+        TestTrue(TEXT("The gate command observes the authored power milestone already set"), Director->IsPowerRestored());
         ++GateCommands;
         OpenGate();
     });
@@ -204,10 +248,6 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     Director->OnQuestChanged.AddLambda([this, Director, &PresentationChanges]
     {
         ++PresentationChanges;
-        if (Director->IsPowerRestored())
-        {
-            TestTrue(TEXT("Presentation observes both completed world commands"), Director->IsGateOpen());
-        }
         if (Director->IsQuestCompleted())
         {
             TestTrue(TEXT("Completed presentation also observes restored power"), Director->IsPowerRestored());
@@ -280,7 +320,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     {
         return CheckEvent(TEXT("enter_exit"), [Director, &Error] { return Director->ReachExit(Error); });
     };
-    const auto CheckCachedReads = [this, Director, Arcweave, &PowerCommands, &GateCommands,
+    const auto CheckCachedReads = [this, Director, Arcweave, &GateCommands,
         &PickupCommands, &PresentationChanges, &UIVariableIds](const TCHAR* Stage)
     {
         const FArcweaveProjectData Before = Arcweave->GetArcweaveProjectData();
@@ -293,7 +333,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         {
             Catalog.Add(Pair.Key, Director->GetUIText(Pair.Key));
         }
-        const int32 Commands = PowerCommands + GateCommands + PickupCommands;
+        const int32 Commands = GateCommands + PickupCommands;
         const int32 Notifications = PresentationChanges;
         for (int32 Read = 0; Read < 32; ++Read)
         {
@@ -323,7 +363,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
                 TestEqual(Prefix + TEXT("cached getters preserve variable ") + Pair.Key, Actual->Value, Pair.Value.Value);
             }
         }
-        TestEqual(Prefix + TEXT("cached getters do not dispatch commands"), PowerCommands + GateCommands + PickupCommands, Commands);
+        TestEqual(Prefix + TEXT("cached getters do not dispatch commands"), GateCommands + PickupCommands, Commands);
         TestEqual(Prefix + TEXT("cached getters do not notify presentation"), PresentationChanges, Notifications);
         TestEqual(Prefix + TEXT("gameplay cursor is unchanged"), Director->GetCurrentElementId(), Cursor);
         TestEqual(Prefix + TEXT("presentation cursor is unchanged"), Director->GetPresentationElementId(), Presentation);
@@ -372,7 +412,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         return true;
     };
 
-    TestEqual(TEXT("Five globals, nineteen UI strings, and two event inputs are imported"), InitialState.CurrentVars.Num(), 26);
+    TestEqual(TEXT("Five state values, nineteen UI strings, and two event inputs are imported"), InitialState.CurrentVars.Num(), 26);
     TestFalse(TEXT("Initialization does not accept the task"), Director->IsQuestStarted());
     TestFalse(TEXT("Initialization does not complete the task"), Director->IsQuestCompleted());
     TestEqual(TEXT("Initial required cell count comes from the export"), Director->GetRequiredPowerCellCount(), 2);
@@ -394,12 +434,12 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("Generator guidance leaves acceptance false"), Director->IsQuestStarted());
     TestFalse(TEXT("Generator guidance leaves power off"), Director->IsPowerRestored());
 
-    Arcweave->SetVariable(QuestBindings::PowerCellsVariable, TEXT("2"));
+    Arcweave->SetVariable(QuestBindings::PowerCellsAttribute, TEXT("2"));
     TestTrue(TEXT("Authored acceptance requirement still applies with enough cells"), AttemptGenerator());
     TestEqual(TEXT("Acceptance takes precedence over the required count"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
     TestEqual(TEXT("Premature two-cell attempt does not execute success"), Visits(QuestBindings::SuccessElement), 0);
-    TestEqual(TEXT("Premature attempts execute no world commands"), PowerCommands + GateCommands + PickupCommands, 0);
-    Arcweave->SetVariable(QuestBindings::PowerCellsVariable, TEXT("0"));
+    TestEqual(TEXT("Premature attempts execute no world commands"), GateCommands + PickupCommands, 0);
+    Arcweave->SetVariable(QuestBindings::PowerCellsAttribute, TEXT("0"));
 
     TestTrue(TEXT("Pickup before acceptance executes its authored denial"), AttemptPickup(TEXT("cell_a")));
     TestEqual(TEXT("Pickup uses its dedicated prerequisite response"), Director->GetCurrentElementId(), FString(QuestBindings::PickupTerminalRequiredElement));
@@ -412,7 +452,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("Early exit does not complete the task"), Director->IsQuestCompleted());
 
     TestTrue(TEXT("Terminal traverses the acceptance graph"), StartQuest());
-    TestTrue(TEXT("Acceptance script changes questStarted"), Director->IsQuestStarted());
+    TestTrue(TEXT("Acceptance script changes quest.started"), Director->IsQuestStarted());
     TestEqual(TEXT("Accepting the task ends at Start"), Director->GetCurrentElementId(), FString(QuestBindings::StartElement));
     TestEqual(TEXT("Acceptance does not repeat the generator guidance"), Visits(QuestBindings::TerminalRequiredElement), 2);
     TestEqual(TEXT("Collecting objective renders current and required counts"), Director->GetObjective(), FString(TEXT("Collect power cells (0/2), then use the generator.")));
@@ -426,7 +466,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("Missing-cell response leaves the gate closed"), Director->IsGateOpen());
 
     TestTrue(TEXT("First accepted pickup traverses the action and feedback nodes"), AttemptPickup(TEXT("cell_a")));
-    TestEqual(TEXT("Pickup command updates the narrative count"), Variable(QuestBindings::PowerCellsVariable), FString(TEXT("1")));
+    TestEqual(TEXT("Pickup command updates the narrative count"), Variable(QuestBindings::PowerCellsAttribute), FString(TEXT("1")));
     TestTrue(TEXT("Pickup command records the physical cell"), Director->HasCollectedCell(TEXT("cell_a")));
     TestEqual(TEXT("Pickup feedback is rendered after the count update"), Director->GetStatus(), FString(TEXT("Collected a power cell (1/2).")));
     TestEqual(TEXT("Pickup ends at its feedback node"), Director->GetCurrentElementId(), FString(QuestBindings::PickupCollectedElement));
@@ -442,12 +482,12 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Duplicate cannot increase the count"), Director->GetPowerCellCount(), 1);
     TestEqual(TEXT("Duplicate cannot reissue collect_cell"), PickupCommands, 1);
     TestEqual(TEXT("Duplicate does not enter the collected feedback node"), Visits(QuestBindings::PickupCollectedElement), 1);
-    Arcweave->SetVariable(QuestBindings::QuestStartedVariable, TEXT("false"));
+    Arcweave->SetVariable(QuestBindings::QuestStartedAttribute, TEXT("false"));
     TestTrue(TEXT("Duplicate detection takes precedence over quest acceptance"), AttemptPickup(TEXT("cell_a"), true));
     TestEqual(TEXT("The pickup branch checks duplicate context before acceptance"),
         Director->GetCurrentElementId(), FString(QuestBindings::DuplicatePickupElement));
     TestEqual(TEXT("Duplicate routing never repeats the pickup action"), PickupCommands, 1);
-    Arcweave->SetVariable(QuestBindings::QuestStartedVariable, TEXT("true"));
+    Arcweave->SetVariable(QuestBindings::QuestStartedAttribute, TEXT("true"));
     TestTrue(TEXT("One-cell generator attempt reevaluates the condition"), AttemptGenerator());
     TestEqual(TEXT("One cell still selects MissingCells"), Director->GetCurrentElementId(), FString(QuestBindings::MissingCellsElement));
 
@@ -463,14 +503,13 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
 
     TestTrue(TEXT("Generator succeeds after the required pickups"), AttemptGenerator());
     TestEqual(TEXT("Success follows the authored connection"), Director->GetCurrentElementId(), FString(QuestBindings::SuccessElement));
-    TestEqual(TEXT("Success updates the narrative power flag"), Variable(QuestBindings::PowerRestoredVariable), FString(TEXT("true")));
-    TestTrue(TEXT("restore_power turns world power on"), Director->IsPowerRestored());
+    TestEqual(TEXT("Success updates the narrative power flag"), Variable(QuestBindings::PowerRestoredAttribute), FString(TEXT("true")));
+    TestTrue(TEXT("The authored quest.power_restored value turns world power on"), Director->IsPowerRestored());
     TestTrue(TEXT("open_gate opens the world gate"), Director->IsGateOpen());
     TestFalse(TEXT("Restoring power does not complete the task before reaching the exit"), Director->IsQuestCompleted());
-    TestEqual(TEXT("Completion variable remains false while the exit is available"), Variable(QuestBindings::QuestCompletedVariable), FString(TEXT("false")));
+    TestEqual(TEXT("Completion variable remains false while the exit is available"), Variable(QuestBindings::QuestCompletedAttribute), FString(TEXT("false")));
     TestEqual(TEXT("Power and completion select distinct presentation stages"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationPoweredElement));
     TestEqual(TEXT("Powered objective directs the player to the exit"), Director->GetObjective(), FString(TEXT("Power restored. Walk through the open gate.")));
-    TestEqual(TEXT("Power command runs once"), PowerCommands, 1);
     TestEqual(TEXT("Gate command runs once"), GateCommands, 1);
     CheckCachedReads(TEXT("Powered state"));
     CheckPresentation(QuestBindings::PresentationPoweredElement);
@@ -478,13 +517,12 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Repeated generator use executes an authored already-online response"), AttemptGenerator());
     TestEqual(TEXT("Repeated generator reaches AlreadyOnline"), Director->GetCurrentElementId(), FString(QuestBindings::AlreadyOnlineElement));
     TestEqual(TEXT("Repeated generator does not reenter success"), Visits(QuestBindings::SuccessElement), 1);
-    TestEqual(TEXT("Repeated generator does not reissue power"), PowerCommands, 1);
     TestEqual(TEXT("Repeated generator does not reissue gate opening"), GateCommands, 1);
     TestTrue(TEXT("Terminal can describe the powered state"), StartQuest());
     TestEqual(TEXT("Powered terminal uses its authored response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalPoweredElement));
 
     TestTrue(TEXT("Reaching the exit executes the completion graph"), ReachExit());
-    TestTrue(TEXT("Exit completion updates questCompleted"), Director->IsQuestCompleted());
+    TestTrue(TEXT("Exit completion updates quest.completed"), Director->IsQuestCompleted());
     TestEqual(TEXT("Only the completion node ends the quest"), Director->GetCurrentElementId(), FString(QuestBindings::CompletedElement));
     TestEqual(TEXT("Completed presentation is distinct from powered"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationCompletedElement));
     TestEqual(TEXT("Completed objective comes from the presentation node"), Director->GetObjective(), FString(TEXT("Task complete. You reached the exit.")));
@@ -499,7 +537,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     CheckUIValues(TEXT("Completed state"));
 
     const FArcweaveProjectData BeforeUnknown = Arcweave->GetArcweaveProjectData();
-    const int32 CommandsBeforeUnknown = PowerCommands + GateCommands + PickupCommands;
+    const int32 CommandsBeforeUnknown = GateCommands + PickupCommands;
     const FString ObjectiveBeforeUnknown = Director->GetObjective();
     const FString PresentationBeforeUnknown = Director->GetPresentationElementId();
     TestFalse(TEXT("An unknown event reports an integration error when no router condition matches"),
@@ -509,10 +547,10 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("The integration error is surfaced in the interaction status"), Director->GetStatus(), Error);
     TestEqual(TEXT("Unknown input preserves the cached objective"), Director->GetObjective(), ObjectiveBeforeUnknown);
     TestEqual(TEXT("Unknown input preserves the presentation cursor"), Director->GetPresentationElementId(), PresentationBeforeUnknown);
-    TestEqual(TEXT("Unknown events dispatch no world commands"), PowerCommands + GateCommands + PickupCommands, CommandsBeforeUnknown);
+    TestEqual(TEXT("Unknown events dispatch no world commands"), GateCommands + PickupCommands, CommandsBeforeUnknown);
     TestTrue(TEXT("Unknown input preserves quest acceptance"), Director->IsQuestStarted());
     TestTrue(TEXT("Unknown input preserves quest completion"), Director->IsQuestCompleted());
-    TestTrue(TEXT("Unknown input preserves native power"), Director->IsPowerRestored());
+    TestTrue(TEXT("Unknown input preserves the authored power state"), Director->IsPowerRestored());
     TestTrue(TEXT("Unknown input preserves the open gate"), Director->IsGateOpen());
     TestTrue(TEXT("Unknown input preserves physical cell A"), Director->HasCollectedCell(TEXT("cell_a")));
     TestTrue(TEXT("Unknown input preserves physical cell B"), Director->HasCollectedCell(TEXT("cell_b")));
@@ -563,10 +601,10 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
 
     if (!CheckRestart()) return false;
     TestEqual(TEXT("Restart cannot replay pickup commands"), PickupCommands, 2);
-    TestEqual(TEXT("Restart cannot replay completion commands"), PowerCommands + GateCommands, 2);
+    TestEqual(TEXT("Restart cannot replay the gate command"), GateCommands, 1);
 
     // Changing the authored requirement changes both the branch result and its displayed count.
-    Arcweave->SetVariable(QuestBindings::RequiredPowerCellsVariable, TEXT("1"));
+    Arcweave->SetVariable(QuestBindings::RequiredPowerCellsAttribute, TEXT("1"));
     TestTrue(TEXT("One-cell variant still begins through the terminal graph"), StartQuest());
     TestEqual(TEXT("Required count getter reads the authored variable"), Director->GetRequiredPowerCellCount(), 1);
     TestEqual(TEXT("Objective renders the changed requirement"), Director->GetObjective(), FString(TEXT("Collect power cells (0/1), then use the generator.")));
@@ -582,7 +620,6 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("One-cell variant also waits for the exit to complete"), Director->IsQuestCompleted());
     TestTrue(TEXT("One-cell variant completes at the exit"), ReachExit());
     TestTrue(TEXT("One-cell exit marks completion"), Director->IsQuestCompleted());
-    TestEqual(TEXT("Each session issues exactly one power command"), PowerCommands, 2);
     TestEqual(TEXT("Each session issues exactly one gate command"), GateCommands, 2);
     CheckCachedReads(TEXT("One-cell completed state"));
     CheckPresentation(QuestBindings::PresentationCompletedElement);
@@ -604,21 +641,21 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         }
     }
     const auto CheckPresentationRefresh = [this, Director, Arcweave, &Error, &CheckPresentation,
-        &CheckCachedReads, &PowerCommands, &GateCommands, &PickupCommands, &PresentationChanges,
+        &CheckCachedReads, &GateCommands, &PickupCommands, &PresentationChanges,
         &UpdatedStationName, &UpdatedWorldLabel](const TCHAR* ExpectedLeaf, bool bStarted, bool bPowered,
         bool bCompleted, int32 Cells, int32 Required)
     {
-        Arcweave->SetVariable(QuestBindings::QuestStartedVariable, bStarted ? TEXT("true") : TEXT("false"));
-        Arcweave->SetVariable(QuestBindings::PowerRestoredVariable, bPowered ? TEXT("true") : TEXT("false"));
-        Arcweave->SetVariable(QuestBindings::QuestCompletedVariable, bCompleted ? TEXT("true") : TEXT("false"));
-        Arcweave->SetVariable(QuestBindings::PowerCellsVariable, FString::FromInt(Cells));
-        Arcweave->SetVariable(QuestBindings::RequiredPowerCellsVariable, FString::FromInt(Required));
+        Arcweave->SetVariable(QuestBindings::QuestStartedAttribute, bStarted ? TEXT("true") : TEXT("false"));
+        Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, bPowered ? TEXT("true") : TEXT("false"));
+        Arcweave->SetVariable(QuestBindings::QuestCompletedAttribute, bCompleted ? TEXT("true") : TEXT("false"));
+        Arcweave->SetVariable(QuestBindings::PowerCellsAttribute, FString::FromInt(Cells));
+        Arcweave->SetVariable(QuestBindings::RequiredPowerCellsAttribute, FString::FromInt(Required));
         const FArcweaveProjectData Before = Arcweave->GetArcweaveProjectData();
         const FString Cursor = Director->GetCurrentElementId();
         const FString Status = Director->GetStatus();
-        const bool bWorldPowered = Director->IsPowerRestored();
+        TestEqual(TEXT("The power getter immediately reads the changed quest attribute"), Director->IsPowerRestored(), bPowered);
         const bool bWorldGateOpen = Director->IsGateOpen();
-        const int32 Commands = PowerCommands + GateCommands + PickupCommands;
+        const int32 Commands = GateCommands + PickupCommands;
         const int32 Notifications = PresentationChanges;
         if (!TestTrue(TEXT("Arcscript refreshes the presentation graph"), Director->RefreshPresentation(Error)))
         {
@@ -632,17 +669,17 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
             const FArcweaveVariable& Actual = After.CurrentVars.FindChecked(Pair.Key);
             if (Pair.Value.Scope != TEXT("quest_ui"))
             {
-                TestEqual(TEXT("Presentation preserves quest globals, event inputs, and static UI: ") + Pair.Value.Scope + TEXT(".") + Pair.Value.Name,
+                TestEqual(TEXT("Presentation preserves state attributes, event inputs, and static UI: ") + Pair.Value.Scope + TEXT(".") + Pair.Value.Name,
                     Actual.Value, Pair.Value.Value);
             }
             TestEqual(TEXT("Presentation preserves each variable's authored default: ") + Pair.Value.Name,
                 Actual.DefaultValue, Pair.Value.DefaultValue);
         }
-        TestEqual(TEXT("Presentation never dispatches gameplay commands"), PowerCommands + GateCommands + PickupCommands, Commands);
+        TestEqual(TEXT("Presentation never dispatches gameplay commands"), GateCommands + PickupCommands, Commands);
         TestEqual(TEXT("Presentation refresh alone does not publish gameplay changes"), PresentationChanges, Notifications);
         TestEqual(TEXT("Presentation preserves the gameplay cursor"), Director->GetCurrentElementId(), Cursor);
         TestEqual(TEXT("Presentation preserves gameplay feedback"), Director->GetStatus(), Status);
-        TestEqual(TEXT("Presentation preserves native power state"), Director->IsPowerRestored(), bWorldPowered);
+        TestEqual(TEXT("Presentation keeps power consistent with the quest attribute"), Director->IsPowerRestored(), bPowered);
         TestEqual(TEXT("Presentation preserves native gate state"), Director->IsGateOpen(), bWorldGateOpen);
         TestEqual(TEXT("Presentation reset preserves a current HUD text override"), Director->GetUIText(TEXT("hud.station_name")), UpdatedStationName);
         TestEqual(TEXT("Presentation reset preserves a current world text override"), Director->GetUIText(TEXT("world_text.cell_a_label")), UpdatedWorldLabel);
@@ -656,6 +693,25 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     if (!CheckPresentationRefresh(QuestBindings::PresentationReadyElement, true, false, false, 2, 2)) return false;
     if (!CheckPresentationRefresh(QuestBindings::PresentationCollectingElement, true, false, false, 1, 2)) return false;
     if (!CheckPresentationRefresh(QuestBindings::PresentationReadyElement, true, false, false, 1, 1)) return false;
+    if (!CheckRestart()) return false;
+
+    // Power is narrative state; changing it does not imply the separate gate-opening action.
+    const int32 CommandsBeforePowerChange = GateCommands + PickupCommands;
+    Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("true"));
+    TestTrue(TEXT("SetVariable immediately updates the power getter without an engine command"), Director->IsPowerRestored());
+    TestFalse(TEXT("Changing the power attribute alone leaves the native gate closed"), Director->IsGateOpen());
+    TestTrue(TEXT("A normal terminal interaction refreshes the changed power state"), StartQuest());
+    TestEqual(TEXT("The terminal reads the scoped power state"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalPoweredElement));
+    CheckPresentation(QuestBindings::PresentationPoweredElement);
+    TestEqual(TEXT("An external power change never runs generator success"), Visits(QuestBindings::SuccessElement), 0);
+    TestEqual(TEXT("Refreshing external power changes dispatches no engine commands"), GateCommands + PickupCommands, CommandsBeforePowerChange);
+    TestFalse(TEXT("The gate still requires its own authored action"), Director->IsGateOpen());
+    Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("false"));
+    TestFalse(TEXT("Clearing the power attribute immediately clears the power getter"), Director->IsPowerRestored());
+    TestTrue(TEXT("The next terminal interaction refreshes the unpowered state"), StartQuest());
+    CheckPresentation(QuestBindings::PresentationCollectingElement);
+    TestFalse(TEXT("A normal refresh does not resurrect stale native power"), Director->IsPowerRestored());
+    TestEqual(TEXT("Clearing external power also dispatches no engine commands"), GateCommands + PickupCommands, CommandsBeforePowerChange);
     if (!CheckRestart()) return false;
     return true;
 }

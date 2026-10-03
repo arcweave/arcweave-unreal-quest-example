@@ -299,6 +299,39 @@ public:
             {
                 Test.TestEqual(TEXT("World restart restores each fixture's original intensity"), Light.Key->Intensity, Light.Value);
             }
+            // A state update drives the station through its normal notification path.
+            // Opening the gate remains a separately authored engine action.
+            UArcweaveSubsystem* Arcweave = GEngine->GetEngineSubsystem<UArcweaveSubsystem>();
+            Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("true"));
+            Test.TestTrue(TEXT("The world power getter reads the changed quest attribute immediately"), Director->IsPowerRestored());
+            if (!InteractAt(TEXT("terminal"))) return true;
+            Test.TestEqual(TEXT("A normal world interaction reads the external power milestone"),
+                Director->GetCurrentElementId(), FString(QuestBindings::TerminalPoweredElement));
+            Test.TestEqual(TEXT("External power refresh selects the powered presentation"),
+                Director->GetPresentationElementId(), FString(QuestBindings::PresentationPoweredElement));
+            Test.TestEqual(TEXT("External power refresh never executes the generator success element"), Visits(QuestBindings::SuccessElement), 0);
+            Test.TestFalse(TEXT("Power state alone does not issue the gate-opening action"), Director->IsGateOpen());
+            Test.TestTrue(TEXT("The separately controlled gate still blocks the doorway"), TraceGate(Hit));
+            for (const auto& Light : StationLights)
+            {
+                Test.TestTrue(TEXT("Normal world refresh lights the station from the scoped power value"), Light.Key->Intensity > Light.Value);
+            }
+            Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("false"));
+            Test.TestFalse(TEXT("Clearing scoped power immediately clears the world power getter"), Director->IsPowerRestored());
+            if (!InteractAt(TEXT("terminal"))) return true;
+            Test.TestEqual(TEXT("World presentation follows power back to the collecting state"),
+                Director->GetPresentationElementId(), FString(QuestBindings::PresentationCollectingElement));
+            Test.TestFalse(TEXT("Normal world refresh does not restore a stale native power flag"), Director->IsPowerRestored());
+            for (const auto& Light : StationLights)
+            {
+                Test.TestEqual(TEXT("World fixtures return to their unpowered intensity from the scoped value"), Light.Key->Intensity, Light.Value);
+            }
+            FString Error;
+            if (!Test.TestTrue(TEXT("The externally changed state also resets through normal restart"), Director->StartNewGame(Error)))
+            {
+                Test.AddError(Error);
+                return true;
+            }
             Character->QuestView(TEXT("overview"));
             return true;
         }
