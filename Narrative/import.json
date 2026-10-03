@@ -27,7 +27,8 @@
           "e110b153-2cfa-4294-adcc-e4b14cd0aef3",
           "270da112-6a6e-466e-b090-d0c0bb7c74ee",
           "fabbd4d2-3d23-41de-b66a-7f819fe7723e",
-          "5a5c96ae-ef6f-421e-b2da-efca55bc5bc3"
+          "5a5c96ae-ef6f-421e-b2da-efca55bc5bc3",
+          "e025a541-5646-496a-bb27-4bde51e34596"
         ],
         "customId": "restore_power_quest",
         "elements": [
@@ -50,7 +51,8 @@
           "469d524b-9a3e-41b4-9f94-67a17246b608",
           "988b8226-23eb-4990-b481-19cd7cd3145c",
           "12c92fd1-be9a-40c9-9bc3-1d6f5573ee9a",
-          "961efa28-f033-44aa-ae8f-25bcb9a8e3e1"
+          "961efa28-f033-44aa-ae8f-25bcb9a8e3e1",
+          "93ca29ff-abb1-4e7d-bb82-5fa932631783"
         ],
         "attributes": null,
         "connections": [
@@ -71,7 +73,14 @@
           "001db9e3-0994-414e-aa9d-f0d8df03efd1",
           "bad0e004-b1c5-497f-89b0-f18585d4e881",
           "d615dd01-51af-4054-a2e6-0150e6f7b06e",
-          "a2305253-4007-482c-8181-dcc093f75d48"
+          "a2305253-4007-482c-8181-dcc093f75d48",
+          "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9",
+          "3b7e9da7-09f5-4541-a0b0-e1f6484403be",
+          "03ee20e5-f8ab-4395-85e6-7b1c354db75e",
+          "8af468c1-2caa-4337-a820-c3473a67368e",
+          "2ade2c20-8e24-4d9d-8c98-8738e5c595c3",
+          "02768fd6-479e-48fe-a357-8eb5ed1d6deb",
+          "b06807ec-d45c-4751-9548-8b1fda1f9da2"
         ]
       },
       "a9ad17ae-15e4-49b7-aff7-7df07bc1f5a2": {
@@ -109,64 +118,64 @@
     "notes": {
       "6c069694-7fea-4980-b59d-d9dc2c857cc4": {
         "theme": "purple",
-        "content": "<p><strong>WORLD EVENTS · read each lane from left to right</strong></p><p>Unreal calls an entry point when the corresponding world event occurs. Connections inside a lane run automatically; unconnected lanes wait for their own event. Initialization never accepts the task.</p><p>Five global quest variables have distinct owners: questStarted and questCompleted are narrative milestones; powerRestored records the generator state; powerCells is the number of unique pickups collected by Unreal; requiredPowerCells is the authored target. The UI folder groups HUD text (hud), World text (world_text), and Quest display (quest_ui). Their nineteen scoped strings plus the five global quest variables make twenty-four runtime variables. Presentation refresh resets only quest_ui fields, preserving shared text overrides and quest state.</p><p>The collect_cell component requests a physical pickup. Unreal records that pickup, updates powerCells, and then follows the connection to the feedback element. restore_power and open_gate are registered C++ world actions. Completing the generator does not complete the quest: the player must enter the exit.</p><p>The Objectives and interface board chooses a cached display after each event. HUD drawing and focus queries only read that cache.</p>",
-        "x": 8500,
-        "y": 6800,
-        "width": 3500,
-        "height": 310,
+        "content": "<p><strong>WORLD EVENTS · one entry, four interaction routes</strong></p><p>Unreal supplies game_event.type and game_event.cell_already_collected, then runs Handle world event. The branch selects use_terminal, collect_cell, check_generator, or enter_exit; else gives feedback only. Every condition row has one output. Each selected lane runs to its final response and then waits for the next Unreal interaction.</p><p>Startup imports project defaults and refreshes Objectives and interface directly. There is no station-arrival event and no automatic terminal interaction. Five global quest variables track narrative progress and the collected-cell count. The standalone Game event component holds the two current interaction inputs. The UI folder holds nineteen scoped strings, for twenty-six runtime variables in total.</p><p>Inside the pickup lane, check the physical duplicate input first, then task acceptance. Only the permitted path requests collect_cell. Unreal records that pickup and updates powerCells before the next feedback element runs. restore_power and open_gate are C++ world actions. Powering the generator does not complete the quest: the player must enter the exit.</p><p>Objectives and interface refreshes the current objective and prompts after each event. Only quest_ui fields are reset, preserving quest state, event inputs, and shared text overrides. HUD drawing and focus queries only read the resulting cache.</p>",
+        "x": 6800,
+        "y": 7400,
+        "width": 5100,
+        "height": 360,
         "autoHeight": true
       },
       "e1d06b05-73ac-4040-97d1-04a6f8091204": {
         "theme": "purple",
-        "content": "<p><strong>INITIALIZE</strong></p><p>Called once after importing fresh project defaults. Ends with arrival feedback; no automatic terminal interaction.</p>",
-        "x": 8700,
-        "y": 7560,
-        "width": 1800,
-        "height": 140,
+        "content": "<p><strong>EVENT INPUTS · supplied by Unreal</strong></p><p>Game event (game_event) is a standalone data component. type is an empty string at startup; cell_already_collected is false. Before each interaction, Unreal writes both values, using false for non-pickup events. These describe the current request, not persistent quest progress.</p><p>In Arcweave Play Mode, set the desired type in the Debugger before running Handle world event. The empty or an unknown type follows the feedback-only fallback.</p>",
+        "x": 6800,
+        "y": 9700,
+        "width": 1900,
+        "height": 230,
         "autoHeight": true
       },
       "b7583d4b-fa40-4507-9057-7d2538281cc6": {
         "theme": "purple",
-        "content": "<p><strong>TERMINAL EVENT</strong></p><p>The terminal accepts the task once, then responds to accepted, powered, or completed state.</p>",
-        "x": 8700,
-        "y": 8200,
-        "width": 1800,
+        "content": "<p><strong>TERMINAL · game_event.type == \"use_terminal\"</strong></p><p>The terminal accepts the task once, then responds to accepted, powered, or completed state.</p>",
+        "x": 9000,
+        "y": 8150,
+        "width": 2500,
         "height": 140,
         "autoHeight": true
       },
       "63297b78-e94e-4676-9e36-7dbdb9b02061": {
         "theme": "purple",
-        "content": "<p><strong>GENERATOR EVENT</strong></p><p>Check already-powered state first, then task acceptance, then the authored cell requirement. Success opens the gate; it does not finish the quest.</p>",
-        "x": 8700,
-        "y": 10100,
-        "width": 1800,
+        "content": "<p><strong>GENERATOR · game_event.type == \"check_generator\"</strong></p><p>Check already-powered state first, then task acceptance, then the authored cell requirement. Success opens the gate; it does not finish the quest.</p>",
+        "x": 9000,
+        "y": 11700,
+        "width": 2500,
         "height": 140,
         "autoHeight": true
       },
       "567ce162-983d-43ba-b0d6-409dce845e18": {
         "theme": "purple",
-        "content": "<p><strong>PICKUP EVENT</strong></p><p>Narrative permission precedes the collect_cell world action. Render feedback only after Unreal updates powerCells.</p>",
-        "x": 8700,
-        "y": 11900,
-        "width": 1800,
-        "height": 140,
+        "content": "<p><strong>PICKUP · game_event.type == \"collect_cell\"</strong></p><p>If game_event.cell_already_collected, show the duplicate response. Else if !questStarted, require terminal acceptance. Otherwise request collect_cell; Unreal records the physical pickup and updates powerCells before the following progress feedback.</p>",
+        "x": 9000,
+        "y": 9800,
+        "width": 2500,
+        "height": 160,
         "autoHeight": true
       },
       "0bb7461c-3c0e-4337-8000-ef8c544dfd29": {
         "theme": "purple",
-        "content": "<p><strong>PHYSICAL DUPLICATE EVENT</strong></p><p>Unreal detects an already-collected world actor and executes this feedback directly. This physical fact needs no extra story variable.</p>",
-        "x": 8700,
-        "y": 13050,
-        "width": 1800,
+        "content": "<p><strong>FALLBACK · unrecognized event</strong></p><p>An empty or unknown game_event.type gives feedback only. It changes no quest state and requests no world action.</p>",
+        "x": 9000,
+        "y": 15500,
+        "width": 2500,
         "height": 140,
         "autoHeight": true
       },
       "8a1702ae-b5fe-44cb-bacd-97868065a17c": {
         "theme": "purple",
-        "content": "<p><strong>EXIT EVENT</strong></p><p>Called by the exit overlap. Only a powered exit can set questCompleted; repeated overlaps produce feedback without repeating completion.</p>",
-        "x": 8700,
+        "content": "<p><strong>EXIT · game_event.type == \"enter_exit\"</strong></p><p>Called by the exit overlap. Only a powered exit can set questCompleted; repeated overlaps produce feedback without repeating completion.</p>",
+        "x": 9000,
         "y": 13780,
-        "width": 1800,
+        "width": 2500,
         "height": 140,
         "autoHeight": true
       },
@@ -186,7 +195,7 @@
         "outputs": [],
         "components": [],
         "x": 10600,
-        "y": 11360,
+        "y": 13060,
         "width": 360,
         "height": 170,
         "autoHeight": true
@@ -198,7 +207,7 @@
         ],
         "components": [],
         "x": 9000,
-        "y": 11200,
+        "y": 12700,
         "width": 360,
         "height": 170,
         "autoHeight": true
@@ -211,7 +220,7 @@
           "80c7c42c-bb19-4065-8afa-7cd5b54776fc"
         ],
         "x": 10600,
-        "y": 11060,
+        "y": 12760,
         "width": 360,
         "height": 170,
         "autoHeight": true
@@ -229,16 +238,19 @@
       "05d919db-a991-45b7-b20f-db02dbd6f307": {
         "theme": "purple",
         "x": 10600,
-        "y": 10760,
+        "y": 12460,
         "width": 360,
         "height": 170,
         "autoHeight": true
       },
       "76724a0b-9935-4c27-9941-90c63f3a795c": {
         "theme": "cyan",
-        "x": 9000,
-        "y": 7900,
-        "width": 370,
+        "outputs": [
+          "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9"
+        ],
+        "x": 7100,
+        "y": 10800,
+        "width": 420,
         "height": 150,
         "autoHeight": true
       },
@@ -259,15 +271,15 @@
           "e47e38aa-d0f1-42b8-9434-9156e121730a"
         ],
         "x": 9000,
-        "y": 12500,
+        "y": 10600,
         "width": 370,
         "height": 150,
         "autoHeight": true
       },
       "35f2414d-8156-474e-98d3-eaf74211d45b": {
         "theme": "orange",
-        "x": 9000,
-        "y": 13300,
+        "x": 10600,
+        "y": 10220,
         "width": 370,
         "height": 150,
         "autoHeight": true
@@ -306,7 +318,7 @@
       "6af8cc14-6034-4e97-ab3f-6ebbdc207161": {
         "theme": "green",
         "x": 11300,
-        "y": 12620,
+        "y": 10820,
         "width": 370,
         "height": 150,
         "autoHeight": true
@@ -346,7 +358,7 @@
       "f0fd0f64-ef53-446f-a43b-63746394bba0": {
         "theme": "green",
         "x": 10600,
-        "y": 10460,
+        "y": 12160,
         "width": 370,
         "height": 150,
         "autoHeight": true
@@ -354,7 +366,7 @@
       "469d524b-9a3e-41b4-9f94-67a17246b608": {
         "theme": "purple",
         "x": 10600,
-        "y": 12320,
+        "y": 10520,
         "width": 370,
         "height": 150,
         "autoHeight": true
@@ -368,7 +380,7 @@
           "cf1cba2c-37e7-445e-be8d-8074e4ee251a"
         ],
         "x": 10600,
-        "y": 12620,
+        "y": 10820,
         "width": 370,
         "height": 150,
         "autoHeight": true
@@ -392,8 +404,8 @@
       "13031eea-0fa8-4721-ac16-8a583906a6ae": {
         "theme": "green",
         "attributes": [],
-        "x": 12200,
-        "y": 9460,
+        "x": 12100,
+        "y": 9600,
         "width": 430,
         "height": 180,
         "autoHeight": true
@@ -401,8 +413,8 @@
       "09438fc8-be1d-4f8a-adad-30170999ca60": {
         "theme": "green",
         "attributes": [],
-        "x": 12200,
-        "y": 9860,
+        "x": 12120,
+        "y": 9920,
         "width": 430,
         "height": 180,
         "autoHeight": true
@@ -411,7 +423,7 @@
         "theme": "purple",
         "attributes": [],
         "x": 10600,
-        "y": 10600,
+        "y": 10340,
         "width": 430,
         "height": 180,
         "autoHeight": true
@@ -432,8 +444,16 @@
         ],
         "x": 10600,
         "y": 9700,
-        "width": 420,
-        "height": 280,
+        "width": 501,
+        "height": 290,
+        "autoHeight": true
+      },
+      "93ca29ff-abb1-4e7d-bb82-5fa932631783": {
+        "theme": "orange",
+        "x": 9000,
+        "y": 15900,
+        "width": 370,
+        "height": 150,
         "autoHeight": true
       }
     },
@@ -553,7 +573,7 @@
         "sourceType": "conditions",
         "labelLocation": 0.5,
         "sourceid": "feab59f4-adc6-4a46-a584-6ebfc74c6a0c",
-        "targetid": "469d524b-9a3e-41b4-9f94-67a17246b608",
+        "targetid": "35f2414d-8156-474e-98d3-eaf74211d45b",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
@@ -724,6 +744,83 @@
         "type": "Bezier",
         "theme": "green",
         "targetType": "elements"
+      },
+      "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9": {
+        "sourceType": "elements",
+        "labelLocation": 0.5,
+        "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "cyan",
+        "targetType": "branches"
+      },
+      "3b7e9da7-09f5-4541-a0b0-e1f6484403be": {
+        "sourceType": "conditions",
+        "labelLocation": 0.5,
+        "sourceid": "4217abbe-746f-43f2-a371-d23bb30a00d0",
+        "targetid": "ebdc3d2e-5680-4b07-831c-fa919ef56da2",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "cyan",
+        "targetType": "elements"
+      },
+      "03ee20e5-f8ab-4395-85e6-7b1c354db75e": {
+        "sourceType": "conditions",
+        "labelLocation": 0.5,
+        "sourceid": "c90132f9-67bf-480d-a15d-9f343e1ad3d6",
+        "targetid": "df460871-e5db-4974-87f8-1b071d5039e6",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "cyan",
+        "targetType": "elements"
+      },
+      "8af468c1-2caa-4337-a820-c3473a67368e": {
+        "sourceType": "conditions",
+        "labelLocation": 0.5,
+        "sourceid": "ebcaec9e-848f-4f57-a0db-171b2d212cd3",
+        "targetid": "53a8e27d-542d-4222-85fc-36073d0e37df",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "cyan",
+        "targetType": "elements"
+      },
+      "2ade2c20-8e24-4d9d-8c98-8738e5c595c3": {
+        "sourceType": "conditions",
+        "labelLocation": 0.5,
+        "sourceid": "91b33bd2-a869-4dda-9b2d-86eebf566271",
+        "targetid": "802dcbdf-3cf6-4f75-8cbc-f8f03053f85e",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "cyan",
+        "targetType": "elements"
+      },
+      "02768fd6-479e-48fe-a357-8eb5ed1d6deb": {
+        "sourceType": "conditions",
+        "labelLocation": 0.5,
+        "sourceid": "3ae047a2-840d-4127-8d8d-871e801023de",
+        "targetid": "93ca29ff-abb1-4e7d-bb82-5fa932631783",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "cyan",
+        "targetType": "elements"
+      },
+      "b06807ec-d45c-4751-9548-8b1fda1f9da2": {
+        "sourceType": "conditions",
+        "labelLocation": 0.5,
+        "sourceid": "1df2d73c-5ea9-4fd8-a20a-148c183d6faa",
+        "targetid": "469d524b-9a3e-41b4-9f94-67a17246b608",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "cyan",
+        "targetType": "elements"
       }
     },
     "branches": {
@@ -738,7 +835,7 @@
           ]
         },
         "x": 9800,
-        "y": 11060
+        "y": 12700
       },
       "270da112-6a6e-466e-b090-d0c0bb7c74ee": {
         "conditions": {
@@ -756,11 +853,14 @@
       "fabbd4d2-3d23-41de-b66a-7f819fe7723e": {
         "conditions": {
           "ifCondition": "feab59f4-adc6-4a46-a584-6ebfc74c6a0c",
-          "elseCondition": "e0e8eaac-e08a-476d-afb6-9091d16703a5"
+          "elseCondition": "e0e8eaac-e08a-476d-afb6-9091d16703a5",
+          "elseIfConditions": [
+            "1df2d73c-5ea9-4fd8-a20a-148c183d6faa"
+          ]
         },
         "theme": "gold",
         "x": 9800,
-        "y": 12400
+        "y": 10500
       },
       "5a5c96ae-ef6f-421e-b2da-efca55bc5bc3": {
         "conditions": {
@@ -793,8 +893,22 @@
           "elseCondition": "ee76d0f7-f2c1-40c5-aa7e-39cda4612fcf"
         },
         "theme": "green",
-        "x": 11400,
-        "y": 9700
+        "x": 11500,
+        "y": 9760
+      },
+      "e025a541-5646-496a-bb27-4bde51e34596": {
+        "conditions": {
+          "ifCondition": "4217abbe-746f-43f2-a371-d23bb30a00d0",
+          "elseCondition": "3ae047a2-840d-4127-8d8d-871e801023de",
+          "elseIfConditions": [
+            "c90132f9-67bf-480d-a15d-9f343e1ad3d6",
+            "ebcaec9e-848f-4f57-a0db-171b2d212cd3",
+            "91b33bd2-a869-4dda-9b2d-86eebf566271"
+          ]
+        },
+        "theme": "gold",
+        "x": 7900,
+        "y": 10800
       }
     },
     "contents": {
@@ -935,12 +1049,12 @@
       "76724a0b-9935-4c27-9941-90c63f3a795c": {
         "title": {
           "en": {
-            "text": "<p>Initialize · station arrival</p>"
+            "text": "<p>Handle world event</p>"
           }
         },
         "content": {
           "en": {
-            "text": "<p>The gate has no power. Use the terminal to begin.</p>"
+            "text": "<p>Handling world event…</p>"
           }
         },
         "_status": {}
@@ -974,7 +1088,7 @@
       "35f2414d-8156-474e-98d3-eaf74211d45b": {
         "title": {
           "en": {
-            "text": "<p>Physical duplicate · already collected</p>"
+            "text": "<p>Pickup denied · already collected</p>"
           }
         },
         "content": {
@@ -1251,7 +1365,7 @@
       "e7253f89-1829-4d47-a08b-30ea13c87b1d": {
         "label": {
           "en": {
-            "text": "<p>Accept the task first</p>"
+            "text": "<p>Cell already collected</p>"
           }
         },
         "_status": {}
@@ -1411,6 +1525,83 @@
           }
         },
         "_status": {}
+      },
+      "c6d692fd-c0f0-4045-9fe4-c69315169526": {
+        "name": {
+          "en": {
+            "text": "Game event"
+          }
+        },
+        "_status": {}
+      },
+      "93ca29ff-abb1-4e7d-bb82-5fa932631783": {
+        "title": {
+          "en": {
+            "text": "<p>Unrecognized event</p>"
+          }
+        },
+        "content": {
+          "en": {
+            "text": "<p>This interaction is not supported.</p>"
+          }
+        },
+        "_status": {}
+      },
+      "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9": {
+        "label": {
+          "en": {
+            "text": "<p>Route current interaction</p>"
+          }
+        },
+        "_status": {}
+      },
+      "3b7e9da7-09f5-4541-a0b0-e1f6484403be": {
+        "label": {
+          "en": {
+            "text": "<p>Use terminal</p>"
+          }
+        },
+        "_status": {}
+      },
+      "03ee20e5-f8ab-4395-85e6-7b1c354db75e": {
+        "label": {
+          "en": {
+            "text": "<p>Collect cell</p>"
+          }
+        },
+        "_status": {}
+      },
+      "8af468c1-2caa-4337-a820-c3473a67368e": {
+        "label": {
+          "en": {
+            "text": "<p>Check generator</p>"
+          }
+        },
+        "_status": {}
+      },
+      "2ade2c20-8e24-4d9d-8c98-8738e5c595c3": {
+        "label": {
+          "en": {
+            "text": "<p>Enter exit</p>"
+          }
+        },
+        "_status": {}
+      },
+      "02768fd6-479e-48fe-a357-8eb5ed1d6deb": {
+        "label": {
+          "en": {
+            "text": "<p>Unknown event</p>"
+          }
+        },
+        "_status": {}
+      },
+      "b06807ec-d45c-4751-9548-8b1fda1f9da2": {
+        "label": {
+          "en": {
+            "text": "<p>Accept the task first</p>"
+          }
+        },
+        "_status": {}
       }
     },
     "components": {
@@ -1420,7 +1611,8 @@
           "defba3c3-cdce-4b80-91cc-b75118f1f512",
           "80c7c42c-bb19-4065-8afa-7cd5b54776fc",
           "06f4de3e-a022-472e-a2f9-bd73ee5875ee",
-          "db068631-e0b6-47cd-a534-fa42111f70c3"
+          "db068631-e0b6-47cd-a534-fa42111f70c3",
+          "c6d692fd-c0f0-4045-9fe4-c69315169526"
         ]
       },
       "80c7c42c-bb19-4065-8afa-7cd5b54776fc": {
@@ -1486,6 +1678,13 @@
           "b4d7afa5-a92d-49b3-8ea0-55a3241493d3",
           "cbb76304-82df-41d7-8ba6-3e2473db352f",
           "f7b0c1df-9308-4ab2-874a-8766f270ed3d"
+        ]
+      },
+      "c6d692fd-c0f0-4045-9fe4-c69315169526": {
+        "customId": "game_event",
+        "attributes": [
+          "8ed8d440-99a2-49ed-9ed5-794e356827ac",
+          "7d1df7b7-0fdc-47bd-80aa-0374c9e43f04"
         ]
       }
     },
@@ -1698,6 +1897,27 @@
         "customId": "mission_heading",
         "cType": "components",
         "cId": "e170ad75-b550-436b-9877-32a16bcaffbe"
+      },
+      "8ed8d440-99a2-49ed-9ed5-794e356827ac": {
+        "name": "type",
+        "value": {
+          "plain": true,
+          "type": "string",
+          "data": null
+        },
+        "customId": "type",
+        "cType": "components",
+        "cId": "c6d692fd-c0f0-4045-9fe4-c69315169526"
+      },
+      "7d1df7b7-0fdc-47bd-80aa-0374c9e43f04": {
+        "name": "cell_already_collected",
+        "value": {
+          "data": false,
+          "type": "boolean"
+        },
+        "customId": "cell_already_collected",
+        "cType": "components",
+        "cId": "c6d692fd-c0f0-4045-9fe4-c69315169526"
       }
     },
     "assets": {
@@ -1782,7 +2002,7 @@
         "output": "125db735-28b7-4f4c-9ff1-f3d61a086977"
       },
       "feab59f4-adc6-4a46-a584-6ebfc74c6a0c": {
-        "script": "!questStarted",
+        "script": "game_event.cell_already_collected",
         "output": "e7253f89-1829-4d47-a08b-30ea13c87b1d"
       },
       "e0e8eaac-e08a-476d-afb6-9091d16703a5": {
@@ -1824,6 +2044,30 @@
       "ee3c74da-7f14-4583-adba-f673ce574696": {
         "script": "questCompleted",
         "output": "b782ed46-246d-4c30-aa99-73753c446c1e"
+      },
+      "4217abbe-746f-43f2-a371-d23bb30a00d0": {
+        "script": "game_event.type == \"use_terminal\"",
+        "output": "3b7e9da7-09f5-4541-a0b0-e1f6484403be"
+      },
+      "3ae047a2-840d-4127-8d8d-871e801023de": {
+        "script": null,
+        "output": "02768fd6-479e-48fe-a357-8eb5ed1d6deb"
+      },
+      "c90132f9-67bf-480d-a15d-9f343e1ad3d6": {
+        "script": "game_event.type == \"collect_cell\"",
+        "output": "03ee20e5-f8ab-4395-85e6-7b1c354db75e"
+      },
+      "ebcaec9e-848f-4f57-a0db-171b2d212cd3": {
+        "script": "game_event.type == \"check_generator\"",
+        "output": "8af468c1-2caa-4337-a820-c3473a67368e"
+      },
+      "91b33bd2-a869-4dda-9b2d-86eebf566271": {
+        "script": "game_event.type == \"enter_exit\"",
+        "output": "2ade2c20-8e24-4d9d-8c98-8738e5c595c3"
+      },
+      "1df2d73c-5ea9-4fd8-a20a-148c183d6faa": {
+        "script": "!questStarted",
+        "output": "b06807ec-d45c-4751-9548-8b1fda1f9da2"
       }
     },
     "locales": [

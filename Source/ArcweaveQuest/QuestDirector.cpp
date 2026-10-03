@@ -54,33 +54,38 @@ bool UQuestDirector::StartNewGame(FString& Error)
     }
     bProjectLoaded = true;
 
-    // Initialization supplies guidance without accepting the terminal's task.
-    return RunEvent(QuestBindings::InitializationElement, Error);
+    // Startup computes the authored objective/UI without simulating a world interaction.
+    if (!RefreshPresentation(Error))
+    {
+        return false;
+    }
+    Error.Empty();
+    PublishChange();
+    return true;
 }
 
 bool UQuestDirector::StartQuest(FString& Error)
 {
-    return RunEvent(QuestBindings::TerminalEntryElement, Error);
+    return RunEvent(TEXT("use_terminal"), Error);
 }
 
 bool UQuestDirector::CollectCell(FName CellId, FString& Error)
 {
     // Physical item identity belongs to Unreal. Arcweave owns permission and feedback.
     PendingCellId = CellId;
-    const bool bResult = RunEvent(CollectedCells.Contains(CellId)
-        ? QuestBindings::DuplicatePickupElement : QuestBindings::PickupEntryElement, Error);
+    const bool bResult = RunEvent(TEXT("collect_cell"), Error, CollectedCells.Contains(CellId));
     PendingCellId = NAME_None;
     return bResult;
 }
 
 bool UQuestDirector::TryRestorePower(FString& Error)
 {
-    return RunEvent(QuestBindings::GeneratorElement, Error);
+    return RunEvent(TEXT("check_generator"), Error);
 }
 
 bool UQuestDirector::ReachExit(FString& Error)
 {
-    return RunEvent(QuestBindings::ExitEntryElement, Error);
+    return RunEvent(TEXT("enter_exit"), Error);
 }
 
 bool UQuestDirector::IsQuestStarted() const
@@ -107,15 +112,19 @@ int32 UQuestDirector::GetRequiredPowerCellCount() const
         QuestBindings::RequiredPowerCellsVariable).Value) : 0;
 }
 
-bool UQuestDirector::RunEvent(const FString& EntryElementId, FString& Error)
+bool UQuestDirector::RunEvent(const FString& EventType, FString& Error, bool bCellAlreadyCollected)
 {
     if (!bProjectLoaded)
     {
         return RejectInteraction(TEXT("The local narrative export has not been loaded. Restart after checking the export file."), Error);
     }
 
+    // Replace the complete event input each time; pickup context cannot leak into later events.
+    Arcweave->SetVariable(QuestBindings::EventTypeAttribute, EventType);
+    Arcweave->SetVariable(QuestBindings::CellAlreadyCollectedAttribute, bCellAlreadyCollected ? TEXT("true") : TEXT("false"));
+
     FArcweaveElementData LastElement;
-    if (!RunGraph(EntryElementId, true, LastElement, Error) || !RefreshPresentation(Error))
+    if (!RunGraph(QuestBindings::EventEntryElement, true, LastElement, Error) || !RefreshPresentation(Error))
     {
         return false;
     }

@@ -41,7 +41,7 @@ public:
 private:
     friend class FArcweaveQuestFlowTest;
 
-    bool RunEvent(const FString& EntryElementId, FString& Error);
+    bool RunEvent(const FString& EventType, FString& Error, bool bCellAlreadyCollected = false);
     bool RunGraph(const FString& EntryElementId, bool bDispatchCommands,
         FArcweaveElementData& LastElement, FString& Error);
     bool RefreshPresentation(FString& Error);

@@ -2,20 +2,56 @@
 
 Open [Restore Power — Unreal C++ Quest Sample](https://arcweave.com/app/project/MWEZgMb62g) in [workspace Z7gAR6XY](https://arcweave.com/app/workspace/Z7gAR6XY/projects). Access requires permission to the workspace or project. The bundled export runs locally without an API key.
 
-Arcweave owns quest decisions, feedback, objectives, interaction prompts, and station labels. Unreal supplies physical events and implements three authored world commands. The project has two boards: **01 · World event flows** has separate, labeled event lanes; **02 · Objectives and interface** selects the current display. The **UI** component folder groups the interface strings by purpose.
+Arcweave owns quest decisions, feedback, objectives, interaction prompts, and station labels. Unreal supplies physical events and implements three authored world commands. The project has two boards: **01 · World event flows** connects one shared entry and event-routing branch to four labeled interaction lanes; **02 · Objectives and interface** selects the current display. The **UI** component folder groups the interface strings by purpose.
 
 ## World events
 
-Each entry runs its connected path until an element has no output. A connection means “continue this event now.” Moving between the terminal, pickups, generator, and exit requires another Unreal event, so those lanes are not connected to one another.
+Unreal writes the two current interaction inputs on the standalone **Game event** component, then executes `EventEntryElement` (**Handle world event**). Its single output leads to `EventRouterBranch`. The branch chooses one of four interaction lanes, or the feedback-only unknown-event response. A connection means “continue this event now.” Each selected path ends at its final response; it does not loop back or run another interaction automatically.
 
-| Unreal event | Arcweave entry | Authored behavior |
+| Event router condition | Destination | Authored behavior |
 | --- | --- | --- |
-| Start/restart | `InitializationElement` | Shows the opening instruction without accepting the task. |
-| Use terminal | `TerminalEntryElement` | Checks completed, powered, and accepted states in order. Otherwise, `StartElement` sets `questStarted = true`. Repeated interactions have their own feedback. |
-| Collect a new cell | `PickupEntryElement` | Denies collection before acceptance. Otherwise, `PickupActionElement` requests `collect_cell`, then `PickupCollectedElement` renders the updated count. |
-| Use an already collected cell | `DuplicatePickupElement` | Supplies the duplicate-pickup response. Unreal tracks physical item identity. |
-| Use generator | `GeneratorElement` | Checks already powered, task not accepted, and sufficient cells in order. Success sets `powerRestored = true` and requests `restore_power` and `open_gate`; otherwise it gives guidance. |
-| Enter the exit volume | `ExitEntryElement` | Gives repeat feedback if completed; sets `questCompleted = true` only when power is restored; otherwise denies exit. |
+| **IF** `game_event.type == "use_terminal"` | `TerminalEntryElement` | Checks completed, powered, and accepted states in order. Otherwise, `StartElement` sets `questStarted = true`. Repeated interactions have their own feedback. |
+| **ELSE IF** `game_event.type == "collect_cell"` | `PickupEntryElement` | Checks whether that physical cell was already collected, then task acceptance. Only the permitted path requests `collect_cell`; its next element renders the updated count. |
+| **ELSE IF** `game_event.type == "check_generator"` | `GeneratorElement` | Checks already powered, task not accepted, and sufficient cells in order. Success sets `powerRestored = true` and requests `restore_power` and `open_gate`; otherwise it gives guidance. |
+| **ELSE IF** `game_event.type == "enter_exit"` | `ExitEntryElement` | Gives repeat feedback if completed; sets `questCompleted = true` only when power is restored; otherwise denies exit. |
+| **ELSE** | `UnknownEventElement` | Gives feedback without changing quest state or requesting a world action. |
+
+```mermaid
+flowchart LR
+    Entry[Handle world event] --> Router{EventRouterBranch}
+    Router -->|use_terminal| Terminal[Terminal flow]
+    Router -->|collect_cell| Pickup[Pickup flow]
+    Router -->|check_generator| Generator[Generator flow]
+    Router -->|enter_exit| Exit[Exit flow]
+    Router -->|else| Unknown[Unrecognized event feedback]
+```
+
+Every condition row has exactly **one outgoing connection**. The pickup entry connects to `PickupBranch`, whose rows are:
+
+| Pickup condition | Single destination |
+| --- | --- |
+| **IF** `game_event.cell_already_collected` | `DuplicatePickupElement`: “This power cell has already been collected.” |
+| **ELSE IF** `!questStarted` | `PickupTerminalRequiredElement`: “Use the terminal to accept the task first.” |
+| **ELSE** | `PickupActionElement`: requests `collect_cell`, then continues to `PickupCollectedElement`. |
+
+Unreal owns the physical identity of each pickup and supplies the duplicate flag. Arcweave owns the check order, collection permission, and response. Both new and repeated pickup requests use the same `collect_cell` event; there is no duplicate-cell event.
+
+Startup and restart load fresh project defaults and execute `PresentationEntryElement` directly. The initial objective is **Use the terminal to begin.** They do not execute the event entry, emit an arrival message, or accept the task.
+
+## Game event inputs
+
+The standalone **Game event** component has custom ID `game_event` and sits outside the UI folder. These attributes describe the current request, independently of quest progress:
+
+| Attribute | Type / default | Meaning |
+| --- | --- | --- |
+| `type` | Plain string / empty | The interaction being handled: `use_terminal`, `collect_cell`, `check_generator`, or `enter_exit`. |
+| `cell_already_collected` | Boolean / `false` | Whether Unreal has already recorded this specific physical pickup. |
+
+`UQuestDirector::RunEvent` replaces **both** inputs before executing the shared entry. Non-pickup events set the duplicate flag to `false`; pickup requests set it from the collected-cell ID set. The inputs retain the latest request until the next interaction and reset with a new game. An empty `type` means no request has been supplied. If manually executed with an empty or unknown value, the entry reaches the fallback without changing quest progress. Arcweave exports the empty plain string as JSON `null`, which the released Unreal plugin imports as an empty string.
+
+For Arcweave Play Mode, set `game_event.type` in the Debugger to the interaction you want to simulate, set the duplicate flag as appropriate, and run **Handle world event**. To simulate the next interaction, change the inputs and replay that entry. Physical collection, lighting, and gate commands run in Unreal; Play Mode does not implement their physical effects.
+
+## Runtime execution
 
 The generator condition is `powerCells >= requiredPowerCells`. Before acceptance, the authored prerequisite wins even if enough cells are present. After power is restored, interacting again reaches an authored review response. Opening the gate does not complete the task: the player must enter the exit.
 
@@ -39,7 +75,7 @@ Command names are component **custom IDs** understood by this sample's C++ regis
 | `powerRestored` | `false` | Arcweave records generator success. |
 | `questCompleted` | `false` | Arcweave records arrival at the powered exit. |
 
-The scene contains two pickups. Change `requiredPowerCells` to `1` to try a shorter task; a target above `2` needs additional Unreal pickups. Arcweave Play Mode can exercise the lanes by starting at their entries and changing these variables in the Debugger. Physical collection, lighting, and gate commands execute in Unreal. The UI components add nineteen scoped string variables, giving the imported project **24 runtime variables** in total.
+The scene contains two pickups. Change `requiredPowerCells` to `1` to try a shorter task; a target above `2` needs additional Unreal pickups. The UI components add nineteen scoped string variables and Game event adds two interaction inputs, giving the imported project **26 runtime variables** in total: five globals, nineteen UI strings, and two event inputs.
 
 ## UI components
 
@@ -69,7 +105,7 @@ After every event, C++ runs `PresentationEntryElement`, which restores the seven
 - `reset(quest_ui.generator_label)`
 - `reset(quest_ui.gate_label)`
 
-These defaults describe the collecting state. The connected graph applies small overrides for other states, then ends on one of the five objective leaves. Only `quest_ui.*` is reset; quest progress and HUD/world text overrides survive the refresh.
+These defaults describe the collecting state. The connected graph applies small overrides for other states, then ends on one of the five objective leaves. Only `quest_ui.*` is reset; quest progress, event inputs, and HUD/world text overrides survive the refresh.
 
 ```mermaid
 flowchart LR
@@ -95,17 +131,17 @@ flowchart LR
 
 The collecting objective renders both numbers with `show()`, using the same variables as the generator condition. The powered and completed displays retain the **Review running generator** prompt so the authored repeat response remains accessible. The leaves carry objective content and their few Arcscript overrides; display fields live on the Quest display component.
 
-Presentation may read known quest and UI variables, show text, and assign the seven `quest_ui.*` fields. Its conditions only read state, and its paths dispatch no command components. The entry's seven individual resets prevent stale display values when moving between states; it never calls `resetAll()`. Refreshing records presentation visits once per execution. The released native plugin requires **one statement per Arcscript code block**; consecutive blocks execute in order. Use separate blocks for the powered setup's four assignments and the unaccepted state's two assignments as well.
+Presentation may read known quest, event, and UI variables, show text, and assign the seven `quest_ui.*` fields. Its conditions only read state, and its paths dispatch no command components. The entry's seven individual resets prevent stale display values when moving between states; it never calls `resetAll()`. Refreshing records presentation visits once per execution. The released native plugin requires **one statement per Arcscript code block**; consecutive blocks execute in order. Use separate blocks for the powered setup's four assignments and the unaccepted state's two assignments as well.
 
 ## Files and editing
 
-- `Narrative/bindings.json` and `Source/ArcweaveQuest/QuestBindings.h` identify the entry points, feedback/display leaves, global variables, three UI components, and command components used by C++ or its tests. Conditions, connections, notes, and attributes retain their IDs in the graph without becoming C++ bindings.
+- `Narrative/bindings.json` and `Source/ArcweaveQuest/QuestBindings.h` identify the shared event entry and routing branch, interaction lanes, pickup branch, feedback/display leaves, five global variables, three UI components, Game event component and its two input attributes, and command components used by C++ or its tests. Other conditions, connections, notes, and attributes retain their IDs in the graph without becoming C++ bindings.
 - `Narrative/project.json` records the online project/workspace, export URLs, export time, and SHA-256 checksums. It contains no credential.
 - `Narrative/import.json` reproduces this graph and its board layout using the all-locales authoring export plus coordinates from the Unreal export. Importing its `project` creates a separate project; it does not update the linked one.
 - `Narrative/authoring.json` is the actual Arcweave JSON API export. That endpoint omits coordinates.
 - `Content/ArcweaveExport/quest.json` is the actual Unreal API response, including its `project` envelope and layout. It is the only JSON file in that import directory.
 
-Keep the bound IDs, command and UI custom IDs, and variable meanings when editing. Text, attribute defaults, conditions, notes, node positions, and internal automatic paths can change without adding C++ bindings. Automatic paths must remain acyclic, stay within one board, and have at most one output per element. Each condition row has exactly one outgoing connection; use separate condition rows for separate outcomes. Changing the event interface, supported commands, or presentation contract requires corresponding C++ changes.
+Keep the bound IDs, command and data-component custom IDs, event names, and variable meanings when editing. Text, attribute defaults, conditions, notes, node positions, and internal automatic paths can change without adding C++ bindings. Automatic paths must remain acyclic, stay within one board, and have at most one output per element. Each condition row has exactly one outgoing connection; use separate condition rows for separate outcomes. Changing the event interface, supported commands, or presentation contract requires corresponding C++ changes.
 
 ## Refresh the bundled narrative
 
@@ -115,7 +151,7 @@ Use Python 3.9 or later and an API key with **Read projects** access to the samp
 python Scripts/sync-narrative.py --token-file "/path/outside/repository/arcweave-token.txt"
 ```
 
-The script downloads both exports from `https://arcweave.com` and validates them before replacing either file. It checks required bindings, five global variables and their new-game defaults, the three UI components and their nineteen strings, graph connections and cycles, separate world-event entries, nonempty executable content, and command placement. Presentation checks require the seven unconditional entry resets, one statement per code block, read-only conditions, and writes restricted to known `quest_ui.*` fields. New designer notes and internal graph objects do not require bindings. It updates export checksums, does not edit online projects, and never stores or prints the key. Two requests count against the workspace's import/export rate limit; on HTTP 429, wait for the reported interval and rerun. The layout-preserving `import.json` is maintained separately as a reproducible snapshot.
+The script downloads both exports from `https://arcweave.com` and validates them before replacing either file. It checks required bindings, five global variables and their new-game defaults, the three UI components and their nineteen strings, the Game event component and its two typed inputs, graph connections and cycles, the shared entry and four router conditions, pickup check order, nonempty executable content, and command placement. Entry, fallback, and denied-pickup nodes must produce feedback only; the routed interaction lanes remain separate downstream of the router. Presentation checks require the seven unconditional entry resets, one statement per code block, read-only conditions, and writes restricted to known `quest_ui.*` fields. New designer notes and internal graph objects do not require bindings. It updates export checksums, does not edit online projects, and never stores or prints the key. Two requests count against the workspace's import/export rate limit; on HTTP 429, wait for the reported interval and rerun. The layout-preserving `import.json` is maintained separately as a reproducible snapshot.
 
 Run `python Scripts/test-sync-narrative.py` to check the bundled exports and validator regressions offline, without an API key.
 

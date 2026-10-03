@@ -1,7 +1,6 @@
 #pragma once
 
-// Stable runtime and test UUIDs from Narrative/bindings.json.
-// Internal conditions, connections, notes, and attributes stay in the authored graph.
+// Stable UUIDs from Narrative/bindings.json.
 namespace QuestBindings
 {
     inline constexpr const TCHAR* Board = TEXT("b031a811-813e-45a6-8d7f-30c0e4e46eac");
@@ -19,7 +18,7 @@ namespace QuestBindings
     inline constexpr const TCHAR* QuestCompletedVariable = TEXT("902e425d-c870-4206-aca6-f0e288d925f5");
     inline constexpr const TCHAR* PresentationBoard = TEXT("a9ad17ae-15e4-49b7-aff7-7df07bc1f5a2");
     inline constexpr const TCHAR* CollectCellComponent = TEXT("06f4de3e-a022-472e-a2f9-bd73ee5875ee");
-    inline constexpr const TCHAR* InitializationElement = TEXT("76724a0b-9935-4c27-9941-90c63f3a795c");
+    inline constexpr const TCHAR* EventEntryElement = TEXT("76724a0b-9935-4c27-9941-90c63f3a795c");
     inline constexpr const TCHAR* TerminalEntryElement = TEXT("ebdc3d2e-5680-4b07-831c-fa919ef56da2");
     inline constexpr const TCHAR* PickupEntryElement = TEXT("df460871-e5db-4974-87f8-1b071d5039e6");
     inline constexpr const TCHAR* DuplicatePickupElement = TEXT("35f2414d-8156-474e-98d3-eaf74211d45b");
@@ -46,4 +45,10 @@ namespace QuestBindings
     inline constexpr const TCHAR* PresentationBranch = TEXT("3cd93c4b-0dbb-47b0-9335-f36e3a27af08");
     inline constexpr const TCHAR* PresentationPoweredSetupElement = TEXT("a21dc333-37fa-4de2-9213-0acfbfff4811");
     inline constexpr const TCHAR* PresentationCompletionBranch = TEXT("6562a23b-ba75-455b-9cba-119f77f7dd80");
+    inline constexpr const TCHAR* PickupBranch = TEXT("fabbd4d2-3d23-41de-b66a-7f819fe7723e");
+    inline constexpr const TCHAR* GameEventComponent = TEXT("c6d692fd-c0f0-4045-9fe4-c69315169526");
+    inline constexpr const TCHAR* EventTypeAttribute = TEXT("8ed8d440-99a2-49ed-9ed5-794e356827ac");
+    inline constexpr const TCHAR* CellAlreadyCollectedAttribute = TEXT("7d1df7b7-0fdc-47bd-80aa-0374c9e43f04");
+    inline constexpr const TCHAR* EventRouterBranch = TEXT("e025a541-5646-496a-bb27-4bde51e34596");
+    inline constexpr const TCHAR* UnknownEventElement = TEXT("93ca29ff-abb1-4e7d-bb82-5fa932631783");
 }

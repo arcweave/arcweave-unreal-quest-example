@@ -37,6 +37,11 @@ UI_COMPONENTS = {
     "QuestUIComponent": ("quest_ui", DISPLAY_FIELDS),
 }
 SCOPED_FIELDS = dict(UI_COMPONENTS.values())
+EVENT_INPUTS = {
+    "EventTypeAttribute": ("type", "string", ""),
+    "CellAlreadyCollectedAttribute": ("cell_already_collected", "boolean", False),
+}
+SCOPED_FIELDS["game_event"] = {item[0] for item in EVENT_INPUTS.values()}
 VARIABLES = {
     "QuestStartedVariable": ("questStarted", "boolean", False),
     "PowerCellsVariable": ("powerCells", "integer", 0),
@@ -44,10 +49,26 @@ VARIABLES = {
     "PowerRestoredVariable": ("powerRestored", "boolean", False),
     "QuestCompletedVariable": ("questCompleted", "boolean", False),
 }
-EVENT_ENTRIES = (
-    "InitializationElement", "TerminalEntryElement", "PickupEntryElement",
-    "DuplicatePickupElement", "GeneratorElement", "ExitEntryElement",
-)
+EVENT_ROUTES = {
+    "use_terminal": "TerminalEntryElement",
+    "collect_cell": "PickupEntryElement",
+    "check_generator": "GeneratorElement",
+    "enter_exit": "ExitEntryElement",
+}
+EVENT_LANES = {
+    "TerminalEntryElement": (
+        "StartElement", "TerminalAcceptedElement", "TerminalPoweredElement", "TerminalCompletedElement",
+    ),
+    "PickupEntryElement": (
+        "PickupBranch", "DuplicatePickupElement", "PickupTerminalRequiredElement",
+        "PickupActionElement", "PickupCollectedElement",
+    ),
+    "GeneratorElement": (
+        "SuccessElement", "MissingCellsElement", "TerminalRequiredElement", "AlreadyOnlineElement",
+    ),
+    "ExitEntryElement": ("CompletedElement", "ExitDeniedElement", "ExitAlreadyCompletedElement"),
+    "UnknownEventElement": (),
+}
 DISPLAY_LEAVES = tuple("Presentation" + state + "Element" for state in (
     "Completed", "Powered", "Unaccepted", "Collecting", "Ready",
 ))
@@ -149,6 +170,30 @@ def validate_display_content(content, entry=False):
         raise ValueError("Presentation entry must reset each of the seven quest_ui fields exactly once.")
 
 
+def validate_feedback_content(content, label):
+    blocks = CodeBlocks()
+    blocks.feed(content or "")
+    for script in blocks.blocks:
+        try:
+            statements = ast.parse(arcscript_expression(script).strip()).body
+        except SyntaxError as error:
+            raise ValueError(f"{label} must be feedback only, without changing state or calling commands.") from error
+        call = statements[0].value if len(statements) == 1 and isinstance(statements[0], ast.Expr) else None
+        if not (
+            isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+            and call.func.id == "show" and not call.keywords
+            and all(read_expression(argument) for argument in call.args)
+        ):
+            raise ValueError(f"{label} must be feedback only, without changing state or calling commands.")
+
+
+def condition_expression(script):
+    try:
+        return ast.dump(ast.parse(arcscript_expression(script or "").strip(), mode="eval"))
+    except SyntaxError:
+        return None
+
+
 def element_content(project, element_id):
     element = project["elements"][element_id]
     if "content" in element:
@@ -188,8 +233,8 @@ def validate_bindings(project, bindings):
         collection = next((value for suffix, value in suffixes.items() if name.endswith(suffix)), None)
         if collection is None or ident not in project[collection]:
             raise ValueError(f"The export is missing the {name} binding.")
-    if project["startingElement"] != bindings["InitializationElement"]:
-        raise ValueError("The starting element must initialize the station without accepting the task.")
+    if project["startingElement"] != bindings["EventEntryElement"]:
+        raise ValueError("The starting element must be the shared world-event entry.")
 
     for binding, (name, kind, default) in VARIABLES.items():
         variable = project["variables"][bindings[binding]]
@@ -211,16 +256,38 @@ def validate_bindings(project, bindings):
         validate_ui_component(project, component_id, scope, fields)
         for attribute_id in project["components"][component_id]["attributes"]:
             ui_attributes[attribute_id] = component_id
+    event_component_id = bindings["GameEventComponent"]
+    event_component = project["components"][event_component_id]
+    if event_component.get("customId") != "game_event" or "children" in event_component:
+        raise ValueError("The game_event data component must have its required custom ID and cannot be a folder.")
+    event_attributes = event_component.get("attributes", []) or []
+    if len(event_attributes) != len(EVENT_INPUTS) or set(event_attributes) != {bindings[name] for name in EVENT_INPUTS}:
+        raise ValueError("The game_event component must contain exactly its two bound input attributes.")
+    for binding, (name, kind, default) in EVENT_INPUTS.items():
+        attribute = project["attributes"][bindings[binding]]
+        value = attribute["value"]
+        data = value.get("data")
+        # Arcweave exports empty string attributes as null; the released plugin imports them as "".
+        if kind == "string" and data is None:
+            data = ""
+        if (
+            attribute.get("customId") != name or attribute.get("cType") != "components"
+            or attribute.get("cId") != event_component_id or value.get("type") != kind
+            or "data" not in value or type(data) is not type(default) or data != default
+            or (kind == "string" and value.get("plain") is not True)
+        ):
+            raise ValueError(f"The game_event.{name} input must keep its bound owner, type, and empty/false default.")
+    scoped_attributes = {**ui_attributes, **{ident: event_component_id for ident in event_attributes}}
     for attribute_id, attribute in project["attributes"].items():
         if attribute.get("cType") in {"boards", "components"}:
             value = attribute["value"]
             if value["type"] in {"boolean", "integer", "float"} or (value["type"] == "string" and value.get("plain")):
-                if (attribute_id not in ui_attributes or attribute["cType"] != "components"
-                        or attribute.get("cId") != ui_attributes[attribute_id]):
-                    raise ValueError("Only the nineteen UI string attributes may add scoped variables.")
+                if (attribute_id not in scoped_attributes or attribute["cType"] != "components"
+                        or attribute.get("cId") != scoped_attributes[attribute_id]):
+                    raise ValueError("Only the nineteen UI strings and two game_event inputs may add scoped variables.")
     for component_id, component in project["components"].items():
-        if component_id not in ui_ids and component.get("customId") in SCOPED_FIELDS:
-            raise ValueError("UI data component scopes must be unique.")
+        if component_id not in ui_ids | {event_component_id} and component.get("customId") in SCOPED_FIELDS:
+            raise ValueError("UI and game_event data component scopes must be unique.")
 
     # Runtime exports flatten folders; validate organization when the tree is serialized.
     folders = [item for item in project["components"].values() if "children" in item]
@@ -280,8 +347,8 @@ def validate_bindings(project, bindings):
         for output in outputs:
             edge(ident, ident, "elements", output)
         components = element.get("components", []) or []
-        if ui_ids.intersection(components):
-            raise ValueError("UI components must remain standalone data, not attached gameplay commands.")
+        if (ui_ids | {event_component_id}).intersection(components):
+            raise ValueError("UI and game_event components must remain standalone data, not attached gameplay commands.")
         expected = command_elements.get(ident, set())
         if set(components) != expected or len(components) != len(expected):
             raise ValueError("Only PickupAction may collect a cell; only Success may restore power and open the gate.")
@@ -346,19 +413,74 @@ def validate_bindings(project, bindings):
            for item in project["attributes"].values()):
         raise ValueError("Presentation elements must not retain metadata; use quest_ui component fields.")
 
-    event_ids = {bindings[name] for name in EVENT_ENTRIES}
-    for source in event_ids:
-        for current in reachable(edges[source]):
-            if current in event_ids:
-                raise ValueError("Separate world-event entry points must not execute one another automatically.")
-            if current in display_ids:
-                raise ValueError("World events must not automatically enter the presentation graph.")
-            if current == bindings["PickupActionElement"] and source != bindings["PickupEntryElement"]:
-                raise ValueError("Only the pickup event supplies the physical identity needed by collect_cell.")
-    if display_ids.intersection(reachable(event_ids)):
-        raise ValueError("World-event and presentation graphs must execute separately.")
+    event_entry = bindings["EventEntryElement"]
+    event_router = bindings["EventRouterBranch"]
+    if edges[event_entry] != [event_router]:
+        raise ValueError("The shared world-event entry must connect directly to its routing branch.")
+    router_group = project["branches"][event_router]["conditions"]
+    router_conditions = branch_conditions[event_router]
+    router_else = router_group.get("elseCondition")
+    expected_routes = {
+        condition_expression(f'game_event.type == "{event}"'): bindings[entry]
+        for event, entry in EVENT_ROUTES.items()
+    }
+    actual_routes = {
+        condition_expression(project["conditions"][ident].get("script")): target
+        for ident, target in zip(router_conditions, edges[event_router]) if ident != router_else
+    }
+    if (
+        len(router_conditions) != len(EVENT_ROUTES) + 1 or actual_routes != expected_routes
+        or not router_else or project["conditions"][router_else].get("script")
+        or edges[event_router][-1] != bindings["UnknownEventElement"]
+    ):
+        raise ValueError("The event router must select terminal, collect_cell, generator, or exit, with an unknown-event fallback.")
 
-    for ident in reachable(event_ids | {display_entry}):
+    pickup_branch = bindings["PickupBranch"]
+    if edges[bindings["PickupEntryElement"]] != [pickup_branch]:
+        raise ValueError("The pickup entry must connect directly to its duplicate/acceptance checks.")
+    pickup_conditions = branch_conditions[pickup_branch]
+    pickup_else = project["branches"][pickup_branch]["conditions"].get("elseCondition")
+    if (
+        len(pickup_conditions) != 3 or pickup_conditions[-1] != pickup_else
+        or project["conditions"][pickup_else].get("script")
+        or [condition_expression(project["conditions"][ident].get("script")) for ident in pickup_conditions[:-1]]
+        != [condition_expression("game_event.cell_already_collected"), condition_expression("!questStarted")]
+        or edges[pickup_branch] != [bindings[name] for name in (
+            "DuplicatePickupElement", "PickupTerminalRequiredElement", "PickupActionElement",
+        )]
+    ):
+        raise ValueError("The pickup branch must check duplicate identity first, then task acceptance, before collecting.")
+
+    world_ids = reachable({event_entry})
+    if world_ids.intersection(display_ids):
+        raise ValueError("World events must not automatically enter the presentation graph.")
+    lane_ids = {name: reachable({bindings[name]}) for name in EVENT_LANES}
+    for name, current in lane_ids.items():
+        if name != "PickupEntryElement" and bindings["PickupActionElement"] in current:
+            raise ValueError("Only the pickup event supplies the physical identity needed by collect_cell.")
+    for name, current in lane_ids.items():
+        if any(current.intersection(other) for other_name, other in lane_ids.items() if other_name != name):
+            raise ValueError("Separate world-event lanes must not execute one another or share automatic paths.")
+        if not {bindings[item] for item in EVENT_LANES[name]}.issubset(current):
+            raise ValueError("Each world-event lane must retain its bound outcomes and gameplay checks.")
+    world_board = project["boards"][bindings["Board"]]
+    world_nodes = set(world_board.get("elements", []) or []) | set(world_board.get("branches", []) or [])
+    if world_ids != world_nodes:
+        raise ValueError("Every world-event node must be reachable from the shared event entry on its board.")
+
+    feedback_nodes = {
+        "EventEntryElement": "The shared event entry",
+        "PickupEntryElement": "The pickup entry",
+        "UnknownEventElement": "Unknown-event feedback",
+        "DuplicatePickupElement": "Duplicate-pickup feedback",
+        "PickupTerminalRequiredElement": "Task-required pickup feedback",
+    }
+    for name, label in feedback_nodes.items():
+        if name not in {"EventEntryElement", "PickupEntryElement"} and edges[bindings[name]]:
+            raise ValueError(f"{label} must end its flow without executing additional nodes.")
+        validate_feedback_content(element_content(project, bindings[name]), label)
+
+    for ident in world_ids | display_ids:
         if ident in project["elements"]:
             content = element_content(project, ident)
             parsed = CodeBlocks()

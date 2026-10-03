@@ -46,6 +46,24 @@ class NarrativeValidationTests(unittest.TestCase):
     def generator_connection(self):
         return self.project["connections"][self.element("GeneratorElement")["outputs"][0]]
 
+    def conditions(self, binding):
+        group = self.project["branches"][self.bindings[binding]]["conditions"]
+        return [self.project["conditions"][ident] for ident in (
+            [group["ifCondition"]] + (group.get("elseIfConditions", []) or []) + [group["elseCondition"]]
+        )]
+
+    def route_connection(self, binding, index):
+        return self.project["connections"][self.conditions(binding)[index]["output"]]
+
+    def add_output(self, source_binding, target_binding):
+        ident = "c4aa7afb-eb4e-40ce-8e2b-ac1cb6b98a5b"
+        self.project["connections"][ident] = {
+            "sourceid": self.bindings[source_binding], "sourceType": "elements",
+            "targetid": self.bindings[target_binding], "targetType": "elements",
+        }
+        self.element(source_binding)["outputs"] = [ident]
+        self.project["boards"][self.bindings["Board"]]["connections"].append(ident)
+
     def localized_content(self, binding):
         locale = next(item["iso"] for item in self.project["locales"] if item["base"] is None)
         return self.project["contents"][self.bindings[binding]]["content"][locale]
@@ -98,6 +116,129 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_required_cell_count_can_be_tuned(self):
         self.variable("RequiredPowerCellsVariable")["value"] = 1
         self.validate()
+
+    def test_input_display_names_and_feedback_wording_can_change(self):
+        self.project["components"][self.bindings["GameEventComponent"]]["name"] = "Interaction inputs"
+        self.project["attributes"][self.bindings["EventTypeAttribute"]]["name"] = "Requested interaction"
+        self.element("UnknownEventElement")["content"] = "<p>There is no action for this interaction.</p>"
+        self.validate()
+
+    def test_event_router_accepts_equivalent_whitespace_and_quotes(self):
+        self.conditions("EventRouterBranch")[0]["script"] = "  (game_event.type == 'use_terminal')  "
+        self.validate()
+
+    def test_independent_event_routes_can_be_reordered(self):
+        group = self.project["branches"][self.bindings["EventRouterBranch"]]["conditions"]
+        group["ifCondition"], group["elseIfConditions"][1] = group["elseIfConditions"][1], group["ifCondition"]
+        self.validate()
+
+    def test_starting_element_must_be_shared_event_entry(self):
+        self.project["startingElement"] = self.bindings["TerminalEntryElement"]
+        self.assert_invalid("starting element must be the shared world-event entry")
+
+    def test_event_entry_cannot_bypass_router(self):
+        output = self.element("EventEntryElement")["outputs"][0]
+        self.project["connections"][output].update(targetid=self.bindings["TerminalEntryElement"], targetType="elements")
+        self.assert_invalid("shared world-event entry must connect directly to its routing branch")
+
+    def test_event_route_cannot_select_another_interaction(self):
+        self.route_connection("EventRouterBranch", 0)["targetid"] = self.bindings["GeneratorElement"]
+        self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
+
+    def test_event_router_has_no_startup_or_separate_duplicate_route(self):
+        for event in ("start", "duplicate_cell"):
+            with self.subTest(event=event):
+                self.conditions("EventRouterBranch")[0]["script"] = f'game_event.type == "{event}"'
+                self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
+
+    def test_event_router_cannot_repeat_an_event_condition(self):
+        self.conditions("EventRouterBranch")[1]["script"] = self.conditions("EventRouterBranch")[0]["script"]
+        self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
+
+    def test_event_router_requires_all_four_interaction_routes(self):
+        group = self.project["branches"][self.bindings["EventRouterBranch"]]["conditions"]
+        removed = group["elseIfConditions"].pop(0)
+        output = self.project["conditions"].pop(removed)["output"]
+        del self.project["connections"][output]
+        self.project["boards"][self.bindings["Board"]]["connections"].remove(output)
+        self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
+
+    def test_unknown_event_cannot_default_to_a_gameplay_action(self):
+        self.route_connection("EventRouterBranch", -1)["targetid"] = self.bindings["ExitEntryElement"]
+        self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
+
+    def test_unknown_event_fallback_cannot_have_a_condition(self):
+        self.conditions("EventRouterBranch")[-1]["script"] = "questStarted"
+        self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
+
+    def test_event_router_cannot_change_state_while_routing(self):
+        self.conditions("EventRouterBranch")[0]["script"] = 'resetAll() || game_event.type == "use_terminal"'
+        self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
+
+    def test_pickup_entry_cannot_bypass_duplicate_and_acceptance_checks(self):
+        output = self.element("PickupEntryElement")["outputs"][0]
+        self.project["connections"][output].update(targetid=self.bindings["PickupActionElement"], targetType="elements")
+        self.assert_invalid("pickup entry must connect directly to its duplicate/acceptance checks")
+
+    def test_duplicate_check_runs_before_task_acceptance(self):
+        group = self.project["branches"][self.bindings["PickupBranch"]]["conditions"]
+        group["ifCondition"], group["elseIfConditions"][0] = group["elseIfConditions"][0], group["ifCondition"]
+        self.assert_invalid("pickup branch must check duplicate identity first")
+
+    def test_duplicate_route_cannot_collect_again(self):
+        self.route_connection("PickupBranch", 0)["targetid"] = self.bindings["PickupActionElement"]
+        self.assert_invalid("pickup branch must check duplicate identity first")
+
+    def test_pickup_requires_the_supplied_physical_identity_flag(self):
+        self.conditions("PickupBranch")[0]["script"] = "powerCells > 0"
+        self.assert_invalid("pickup branch must check duplicate identity first")
+
+    def test_pickup_acceptance_check_cannot_be_inverted(self):
+        self.conditions("PickupBranch")[1]["script"] = "questStarted"
+        self.assert_invalid("pickup branch must check duplicate identity first")
+
+    def test_duplicate_feedback_cannot_fall_through_to_collection(self):
+        self.add_output("DuplicatePickupElement", "PickupActionElement")
+        self.assert_invalid("Duplicate-pickup feedback must end its flow")
+
+    def test_task_required_feedback_cannot_fall_through_to_collection(self):
+        self.add_output("PickupTerminalRequiredElement", "PickupActionElement")
+        self.assert_invalid("Task-required pickup feedback must end its flow")
+
+    def test_unknown_event_can_show_current_input_without_changing_it(self):
+        self.script("UnknownEventElement", "show(game_event.type)")
+        self.validate()
+
+    def test_unknown_event_cannot_change_quest_or_input_state(self):
+        for script in ('questStarted = true', 'game_event.type = "use_terminal"', 'resetAll()', 'show(random(10))'):
+            with self.subTest(script=script):
+                self.script("UnknownEventElement", script)
+                self.assert_invalid("Unknown-event feedback must be feedback only")
+
+    def test_unknown_event_cannot_emit_a_world_command(self):
+        self.element("UnknownEventElement")["components"] = [self.bindings["OpenGateComponent"]]
+        self.assert_invalid("only Success may restore power and open the gate")
+
+    def test_unknown_event_cannot_enter_another_lane(self):
+        self.add_output("UnknownEventElement", "GeneratorElement")
+        self.assert_invalid("world-event lanes must not execute one another")
+
+    def test_shared_entry_cannot_accept_the_task_during_routing(self):
+        self.script("EventEntryElement", "questStarted = true")
+        self.assert_invalid("shared event entry must be feedback only")
+
+    def test_pickup_entry_cannot_overwrite_the_identity_flag(self):
+        self.script("PickupEntryElement", "game_event.cell_already_collected = false")
+        self.assert_invalid("pickup entry must be feedback only")
+
+    def test_localized_unknown_event_cannot_change_state(self):
+        self.project = copy.deepcopy(self.localized)
+        self.localized_content("UnknownEventElement")["text"] = self.code_block("questStarted = true")
+        self.assert_invalid("Unknown-event feedback must be feedback only")
+
+    def test_cross_event_interior_node_is_rejected(self):
+        self.generator_connection().update(targetid=self.bindings["TerminalAcceptedElement"], targetType="elements")
+        self.assert_invalid("world-event lanes must not execute one another")
 
     def test_designer_note_needs_no_cpp_binding(self):
         note = "7ae1f39d-3536-411d-a38a-867961d460f4"
@@ -152,7 +293,82 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_ui_scope_cannot_be_duplicated_by_another_component(self):
         self.project["components"][self.bindings["RestorePowerComponent"]]["customId"] = "quest_ui"
-        self.assert_invalid("UI data component scopes must be unique")
+        self.assert_invalid("UI and game_event data component scopes must be unique")
+
+    def test_event_scope_cannot_be_duplicated_by_another_component(self):
+        self.project["components"][self.bindings["RestorePowerComponent"]]["customId"] = "game_event"
+        self.assert_invalid("UI and game_event data component scopes must be unique")
+
+    def test_event_component_must_keep_its_input_scope(self):
+        self.project["components"][self.bindings["GameEventComponent"]]["customId"] = "interaction"
+        self.assert_invalid("game_event data component must have its required custom ID")
+
+    def test_event_component_cannot_be_placed_in_the_ui_folder(self):
+        self.project = copy.deepcopy(self.localized)
+        self.ui_folder()["children"].append(self.bindings["GameEventComponent"])
+        self.assert_invalid("UI folder must contain exactly the three data components")
+
+    def test_event_component_cannot_be_attached_as_a_command(self):
+        self.element("EventEntryElement")["components"] = [self.bindings["GameEventComponent"]]
+        self.assert_invalid("game_event components must remain standalone data")
+
+    def test_event_inputs_require_their_exact_bound_attributes(self):
+        self.project["components"][self.bindings["GameEventComponent"]]["attributes"].pop()
+        self.assert_invalid("game_event component must contain exactly its two bound input attributes")
+
+    def test_event_component_cannot_add_a_third_input(self):
+        extra = "d9880807-af60-4c29-9456-8c64d833aa0e"
+        self.project["attributes"][extra] = dict(
+            self.project["attributes"][self.bindings["EventTypeAttribute"]], customId="cell_id")
+        self.project["components"][self.bindings["GameEventComponent"]]["attributes"].append(extra)
+        self.assert_invalid("game_event component must contain exactly its two bound input attributes")
+
+    def test_event_input_names_and_ownership_are_part_of_the_contract(self):
+        for binding in SYNC.EVENT_INPUTS:
+            original = copy.deepcopy(self.project["attributes"][self.bindings[binding]])
+            for key, value in (("customId", "other_input"), ("cType", "boards"), ("cId", self.bindings["HUDTextComponent"])):
+                with self.subTest(binding=binding, key=key):
+                    self.project["attributes"][self.bindings[binding]] = dict(original, **{key: value})
+                    self.assert_invalid("input must keep its bound owner, type, and empty/false default")
+            self.project["attributes"][self.bindings[binding]] = original
+
+    def test_event_type_input_requires_an_empty_plain_string(self):
+        attribute = self.project["attributes"][self.bindings["EventTypeAttribute"]]
+        for value in (
+            {"type": "string", "data": "start", "plain": True},
+            {"type": "string", "data": "", "plain": False},
+            {"type": "string", "data": False, "plain": True},
+            {"type": "boolean", "data": False},
+        ):
+            with self.subTest(value=value):
+                attribute["value"] = value
+                self.assert_invalid("game_event.type input must keep its bound owner, type, and empty/false default")
+
+    def test_exported_null_event_type_imports_as_an_empty_string(self):
+        attribute = self.project["attributes"][self.bindings["EventTypeAttribute"]]
+        for data in (None, ""):
+            with self.subTest(data=data):
+                attribute["value"]["data"] = data
+                self.validate()
+
+    def test_event_inputs_require_data_to_be_imported_by_the_plugin(self):
+        for binding in SYNC.EVENT_INPUTS:
+            with self.subTest(binding=binding):
+                value = self.project["attributes"][self.bindings[binding]]["value"]
+                original = value.pop("data")
+                self.assert_invalid("input must keep its bound owner, type, and empty/false default")
+                value["data"] = original
+
+    def test_collected_input_requires_a_false_boolean(self):
+        attribute = self.project["attributes"][self.bindings["CellAlreadyCollectedAttribute"]]
+        for value in (
+            {"type": "boolean", "data": True},
+            {"type": "boolean", "data": 0},
+            {"type": "string", "data": "false", "plain": True},
+        ):
+            with self.subTest(value=value):
+                attribute["value"] = value
+                self.assert_invalid("game_event.cell_already_collected input must keep its bound owner, type, and empty/false default")
 
     def test_missing_bound_entry_is_rejected(self):
         del self.project["elements"][self.bindings["TerminalEntryElement"]]
@@ -256,25 +472,39 @@ class NarrativeValidationTests(unittest.TestCase):
         owner = self.bindings["RestorePowerComponent"]
         self.project["attributes"][extra] = dict(self.ui_attribute(), cId=owner, customId="debug_label")
         self.project["components"][owner]["attributes"] = [extra]
-        self.assert_invalid("Only the nineteen UI string attributes may add scoped variables")
+        self.assert_invalid("Only the nineteen UI strings and two game_event inputs may add scoped variables")
 
     def test_additional_board_variable_is_rejected(self):
         extra = "5aa30329-45b8-42df-b65b-1e94f0a76a84"
         owner = self.bindings["Board"]
         self.project["attributes"][extra] = dict(self.ui_attribute(), cType="boards", cId=owner, customId="debug_label")
         self.project["boards"][owner]["attributes"] = [extra]
-        self.assert_invalid("Only the nineteen UI string attributes may add scoped variables")
+        self.assert_invalid("Only the nineteen UI strings and two game_event inputs may add scoped variables")
 
     def test_ui_component_cannot_be_attached_as_a_command(self):
         for binding in SYNC.UI_COMPONENTS:
             with self.subTest(component=binding):
-                self.element("InitializationElement")["components"] = [self.bindings[binding]]
-                self.assert_invalid("UI components must remain standalone data")
+                self.element("EventEntryElement")["components"] = [self.bindings[binding]]
+                self.assert_invalid("UI and game_event components must remain standalone data")
 
     def test_presentation_can_show_known_ui_field(self):
         self.script("PresentationCollectingElement",
                     "show(hud.station_name, world_text.sign_exit, quest_ui.mission_heading, powerCells)")
         self.validate()
+
+    def test_presentation_can_read_event_inputs(self):
+        self.script("PresentationCollectingElement", "show(game_event.type, game_event.cell_already_collected)")
+        self.validate()
+
+    def test_presentation_cannot_assign_event_inputs(self):
+        for script in ('game_event.type = "use_terminal"', "game_event.cell_already_collected = false"):
+            with self.subTest(script=script):
+                self.script("PresentationCollectingElement", script)
+                self.assert_invalid("Presentation may only assign quest_ui fields")
+
+    def test_presentation_cannot_read_an_unknown_event_input(self):
+        self.script("PresentationCollectingElement", "show(game_event.cell_id)")
+        self.assert_invalid("Presentation may only assign quest_ui fields")
 
     def test_presentation_condition_can_read_known_ui_field(self):
         branch = self.project["branches"][self.bindings["PresentationBranch"]]
@@ -330,7 +560,10 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Presentation may only assign quest_ui fields")
 
     def test_entry_cannot_reset_gameplay_or_static_ui(self):
-        for target in ("questStarted", "hud.station_name", "world_text.sign_exit", "quest_ui.unknown"):
+        for target in (
+            "questStarted", "hud.station_name", "world_text.sign_exit", "quest_ui.unknown",
+            "game_event.type", "game_event.cell_already_collected",
+        ):
             with self.subTest(target=target):
                 self.element("PresentationEntryElement")["content"] = (
                     "".join(self.entry_resets()) + self.code_block(f"reset({target})"))
@@ -429,7 +662,13 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_automatic_cross_event_entry_is_rejected(self):
         self.generator_connection().update(targetid=self.bindings["ExitEntryElement"], targetType="elements")
-        self.assert_invalid("world-event entry points must not execute one another")
+        self.assert_invalid("world-event lanes must not execute one another")
+
+    def test_unconnected_world_event_element_is_rejected(self):
+        ident = "6529841b-dc21-43f6-b73d-85e49e5663d5"
+        self.project["elements"][ident] = {"content": "<p>Unused arrival message.</p>"}
+        self.project["boards"][self.bindings["Board"]]["elements"].append(ident)
+        self.assert_invalid("Every world-event node must be reachable from the shared event entry")
 
     def test_collection_requires_pickup_event_context(self):
         self.generator_connection().update(targetid=self.bindings["PickupActionElement"], targetType="elements")
@@ -443,8 +682,8 @@ class NarrativeValidationTests(unittest.TestCase):
         self.element("TerminalEntryElement")["components"] = [self.bindings["CollectCellComponent"]]
         self.assert_invalid("Only PickupAction")
 
-    def test_power_command_on_initialization_is_rejected(self):
-        self.element("InitializationElement")["components"] = [self.bindings["RestorePowerComponent"]]
+    def test_power_command_on_shared_event_entry_is_rejected(self):
+        self.element("EventEntryElement")["components"] = [self.bindings["RestorePowerComponent"]]
         self.assert_invalid("only Success may restore power")
 
     def test_gate_command_on_exit_is_rejected(self):

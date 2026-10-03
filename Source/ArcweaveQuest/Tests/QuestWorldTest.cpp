@@ -68,6 +68,12 @@ public:
             Test.TestEqual(TEXT("World uses the authored two-cell requirement"), Director->GetRequiredPowerCellCount(), 2);
             Test.TestFalse(TEXT("World starts without power"), Director->IsPowerRestored());
             Test.TestFalse(TEXT("World starts without completion"), Director->IsQuestCompleted());
+            Test.TestEqual(TEXT("World startup does not simulate an interaction"), Visits(QuestBindings::EventEntryElement), 0);
+            Test.TestTrue(TEXT("World startup has no gameplay cursor"), Director->GetCurrentElementId().IsEmpty());
+            Test.TestTrue(TEXT("World startup has no interaction feedback"), Director->GetStatus().IsEmpty());
+            Test.TestEqual(TEXT("World startup computes the authored initial objective"), Director->GetObjective(), FString(TEXT("Use the terminal to begin.")));
+            Test.TestTrue(TEXT("World startup leaves the event type empty"), Variable(QuestBindings::EventTypeAttribute).IsEmpty());
+            Test.TestEqual(TEXT("World startup leaves duplicate context false"), Variable(QuestBindings::CellAlreadyCollectedAttribute), FString(TEXT("false")));
             InitialVisits = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().Visits;
             FHitResult Hit;
             Test.TestTrue(TEXT("Closed gate blocks the actual doorway collision trace"), TraceGate(Hit));
@@ -114,8 +120,7 @@ public:
             Test.TestEqual(TEXT("Physical cell label comes from the authored catalog"),
                 CellA->FindComponentByClass<UTextRenderComponent>()->Text.ToString(),
                 Director->GetUIText(TEXT("world_text.cell_a_label")));
-            Character->QuestView(TEXT("exit"));
-            PhaseStart = World->GetTimeSeconds();
+            EnterExit();
             ++Step;
             return false;
 
@@ -124,6 +129,7 @@ public:
             if (World->GetTimeSeconds() - PhaseStart < 0.1) return false;
             Test.TestEqual(TEXT("Real exit overlap before power executes authored denial"),
                 Director->GetCurrentElementId(), FString(QuestBindings::ExitDeniedElement));
+            CheckExitEvent();
             Test.TestFalse(TEXT("An early physical exit overlap cannot complete the task"), Director->IsQuestCompleted());
             Test.TestFalse(TEXT("An early exit overlap cannot restore power"), Director->IsPowerRestored());
             if (!InteractAt(TEXT("terminal"))) return true;
@@ -149,8 +155,12 @@ public:
                 Director->GetStatus(), FString(TEXT("Collected a power cell (1/2).")));
             Test.TestTrue(TEXT("Quest notification hides the actual collected cell A actor"), CellA->IsHidden());
             Test.TestFalse(TEXT("Collected cell A no longer blocks collision"), CellA->GetActorEnableCollision());
-            Character->QuestInteract();
-            Test.TestEqual(TEXT("Pressing interact again at the collected pickup cannot duplicate it"), Director->GetPowerCellCount(), 1);
+            {
+                const int32 BeforeHiddenInteraction = Visits(QuestBindings::EventEntryElement);
+                Character->QuestInteract();
+                Test.TestEqual(TEXT("Pressing interact again at the collected pickup cannot duplicate it"), Director->GetPowerCellCount(), 1);
+                Test.TestEqual(TEXT("A hidden pickup no longer generates physical interaction events"), Visits(QuestBindings::EventEntryElement), BeforeHiddenInteraction);
+            }
             ++Step;
             return false;
 
@@ -206,8 +216,7 @@ public:
             }
             Test.TestTrue(TEXT("Repeated native prompt reads leave every narrative visit unchanged"),
                 Before.Visits.OrderIndependentCompareEqual(GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().Visits));
-            Character->QuestView(TEXT("exit"));
-            PhaseStart = World->GetTimeSeconds();
+            EnterExit();
             ++Step;
             return false;
         }
@@ -220,6 +229,7 @@ public:
             Test.TestEqual(TEXT("Physical completion selects the completed presentation"),
                 Director->GetPresentationElementId(), FString(QuestBindings::PresentationCompletedElement));
             Test.TestEqual(TEXT("Physical exit entry completes exactly once"), Visits(QuestBindings::CompletedElement), 1);
+            CheckExitEvent();
             Character->QuestView(TEXT("gate"));
             PhaseStart = World->GetTimeSeconds();
             ++Step;
@@ -227,8 +237,7 @@ public:
 
         case 10:
             if (World->GetTimeSeconds() - PhaseStart < 0.1) return false;
-            Character->QuestView(TEXT("exit"));
-            PhaseStart = World->GetTimeSeconds();
+            EnterExit();
             ++Step;
             return false;
 
@@ -239,6 +248,7 @@ public:
                 Director->GetCurrentElementId(), FString(QuestBindings::ExitAlreadyCompletedElement));
             Test.TestEqual(TEXT("Physical reentry does not execute completion twice"), Visits(QuestBindings::CompletedElement), 1);
             Test.TestTrue(TEXT("Repeated physical exit entry preserves completion"), Director->IsQuestCompleted());
+            CheckExitEvent();
             // Leave the trigger before restarting so the next session begins outside it.
             Character->QuestView(TEXT("gate"));
             FString Error;
@@ -262,7 +272,11 @@ public:
             Test.TestFalse(TEXT("World restart makes cell B visible again"), CellB->IsHidden());
             Test.TestTrue(TEXT("World restart restores cell A collision"), CellA->GetActorEnableCollision());
             Test.TestTrue(TEXT("World restart restores cell B collision"), CellB->GetActorEnableCollision());
-            Test.TestEqual(TEXT("World restart executes initialization once"), Visits(QuestBindings::InitializationElement), 1);
+            Test.TestEqual(TEXT("World restart does not simulate an interaction"), Visits(QuestBindings::EventEntryElement), 0);
+            Test.TestTrue(TEXT("World restart clears the gameplay cursor"), Director->GetCurrentElementId().IsEmpty());
+            Test.TestTrue(TEXT("World restart clears gameplay feedback"), Director->GetStatus().IsEmpty());
+            Test.TestTrue(TEXT("World restart clears the last event type"), Variable(QuestBindings::EventTypeAttribute).IsEmpty());
+            Test.TestEqual(TEXT("World restart clears duplicate context"), Variable(QuestBindings::CellAlreadyCollectedAttribute), FString(TEXT("false")));
             Test.TestEqual(TEXT("World restart clears the previous completion visit"), Visits(QuestBindings::CompletedElement), 0);
             Test.TestEqual(TEXT("World restart selects the unaccepted presentation"),
                 Director->GetPresentationElementId(), FString(QuestBindings::PresentationUnacceptedElement));
@@ -290,6 +304,27 @@ private:
         return GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().Visits.FindChecked(Id);
     }
 
+    FString Variable(const TCHAR* Id) const
+    {
+        return GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().CurrentVars.FindChecked(Id).Value;
+    }
+
+    void EnterExit()
+    {
+        BeforeExitVisits = Visits(QuestBindings::ExitEntryElement);
+        BeforeExitEventVisits = Visits(QuestBindings::EventEntryElement);
+        Character->QuestView(TEXT("exit"));
+        PhaseStart = World->GetTimeSeconds();
+    }
+
+    void CheckExitEvent()
+    {
+        Test.TestEqual(TEXT("Physical exit overlap enters the shared event graph once"), Visits(QuestBindings::EventEntryElement), BeforeExitEventVisits + 1);
+        Test.TestEqual(TEXT("Physical exit overlap traverses the exit lane once"), Visits(QuestBindings::ExitEntryElement), BeforeExitVisits + 1);
+        Test.TestEqual(TEXT("Physical exit overlap supplies the exit event type"), Variable(QuestBindings::EventTypeAttribute), FString(TEXT("enter_exit")));
+        Test.TestEqual(TEXT("Physical exit overlap clears pickup context"), Variable(QuestBindings::CellAlreadyCollectedAttribute), FString(TEXT("false")));
+    }
+
     AQuestWorldActor* InteractAt(const TCHAR* View)
     {
         Character->QuestView(View);
@@ -304,7 +339,14 @@ private:
         AQuestWorldActor* Target = Cast<AQuestWorldActor>(Hit.GetActor());
         if (Test.TestNotNull(FString::Printf(TEXT("%s viewpoint traces a real interactive actor"), View), Target))
         {
+            const int32 BeforeEventVisits = Visits(QuestBindings::EventEntryElement);
             Character->QuestInteract();
+            const FString ExpectedEvent = FString(View) == TEXT("terminal") ? TEXT("use_terminal")
+                : FString(View) == TEXT("generator") ? TEXT("check_generator") : TEXT("collect_cell");
+            Test.TestEqual(FString(View) + TEXT(" interaction enters the shared event graph exactly once"),
+                Visits(QuestBindings::EventEntryElement), BeforeEventVisits + 1);
+            Test.TestEqual(FString(View) + TEXT(" interaction supplies its event type"), Variable(QuestBindings::EventTypeAttribute), ExpectedEvent);
+            Test.TestEqual(FString(View) + TEXT(" interaction supplies fresh pickup context"), Variable(QuestBindings::CellAlreadyCollectedAttribute), FString(TEXT("false")));
         }
         return Target;
     }
@@ -327,6 +369,8 @@ private:
     TArray<TPair<TWeakObjectPtr<UPointLightComponent>, float>> StationLights;
     TMap<FString, int32> InitialVisits;
     int32 Step = 0;
+    int32 BeforeExitVisits = 0;
+    int32 BeforeExitEventVisits = 0;
     double Deadline;
     double AnimationStart = 0.0;
     double PhaseStart = 0.0;
