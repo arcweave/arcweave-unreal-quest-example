@@ -234,17 +234,33 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TestEqual(Prefix + TEXT("sets the event type before routing"), Variable(QuestBindings::EventTypeAttribute), FString(EventType));
         TestEqual(Prefix + TEXT("replaces pickup context before routing"), Variable(QuestBindings::CellAlreadyCollectedAttribute),
             FString(bExpectedDuplicate ? TEXT("true") : TEXT("false")));
-        const TPair<const TCHAR*, const TCHAR*> Lanes[] = {
-            {TEXT("use_terminal"), QuestBindings::TerminalEntryElement},
-            {TEXT("collect_cell"), QuestBindings::PickupEntryElement},
-            {TEXT("check_generator"), QuestBindings::GeneratorElement},
-            {TEXT("enter_exit"), QuestBindings::ExitEntryElement}
-        };
-        for (const auto& Lane : Lanes)
+        struct FEventLane
         {
-            const int32 ExpectedIncrement = FString(EventType) == Lane.Key ? 1 : 0;
-            TestEqual(Prefix + TEXT("routes only to the selected lane: ") + Lane.Key,
-                After.Visits.FindChecked(Lane.Value), Before.Visits.FindChecked(Lane.Value) + ExpectedIncrement);
+            const TCHAR* EventType;
+            TArray<const TCHAR*> Responses;
+        };
+        const FEventLane Lanes[] = {
+            {TEXT("use_terminal"), {QuestBindings::StartElement, QuestBindings::TerminalAcceptedElement,
+                QuestBindings::TerminalPoweredElement, QuestBindings::TerminalCompletedElement}},
+            {TEXT("collect_cell"), {QuestBindings::DuplicatePickupElement, QuestBindings::PickupTerminalRequiredElement,
+                QuestBindings::PickupCollectedElement}},
+            {TEXT("check_generator"), {QuestBindings::TerminalRequiredElement, QuestBindings::MissingCellsElement,
+                QuestBindings::SuccessElement, QuestBindings::AlreadyOnlineElement}},
+            {TEXT("enter_exit"), {QuestBindings::ExitDeniedElement, QuestBindings::CompletedElement,
+                QuestBindings::ExitAlreadyCompletedElement}}
+        };
+        // The plugin counts element visits, not branch evaluations. Each selected lane
+        // must execute exactly one response, with no response from another event's lane.
+        for (const FEventLane& Lane : Lanes)
+        {
+            int32 ResponseVisits = 0;
+            for (const TCHAR* Response : Lane.Responses)
+            {
+                ResponseVisits += After.Visits.FindChecked(Response) - Before.Visits.FindChecked(Response);
+            }
+            const int32 ExpectedIncrement = FString(EventType) == Lane.EventType ? 1 : 0;
+            TestEqual(Prefix + TEXT("executes only the selected lane's response: ") + Lane.EventType,
+                ResponseVisits, ExpectedIncrement);
         }
         return bResult;
     };
@@ -374,7 +390,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Narrative denial is not an integration error"), Error.IsEmpty());
     TestEqual(TEXT("Generator enters the terminal-required response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
     TestTrue(TEXT("Generator guidance is the authored authorization text"), Director->GetStatus().Contains(TEXT("The generator is waiting for authorization.")));
-    TestEqual(TEXT("Preterminal attempt visits the generator"), Visits(QuestBindings::GeneratorElement), 1);
+    TestEqual(TEXT("Preterminal attempt visits the authored guidance once"), Visits(QuestBindings::TerminalRequiredElement), 1);
     TestFalse(TEXT("Generator guidance leaves acceptance false"), Director->IsQuestStarted());
     TestFalse(TEXT("Generator guidance leaves power off"), Director->IsPowerRestored());
 
@@ -398,7 +414,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Terminal traverses the acceptance graph"), StartQuest());
     TestTrue(TEXT("Acceptance script changes questStarted"), Director->IsQuestStarted());
     TestEqual(TEXT("Accepting the task ends at Start"), Director->GetCurrentElementId(), FString(QuestBindings::StartElement));
-    TestEqual(TEXT("Acceptance does not automatically attempt the generator"), Visits(QuestBindings::GeneratorElement), 2);
+    TestEqual(TEXT("Acceptance does not repeat the generator guidance"), Visits(QuestBindings::TerminalRequiredElement), 2);
     TestEqual(TEXT("Collecting objective renders current and required counts"), Director->GetObjective(), FString(TEXT("Collect power cells (0/2), then use the generator.")));
     TestTrue(TEXT("Repeated terminal interaction follows an authored response"), StartQuest());
     TestEqual(TEXT("Repeat acceptance reaches its own response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalAcceptedElement));
@@ -484,18 +500,31 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
 
     const FArcweaveProjectData BeforeUnknown = Arcweave->GetArcweaveProjectData();
     const int32 CommandsBeforeUnknown = PowerCommands + GateCommands + PickupCommands;
-    TestTrue(TEXT("An unknown event is handled by the authored router fallback"),
+    const FString ObjectiveBeforeUnknown = Director->GetObjective();
+    const FString PresentationBeforeUnknown = Director->GetPresentationElementId();
+    TestFalse(TEXT("An unknown event reports an integration error when no router condition matches"),
         CheckEvent(TEXT("unknown_test_event"), [Director, &Error] { return Director->RunEvent(TEXT("unknown_test_event"), Error); }));
-    TestTrue(TEXT("The fallback is narrative feedback rather than an integration error"), Error.IsEmpty());
-    TestEqual(TEXT("Unknown input selects the dedicated fallback leaf"), Director->GetCurrentElementId(), FString(QuestBindings::UnknownEventElement));
-    TestEqual(TEXT("The unknown-event response executes once"), Visits(QuestBindings::UnknownEventElement), 1);
-    TestFalse(TEXT("The fallback supplies authored feedback"), Director->GetStatus().IsEmpty());
+    TestEqual(TEXT("An unmatched router uses the existing missing-destination error"), Error, FString(TEXT("The authored branch has no destination.")));
+    TestEqual(TEXT("Unknown input stops at the shared event entry"), Director->GetCurrentElementId(), FString(QuestBindings::EventEntryElement));
+    TestEqual(TEXT("The integration error is surfaced in the interaction status"), Director->GetStatus(), Error);
+    TestEqual(TEXT("Unknown input preserves the cached objective"), Director->GetObjective(), ObjectiveBeforeUnknown);
+    TestEqual(TEXT("Unknown input preserves the presentation cursor"), Director->GetPresentationElementId(), PresentationBeforeUnknown);
     TestEqual(TEXT("Unknown events dispatch no world commands"), PowerCommands + GateCommands + PickupCommands, CommandsBeforeUnknown);
+    TestTrue(TEXT("Unknown input preserves quest acceptance"), Director->IsQuestStarted());
+    TestTrue(TEXT("Unknown input preserves quest completion"), Director->IsQuestCompleted());
     TestTrue(TEXT("Unknown input preserves native power"), Director->IsPowerRestored());
     TestTrue(TEXT("Unknown input preserves the open gate"), Director->IsGateOpen());
     TestTrue(TEXT("Unknown input preserves physical cell A"), Director->HasCollectedCell(TEXT("cell_a")));
     TestTrue(TEXT("Unknown input preserves physical cell B"), Director->HasCollectedCell(TEXT("cell_b")));
     const FArcweaveProjectData AfterUnknown = Arcweave->GetArcweaveProjectData();
+    TestEqual(TEXT("Unknown input preserves the visit collection"), AfterUnknown.Visits.Num(), BeforeUnknown.Visits.Num());
+    for (const auto& Pair : BeforeUnknown.Visits)
+    {
+        const int32 ExpectedIncrement = Pair.Key == QuestBindings::EventEntryElement ? 1 : 0;
+        TestEqual(TEXT("Unknown input executes no gameplay or presentation node beyond the event entry: ") + Pair.Key,
+            AfterUnknown.Visits.FindChecked(Pair.Key), Pair.Value + ExpectedIncrement);
+    }
+    TestEqual(TEXT("Unknown input preserves the variable collection"), AfterUnknown.CurrentVars.Num(), BeforeUnknown.CurrentVars.Num());
     for (const auto& Pair : BeforeUnknown.CurrentVars)
     {
         if (Pair.Value.Scope != TEXT("game_event"))

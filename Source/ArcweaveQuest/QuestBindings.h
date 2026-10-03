@@ -5,7 +5,6 @@ namespace QuestBindings
 {
     inline constexpr const TCHAR* Board = TEXT("b031a811-813e-45a6-8d7f-30c0e4e46eac");
     inline constexpr const TCHAR* StartElement = TEXT("e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7");
-    inline constexpr const TCHAR* GeneratorElement = TEXT("53a8e27d-542d-4222-85fc-36073d0e37df");
     inline constexpr const TCHAR* SuccessElement = TEXT("bfc100c0-7b99-4404-a71c-c1b42b102c02");
     inline constexpr const TCHAR* MissingCellsElement = TEXT("10be7825-974e-4306-b8e4-d2bbc63486dd");
     inline constexpr const TCHAR* PowerCellsVariable = TEXT("6546037a-fcdf-4b42-9fe3-d697bc156d79");
@@ -19,10 +18,7 @@ namespace QuestBindings
     inline constexpr const TCHAR* PresentationBoard = TEXT("a9ad17ae-15e4-49b7-aff7-7df07bc1f5a2");
     inline constexpr const TCHAR* CollectCellComponent = TEXT("06f4de3e-a022-472e-a2f9-bd73ee5875ee");
     inline constexpr const TCHAR* EventEntryElement = TEXT("76724a0b-9935-4c27-9941-90c63f3a795c");
-    inline constexpr const TCHAR* TerminalEntryElement = TEXT("ebdc3d2e-5680-4b07-831c-fa919ef56da2");
-    inline constexpr const TCHAR* PickupEntryElement = TEXT("df460871-e5db-4974-87f8-1b071d5039e6");
     inline constexpr const TCHAR* DuplicatePickupElement = TEXT("35f2414d-8156-474e-98d3-eaf74211d45b");
-    inline constexpr const TCHAR* ExitEntryElement = TEXT("802dcbdf-3cf6-4f75-8cbc-f8f03053f85e");
     inline constexpr const TCHAR* PresentationEntryElement = TEXT("7be79d97-39d8-4179-ad71-4b60b4ee62c8");
     inline constexpr const TCHAR* HUDTextComponent = TEXT("06e4e920-e844-4509-9891-18e05d39f48b");
     inline constexpr const TCHAR* WorldTextComponent = TEXT("db3ac52b-3cc2-4a1b-86c8-2d2cd5903573");
@@ -50,5 +46,7 @@ namespace QuestBindings
     inline constexpr const TCHAR* EventTypeAttribute = TEXT("8ed8d440-99a2-49ed-9ed5-794e356827ac");
     inline constexpr const TCHAR* CellAlreadyCollectedAttribute = TEXT("7d1df7b7-0fdc-47bd-80aa-0374c9e43f04");
     inline constexpr const TCHAR* EventRouterBranch = TEXT("e025a541-5646-496a-bb27-4bde51e34596");
-    inline constexpr const TCHAR* UnknownEventElement = TEXT("93ca29ff-abb1-4e7d-bb82-5fa932631783");
+    inline constexpr const TCHAR* TerminalBranch = TEXT("270da112-6a6e-466e-b090-d0c0bb7c74ee");
+    inline constexpr const TCHAR* GeneratorBranch = TEXT("e110b153-2cfa-4294-adcc-e4b14cd0aef3");
+    inline constexpr const TCHAR* ExitBranch = TEXT("5a5c96ae-ef6f-421e-b2da-efca55bc5bc3");
 }

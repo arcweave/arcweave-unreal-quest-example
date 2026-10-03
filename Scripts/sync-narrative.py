@@ -50,24 +50,23 @@ VARIABLES = {
     "QuestCompletedVariable": ("questCompleted", "boolean", False),
 }
 EVENT_ROUTES = {
-    "use_terminal": "TerminalEntryElement",
-    "collect_cell": "PickupEntryElement",
-    "check_generator": "GeneratorElement",
-    "enter_exit": "ExitEntryElement",
+    "use_terminal": "TerminalBranch",
+    "collect_cell": "PickupBranch",
+    "check_generator": "GeneratorBranch",
+    "enter_exit": "ExitBranch",
 }
 EVENT_LANES = {
-    "TerminalEntryElement": (
+    "TerminalBranch": (
         "StartElement", "TerminalAcceptedElement", "TerminalPoweredElement", "TerminalCompletedElement",
     ),
-    "PickupEntryElement": (
-        "PickupBranch", "DuplicatePickupElement", "PickupTerminalRequiredElement",
+    "PickupBranch": (
+        "DuplicatePickupElement", "PickupTerminalRequiredElement",
         "PickupActionElement", "PickupCollectedElement",
     ),
-    "GeneratorElement": (
+    "GeneratorBranch": (
         "SuccessElement", "MissingCellsElement", "TerminalRequiredElement", "AlreadyOnlineElement",
     ),
-    "ExitEntryElement": ("CompletedElement", "ExitDeniedElement", "ExitAlreadyCompletedElement"),
-    "UnknownEventElement": (),
+    "ExitBranch": ("CompletedElement", "ExitDeniedElement", "ExitAlreadyCompletedElement"),
 }
 DISPLAY_LEAVES = tuple("Presentation" + state + "Element" for state in (
     "Completed", "Powered", "Unaccepted", "Collecting", "Ready",
@@ -429,15 +428,11 @@ def validate_bindings(project, bindings):
         for ident, target in zip(router_conditions, edges[event_router]) if ident != router_else
     }
     if (
-        len(router_conditions) != len(EVENT_ROUTES) + 1 or actual_routes != expected_routes
-        or not router_else or project["conditions"][router_else].get("script")
-        or edges[event_router][-1] != bindings["UnknownEventElement"]
+        len(router_conditions) != len(EVENT_ROUTES) or actual_routes != expected_routes or router_else
     ):
-        raise ValueError("The event router must select terminal, collect_cell, generator, or exit, with an unknown-event fallback.")
+        raise ValueError("The event router must select terminal, collect_cell, generator, or exit directly through its branch, without an else fallback.")
 
     pickup_branch = bindings["PickupBranch"]
-    if edges[bindings["PickupEntryElement"]] != [pickup_branch]:
-        raise ValueError("The pickup entry must connect directly to its duplicate/acceptance checks.")
     pickup_conditions = branch_conditions[pickup_branch]
     pickup_else = project["branches"][pickup_branch]["conditions"].get("elseCondition")
     if (
@@ -456,7 +451,7 @@ def validate_bindings(project, bindings):
         raise ValueError("World events must not automatically enter the presentation graph.")
     lane_ids = {name: reachable({bindings[name]}) for name in EVENT_LANES}
     for name, current in lane_ids.items():
-        if name != "PickupEntryElement" and bindings["PickupActionElement"] in current:
+        if name != "PickupBranch" and bindings["PickupActionElement"] in current:
             raise ValueError("Only the pickup event supplies the physical identity needed by collect_cell.")
     for name, current in lane_ids.items():
         if any(current.intersection(other) for other_name, other in lane_ids.items() if other_name != name):
@@ -470,13 +465,11 @@ def validate_bindings(project, bindings):
 
     feedback_nodes = {
         "EventEntryElement": "The shared event entry",
-        "PickupEntryElement": "The pickup entry",
-        "UnknownEventElement": "Unknown-event feedback",
         "DuplicatePickupElement": "Duplicate-pickup feedback",
         "PickupTerminalRequiredElement": "Task-required pickup feedback",
     }
     for name, label in feedback_nodes.items():
-        if name not in {"EventEntryElement", "PickupEntryElement"} and edges[bindings[name]]:
+        if name != "EventEntryElement" and edges[bindings[name]]:
             raise ValueError(f"{label} must end its flow without executing additional nodes.")
         validate_feedback_content(element_content(project, bindings[name]), label)
 

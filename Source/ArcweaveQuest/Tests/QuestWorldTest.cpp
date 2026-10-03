@@ -104,7 +104,6 @@ public:
             Test.TestFalse(TEXT("Authored prerequisite response leaves the gate closed"), Director->IsGateOpen());
             Test.TestEqual(TEXT("Actual generator interaction enters the authored terminal-required node"),
                 Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
-            Test.TestEqual(TEXT("Actual preterminal interaction visits the generator node"), Visits(QuestBindings::GeneratorElement), 1);
             Test.TestEqual(TEXT("Actual preterminal interaction visits the authored guidance node"), Visits(QuestBindings::TerminalRequiredElement), 1);
             Test.TestTrue(TEXT("World feedback includes the guidance node's authored explanation"),
                 Director->GetStatus().Contains(TEXT("The generator is waiting for authorization.")));
@@ -320,16 +319,22 @@ private:
 
     void EnterExit()
     {
-        BeforeExitVisits = Visits(QuestBindings::ExitEntryElement);
+        BeforeExitVisits = ExitResponseVisits();
         BeforeExitEventVisits = Visits(QuestBindings::EventEntryElement);
         Character->QuestView(TEXT("exit"));
         PhaseStart = World->GetTimeSeconds();
     }
 
+    int32 ExitResponseVisits() const
+    {
+        return Visits(QuestBindings::ExitDeniedElement) + Visits(QuestBindings::CompletedElement)
+            + Visits(QuestBindings::ExitAlreadyCompletedElement);
+    }
+
     void CheckExitEvent()
     {
         Test.TestEqual(TEXT("Physical exit overlap enters the shared event graph once"), Visits(QuestBindings::EventEntryElement), BeforeExitEventVisits + 1);
-        Test.TestEqual(TEXT("Physical exit overlap traverses the exit lane once"), Visits(QuestBindings::ExitEntryElement), BeforeExitVisits + 1);
+        Test.TestEqual(TEXT("Physical exit overlap executes exactly one authored exit response"), ExitResponseVisits(), BeforeExitVisits + 1);
         Test.TestEqual(TEXT("Physical exit overlap supplies the exit event type"), Variable(QuestBindings::EventTypeAttribute), FString(TEXT("enter_exit")));
         Test.TestEqual(TEXT("Physical exit overlap clears pickup context"), Variable(QuestBindings::CellAlreadyCollectedAttribute), FString(TEXT("false")));
     }

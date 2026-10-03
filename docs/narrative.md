@@ -6,27 +6,25 @@ Arcweave owns quest decisions, feedback, objectives, interaction prompts, and st
 
 ## World events
 
-Unreal writes the two current interaction inputs on the standalone **Game event** component, then executes `EventEntryElement` (**Handle world event**). Its single output leads to `EventRouterBranch`. The branch chooses one of four interaction lanes, or the feedback-only unknown-event response. A connection means “continue this event now.” Each selected path ends at its final response; it does not loop back or run another interaction automatically.
+Unreal writes the two current interaction inputs on the standalone **Game event** component, then executes `EventEntryElement` (**Handle world event**). Its single output leads to `EventRouterBranch`. Each of its four conditions connects directly to that interaction’s condition branch. The router has no else condition: an empty or unsupported event type reaches the existing Unreal integration error path without running a gameplay branch. A connection means “continue this event now.” Each selected path ends at its final response; it does not loop back or run another interaction automatically.
 
 | Event router condition | Destination | Authored behavior |
 | --- | --- | --- |
-| **IF** `game_event.type == "use_terminal"` | `TerminalEntryElement` | Checks completed, powered, and accepted states in order. Otherwise, `StartElement` sets `questStarted = true`. Repeated interactions have their own feedback. |
-| **ELSE IF** `game_event.type == "collect_cell"` | `PickupEntryElement` | Checks whether that physical cell was already collected, then task acceptance. Only the permitted path requests `collect_cell`; its next element renders the updated count. |
-| **ELSE IF** `game_event.type == "check_generator"` | `GeneratorElement` | Checks already powered, task not accepted, and sufficient cells in order. Success sets `powerRestored = true` and requests `restore_power` and `open_gate`; otherwise it gives guidance. |
-| **ELSE IF** `game_event.type == "enter_exit"` | `ExitEntryElement` | Gives repeat feedback if completed; sets `questCompleted = true` only when power is restored; otherwise denies exit. |
-| **ELSE** | `UnknownEventElement` | Gives feedback without changing quest state or requesting a world action. |
+| **IF** `game_event.type == "use_terminal"` | `TerminalBranch` | Checks completed, powered, and accepted states in order. Otherwise, `StartElement` sets `questStarted = true`. Repeated interactions have their own feedback. |
+| **ELSE IF** `game_event.type == "collect_cell"` | `PickupBranch` | Checks whether that physical cell was already collected, then task acceptance. Only the permitted path requests `collect_cell`; its next element renders the updated count. |
+| **ELSE IF** `game_event.type == "check_generator"` | `GeneratorBranch` | Checks already powered, task not accepted, and sufficient cells in order. Success sets `powerRestored = true` and requests `restore_power` and `open_gate`; otherwise it gives guidance. |
+| **ELSE IF** `game_event.type == "enter_exit"` | `ExitBranch` | Gives repeat feedback if completed; sets `questCompleted = true` only when power is restored; otherwise denies exit. |
 
 ```mermaid
 flowchart LR
     Entry[Handle world event] --> Router{EventRouterBranch}
-    Router -->|use_terminal| Terminal[Terminal flow]
-    Router -->|collect_cell| Pickup[Pickup flow]
-    Router -->|check_generator| Generator[Generator flow]
-    Router -->|enter_exit| Exit[Exit flow]
-    Router -->|else| Unknown[Unrecognized event feedback]
+    Router -->|use_terminal| Terminal{TerminalBranch}
+    Router -->|collect_cell| Pickup{PickupBranch}
+    Router -->|check_generator| Generator{GeneratorBranch}
+    Router -->|enter_exit| Exit{ExitBranch}
 ```
 
-Every condition row has exactly **one outgoing connection**. The pickup entry connects to `PickupBranch`, whose rows are:
+Every condition row has exactly **one outgoing connection**. The router’s `collect_cell` condition connects directly to `PickupBranch`, whose rows are:
 
 | Pickup condition | Single destination |
 | --- | --- |
@@ -47,7 +45,7 @@ The standalone **Game event** component has custom ID `game_event` and sits outs
 | `type` | Plain string / empty | The interaction being handled: `use_terminal`, `collect_cell`, `check_generator`, or `enter_exit`. |
 | `cell_already_collected` | Boolean / `false` | Whether Unreal has already recorded this specific physical pickup. |
 
-`UQuestDirector::RunEvent` replaces **both** inputs before executing the shared entry. Non-pickup events set the duplicate flag to `false`; pickup requests set it from the collected-cell ID set. The inputs retain the latest request until the next interaction and reset with a new game. An empty `type` means no request has been supplied. If manually executed with an empty or unknown value, the entry reaches the fallback without changing quest progress. Arcweave exports the empty plain string as JSON `null`, which the released Unreal plugin imports as an empty string.
+`UQuestDirector::RunEvent` replaces **both** inputs before executing the shared entry. Non-pickup events set the duplicate flag to `false`; pickup requests set it from the collected-cell ID set. The inputs retain the latest request until the next interaction and reset with a new game. An empty `type` means no request has been supplied. If manually executed with an empty or unknown value, no router condition matches. Unreal reports “The authored branch has no destination.” without changing quest progress or running world commands. Arcweave exports the empty plain string as JSON `null`, which the released Unreal plugin imports as an empty string.
 
 For Arcweave Play Mode, set `game_event.type` in the Debugger to the interaction you want to simulate, set the duplicate flag as appropriate, and run **Handle world event**. To simulate the next interaction, change the inputs and replay that entry. Physical collection, lighting, and gate commands run in Unreal; Play Mode does not implement their physical effects.
 
@@ -55,13 +53,13 @@ For Arcweave Play Mode, set `game_event.type` in the Debugger to the interaction
 
 The generator condition is `powerCells >= requiredPowerCells`. Before acceptance, the authored prerequisite wins even if enough cells are present. After power is restored, interacting again reaches an authored review response. Opening the gate does not complete the task: the player must enter the exit.
 
-`UQuestDirector::RunGraph` calls `TranspileObject` for each element, dispatches attached command components, then uses `GetIsTargetBranch` to resolve the next connection against current variables. The `collect_cell` handler records the physical pickup and calls `SetVariable` **before** the following feedback element runs. That element uses:
+`UQuestDirector::RunGraph` calls `TranspileObject` for each element, dispatches attached command components, then uses `GetIsTargetBranch` to resolve connections against current variables. It follows consecutive branches, so the event router can reach the terminal, pickup, generator, or exit condition branch directly. The `collect_cell` handler records the physical pickup and calls `SetVariable` **before** the following feedback element runs. That element uses:
 
 ```arcscript
 show("Collected a power cell (", powerCells, "/", requiredPowerCells, ").")
 ```
 
-Every executed element has nonempty content because the released plugin cannot parse empty elements. Entry and action nodes use short progress text; their final feedback replaces it before the event is published to the HUD.
+Every executed element has nonempty content because the released plugin cannot parse empty elements. The shared entry and action nodes use short progress text; their final feedback replaces it before the event is published to the HUD.
 
 Command names are component **custom IDs** understood by this sample's C++ registry. They are not built-in Arcscript functions or Unreal Gameplay Tags. `collect_cell` belongs only on `PickupActionElement`, where Unreal has supplied a pending pickup identity. `restore_power` and `open_gate` belong only on `SuccessElement`.
 
@@ -95,7 +93,7 @@ For example, an event may assign `hud.station_name = "RELAY 08"`. That value app
 
 ## Objectives and interface
 
-After every event, C++ runs `PresentationEntryElement`, which restores the seven Quest display attributes to their authored defaults. Each call occupies its own Arcscript code block:
+After every successful event, C++ runs `PresentationEntryElement`, which restores the seven Quest display attributes to their authored defaults. Each call occupies its own Arcscript code block:
 
 - `reset(quest_ui.mission_heading)`
 - `reset(quest_ui.grid_status)`
@@ -151,7 +149,7 @@ Use Python 3.9 or later and an API key with **Read projects** access to the samp
 python Scripts/sync-narrative.py --token-file "/path/outside/repository/arcweave-token.txt"
 ```
 
-The script downloads both exports from `https://arcweave.com` and validates them before replacing either file. It checks required bindings, five global variables and their new-game defaults, the three UI components and their nineteen strings, the Game event component and its two typed inputs, graph connections and cycles, the shared entry and four router conditions, pickup check order, nonempty executable content, and command placement. Entry, fallback, and denied-pickup nodes must produce feedback only; the routed interaction lanes remain separate downstream of the router. Presentation checks require the seven unconditional entry resets, one statement per code block, read-only conditions, and writes restricted to known `quest_ui.*` fields. New designer notes and internal graph objects do not require bindings. It updates export checksums, does not edit online projects, and never stores or prints the key. Two requests count against the workspace's import/export rate limit; on HTTP 429, wait for the reported interval and rerun. The layout-preserving `import.json` is maintained separately as a reproducible snapshot.
+The script downloads both exports from `https://arcweave.com` and validates them before replacing either file. It checks required bindings, five global variables and their new-game defaults, the three UI components and their nineteen strings, the Game event component and its two typed inputs, graph connections and cycles, the shared entry and four router conditions pointing directly to their branches, absence of an else route, pickup check order, nonempty executable content, and command placement. The shared entry and denied-pickup nodes must produce feedback only; the routed interaction lanes remain separate downstream of the router. Presentation checks require the seven unconditional entry resets, one statement per code block, read-only conditions, and writes restricted to known `quest_ui.*` fields. New designer notes and internal graph objects do not require bindings. It updates export checksums, does not edit online projects, and never stores or prints the key. Two requests count against the workspace's import/export rate limit; on HTTP 429, wait for the reported interval and rerun. The layout-preserving `import.json` is maintained separately as a reproducible snapshot.
 
 Run `python Scripts/test-sync-narrative.py` to check the bundled exports and validator regressions offline, without an API key.
 

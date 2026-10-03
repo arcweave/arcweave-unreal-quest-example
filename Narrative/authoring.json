@@ -17,7 +17,6 @@
                 "b7583d4b-fa40-4507-9057-7d2538281cc6",
                 "63297b78-e94e-4676-9e36-7dbdb9b02061",
                 "567ce162-983d-43ba-b0d6-409dce845e18",
-                "0bb7461c-3c0e-4337-8000-ef8c544dfd29",
                 "8a1702ae-b5fe-44cb-bacd-97868065a17c"
             ],
             "jumpers": [],
@@ -31,15 +30,11 @@
             "customId": "restore_power_quest",
             "elements": [
                 "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7",
-                "53a8e27d-542d-4222-85fc-36073d0e37df",
                 "bfc100c0-7b99-4404-a71c-c1b42b102c02",
                 "10be7825-974e-4306-b8e4-d2bbc63486dd",
                 "05d919db-a991-45b7-b20f-db02dbd6f307",
                 "76724a0b-9935-4c27-9941-90c63f3a795c",
-                "ebdc3d2e-5680-4b07-831c-fa919ef56da2",
-                "df460871-e5db-4974-87f8-1b071d5039e6",
                 "35f2414d-8156-474e-98d3-eaf74211d45b",
-                "802dcbdf-3cf6-4f75-8cbc-f8f03053f85e",
                 "6af8cc14-6034-4e97-ab3f-6ebbdc207161",
                 "f2d75b83-f348-4b58-8190-b68d119db86d",
                 "2689f5bc-f257-4b93-8d03-16760617ef62",
@@ -49,12 +44,10 @@
                 "469d524b-9a3e-41b4-9f94-67a17246b608",
                 "988b8226-23eb-4990-b481-19cd7cd3145c",
                 "12c92fd1-be9a-40c9-9bc3-1d6f5573ee9a",
-                "961efa28-f033-44aa-ae8f-25bcb9a8e3e1",
-                "93ca29ff-abb1-4e7d-bb82-5fa932631783"
+                "961efa28-f033-44aa-ae8f-25bcb9a8e3e1"
             ],
             "attributes": null,
             "connections": [
-                "d1857eb2-d333-4106-a851-f9f57f3c7a18",
                 "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8",
                 "35020249-1368-47c3-a8ca-358dce19746d",
                 "125db735-28b7-4f4c-9ff1-f3d61a086977",
@@ -62,22 +55,18 @@
                 "3c3ab1e7-4dc5-473e-9c75-c436ead68314",
                 "7cfc50ee-e91b-4134-b4b3-e1c7fe49418e",
                 "5ccb6af8-2cd3-4061-9443-8fe6c31e23e9",
-                "728a4dc4-33d6-44fa-8dc1-f4e2839ddeff",
                 "7f315855-0c73-4087-bf3e-adbebfa82eae",
                 "e7253f89-1829-4d47-a08b-30ea13c87b1d",
                 "5491040d-2070-41f1-87d0-f50380a0560a",
-                "e47e38aa-d0f1-42b8-9434-9156e121730a",
                 "cf1cba2c-37e7-445e-be8d-8074e4ee251a",
                 "001db9e3-0994-414e-aa9d-f0d8df03efd1",
                 "bad0e004-b1c5-497f-89b0-f18585d4e881",
                 "d615dd01-51af-4054-a2e6-0150e6f7b06e",
-                "a2305253-4007-482c-8181-dcc093f75d48",
                 "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9",
                 "3b7e9da7-09f5-4541-a0b0-e1f6484403be",
                 "03ee20e5-f8ab-4395-85e6-7b1c354db75e",
                 "8af468c1-2caa-4337-a820-c3473a67368e",
                 "2ade2c20-8e24-4d9d-8c98-8738e5c595c3",
-                "02768fd6-479e-48fe-a357-8eb5ed1d6deb",
                 "b06807ec-d45c-4751-9548-8b1fda1f9da2"
             ]
         },
@@ -116,11 +105,11 @@
     "notes": {
         "6c069694-7fea-4980-b59d-d9dc2c857cc4": {
             "theme": "purple",
-            "content": "<p><strong>WORLD EVENTS \u00b7 one entry, four interaction routes<\/strong><\/p><p>Unreal supplies game_event.type and game_event.cell_already_collected, then runs Handle world event. The branch selects use_terminal, collect_cell, check_generator, or enter_exit; else gives feedback only. Every condition row has one output. Each selected lane runs to its final response and then waits for the next Unreal interaction.<\/p><p>Startup imports project defaults and refreshes Objectives and interface directly. There is no station-arrival event and no automatic terminal interaction. Five global quest variables track narrative progress and the collected-cell count. The standalone Game event component holds the two current interaction inputs. The UI folder holds nineteen scoped strings, for twenty-six runtime variables in total.<\/p><p>Inside the pickup lane, check the physical duplicate input first, then task acceptance. Only the permitted path requests collect_cell. Unreal records that pickup and updates powerCells before the next feedback element runs. restore_power and open_gate are C++ world actions. Powering the generator does not complete the quest: the player must enter the exit.<\/p><p>Objectives and interface refreshes the current objective and prompts after each event. Only quest_ui fields are reset, preserving quest state, event inputs, and shared text overrides. HUD drawing and focus queries only read the resulting cache.<\/p>"
+            "content": "<p><strong>WORLD EVENTS \u00b7 one entry, four interaction routes<\/strong><\/p><p>Unreal supplies game_event.type and game_event.cell_already_collected, then runs Handle world event. The router connects use_terminal, collect_cell, check_generator, and enter_exit directly to their condition branches. There are no intermediate event elements or else route; an unsupported type is an Unreal integration error. Every condition row has one output. Each selected lane runs to its final response and then waits for the next Unreal interaction.<\/p><p>Startup imports project defaults and refreshes Objectives and interface directly. There is no station-arrival event and no automatic terminal interaction. Five global quest variables track narrative progress and the collected-cell count. The standalone Game event component holds the two current interaction inputs. The UI folder holds nineteen scoped strings, for twenty-six runtime variables in total.<\/p><p>Inside the pickup lane, check the physical duplicate input first, then task acceptance. Only the permitted path requests collect_cell. Unreal records that pickup and updates powerCells before the next feedback element runs. restore_power and open_gate are C++ world actions. Powering the generator does not complete the quest: the player must enter the exit.<\/p><p>Objectives and interface refreshes the current objective and prompts after each event. Only quest_ui fields are reset, preserving quest state, event inputs, and shared text overrides. HUD drawing and focus queries only read the resulting cache.<\/p>"
         },
         "e1d06b05-73ac-4040-97d1-04a6f8091204": {
             "theme": "purple",
-            "content": "<p><strong>EVENT INPUTS \u00b7 supplied by Unreal<\/strong><\/p><p>Game event (game_event) is a standalone data component. type is an empty string at startup; cell_already_collected is false. Before each interaction, Unreal writes both values, using false for non-pickup events. These describe the current request, not persistent quest progress.<\/p><p>In Arcweave Play Mode, set the desired type in the Debugger before running Handle world event. The empty or an unknown type follows the feedback-only fallback.<\/p>"
+            "content": "<p><strong>EVENT INPUTS \u00b7 supplied by Unreal<\/strong><\/p><p>Game event (game_event) is a standalone data component. type is an empty string at startup; cell_already_collected is false. Before each interaction, Unreal writes both values, using false for non-pickup events. These describe the current request, not persistent quest progress.<\/p><p>In Arcweave Play Mode, set the desired type in the Debugger before running Handle world event. An empty or unknown type matches no route. Unreal reports this through its existing integration error path; no gameplay branch runs.<\/p>"
         },
         "b7583d4b-fa40-4507-9057-7d2538281cc6": {
             "theme": "purple",
@@ -134,17 +123,13 @@
             "theme": "purple",
             "content": "<p><strong>PICKUP \u00b7 game_event.type == \"collect_cell\"<\/strong><\/p><p>If game_event.cell_already_collected, show the duplicate response. Else if !questStarted, require terminal acceptance. Otherwise request collect_cell; Unreal records the physical pickup and updates powerCells before the following progress feedback.<\/p>"
         },
-        "0bb7461c-3c0e-4337-8000-ef8c544dfd29": {
+        "617a47ca-5627-4dd4-a761-e4e9436af53c": {
             "theme": "purple",
-            "content": "<p><strong>FALLBACK \u00b7 unrecognized event<\/strong><\/p><p>An empty or unknown game_event.type gives feedback only. It changes no quest state and requests no world action.<\/p>"
+            "content": "<p><strong>OBJECTIVE AND INTERACTION DISPLAY \u00b7 defaults, then small overrides<\/strong><\/p><p>The UI folder contains HUD text (hud), World text (world_text), and Quest display (quest_ui). Shared interface strings live in the first two components; the seven quest_ui attributes hold the authored default display.<\/p><p>Entry resets each quest_ui field individually, then this graph overrides only what changes for the current state. It never resets quest globals, hud, or world_text. Unaccepted changes two prompts; Ready changes the generator prompt. The shared Powered setup changes four fields for both powered outcomes; Completed adds its mission-heading override.<\/p><p>The five final leaves retain their objective text. C++ executes the path, then caches the current hud, world_text, and quest_ui values. HUD drawing and focus queries only read that cache. Each condition row has one outgoing connection.<\/p><p>For the released Unreal plugin, put each Arcscript reset or assignment in its own code block. Consecutive code blocks execute in order.<\/p>"
         },
         "8a1702ae-b5fe-44cb-bacd-97868065a17c": {
             "theme": "purple",
             "content": "<p><strong>EXIT \u00b7 game_event.type == \"enter_exit\"<\/strong><\/p><p>Called by the exit overlap. Only a powered exit can set questCompleted; repeated overlaps produce feedback without repeating completion.<\/p>"
-        },
-        "617a47ca-5627-4dd4-a761-e4e9436af53c": {
-            "theme": "purple",
-            "content": "<p><strong>OBJECTIVE AND INTERACTION DISPLAY \u00b7 defaults, then small overrides<\/strong><\/p><p>The UI folder contains HUD text (hud), World text (world_text), and Quest display (quest_ui). Shared interface strings live in the first two components; the seven quest_ui attributes hold the authored default display.<\/p><p>Entry resets each quest_ui field individually, then this graph overrides only what changes for the current state. It never resets quest globals, hud, or world_text. Unaccepted changes two prompts; Ready changes the generator prompt. The shared Powered setup changes four fields for both powered outcomes; Completed adds its mission-heading override.<\/p><p>The five final leaves retain their objective text. C++ executes the path, then caches the current hud, world_text, and quest_ui values. HUD drawing and focus queries only read that cache. Each condition row has one outgoing connection.<\/p><p>For the released Unreal plugin, put each Arcscript reset or assignment in its own code block. Consecutive code blocks execute in order.<\/p>"
         }
     },
     "elements": {
@@ -155,14 +140,11 @@
             "content": "<pre><code>show(\"The generator needs \", requiredPowerCells, \" power cells. You have \", powerCells, \". Collect the missing cells, then try again.\")<\/code><\/pre>",
             "title": "<p>02b \u00b7 More cells needed<\/p>"
         },
-        "53a8e27d-542d-4222-85fc-36073d0e37df": {
-            "theme": "gold",
-            "outputs": [
-                "d1857eb2-d333-4106-a851-f9f57f3c7a18"
-            ],
-            "components": [],
-            "content": "<p>Checking the generator...<\/p><pre><code>show(\"Power cells collected: \", powerCells, \"\/\", requiredPowerCells)<\/code><\/pre>",
-            "title": "<p>02 \u00b7 Check the generator<\/p>"
+        "825244f4-6345-4314-b731-1f378ae010a1": {
+            "theme": "orange",
+            "attributes": [],
+            "content": "<pre><code>show(\"Collect power cells (\", powerCells, \"\/\", requiredPowerCells, \"), then use the generator.\")<\/code><\/pre>",
+            "title": "<p>Display \u00b7 collecting<\/p>"
         },
         "bfc100c0-7b99-4404-a71c-c1b42b102c02": {
             "theme": "green",
@@ -194,34 +176,30 @@
             "content": "<p>Handling world event\u2026<\/p>",
             "title": "<p>Handle world event<\/p>"
         },
-        "ebdc3d2e-5680-4b07-831c-fa919ef56da2": {
-            "theme": "cyan",
-            "outputs": [
-                "728a4dc4-33d6-44fa-8dc1-f4e2839ddeff"
-            ],
-            "content": "<p>Accessing station terminal\u2026<\/p>",
-            "title": "<p>Event \u00b7 use terminal<\/p>"
+        "09438fc8-be1d-4f8a-adad-30170999ca60": {
+            "theme": "green",
+            "attributes": [],
+            "content": "<p>Power restored. Walk through the open gate.<\/p>",
+            "title": "<p>Display \u00b7 powered<\/p>"
         },
-        "df460871-e5db-4974-87f8-1b071d5039e6": {
-            "theme": "cyan",
+        "a21dc333-37fa-4de2-9213-0acfbfff4811": {
+            "theme": "green",
             "outputs": [
-                "e47e38aa-d0f1-42b8-9434-9156e121730a"
+                "8097bcd1-3a2c-4151-a7fe-149f63f71533"
             ],
-            "content": "<p>Checking power cell\u2026<\/p>",
-            "title": "<p>Event \u00b7 collect a power cell<\/p>"
+            "content": "<p>Updating powered station display.<\/p><pre><code>quest_ui.grid_status = \"GRID ONLINE\"<\/code><\/pre><pre><code>quest_ui.generator_prompt = \"Review running generator\"<\/code><\/pre><pre><code>quest_ui.generator_label = \"GENERATOR \/ ONLINE\"<\/code><\/pre><pre><code>quest_ui.gate_label = \"GATE 01 \/ ACCESS GRANTED\"<\/code><\/pre>",
+            "title": "<p>Display setup \u00b7 power online<\/p>"
         },
         "35f2414d-8156-474e-98d3-eaf74211d45b": {
             "theme": "orange",
             "content": "<p>This power cell has already been collected.<\/p>",
             "title": "<p>Pickup denied \u00b7 already collected<\/p>"
         },
-        "802dcbdf-3cf6-4f75-8cbc-f8f03053f85e": {
-            "theme": "cyan",
-            "outputs": [
-                "a2305253-4007-482c-8181-dcc093f75d48"
-            ],
-            "content": "<p>Checking exit authorization\u2026<\/p>",
-            "title": "<p>Event \u00b7 enter the exit<\/p>"
+        "172fb20d-be4b-40f7-acec-fb22e76afe50": {
+            "theme": "purple",
+            "attributes": [],
+            "content": "<pre><code>quest_ui.terminal_prompt = \"Read station terminal\"<\/code><\/pre><pre><code>quest_ui.cell_prompt = \"Read the station terminal first\"<\/code><\/pre><p>Use the terminal to begin.<\/p>",
+            "title": "<p>Display \u00b7 unaccepted<\/p>"
         },
         "7be79d97-39d8-4179-ad71-4b60b4ee62c8": {
             "theme": "cyan",
@@ -298,37 +276,6 @@
             "attributes": [],
             "content": "<pre><code>quest_ui.mission_heading = \"MISSION COMPLETE\"<\/code><\/pre><p>Task complete. You reached the exit.<\/p>",
             "title": "<p>Display \u00b7 completed<\/p>"
-        },
-        "09438fc8-be1d-4f8a-adad-30170999ca60": {
-            "theme": "green",
-            "attributes": [],
-            "content": "<p>Power restored. Walk through the open gate.<\/p>",
-            "title": "<p>Display \u00b7 powered<\/p>"
-        },
-        "172fb20d-be4b-40f7-acec-fb22e76afe50": {
-            "theme": "purple",
-            "attributes": [],
-            "content": "<pre><code>quest_ui.terminal_prompt = \"Read station terminal\"<\/code><\/pre><pre><code>quest_ui.cell_prompt = \"Read the station terminal first\"<\/code><\/pre><p>Use the terminal to begin.<\/p>",
-            "title": "<p>Display \u00b7 unaccepted<\/p>"
-        },
-        "825244f4-6345-4314-b731-1f378ae010a1": {
-            "theme": "orange",
-            "attributes": [],
-            "content": "<pre><code>show(\"Collect power cells (\", powerCells, \"\/\", requiredPowerCells, \"), then use the generator.\")<\/code><\/pre>",
-            "title": "<p>Display \u00b7 collecting<\/p>"
-        },
-        "a21dc333-37fa-4de2-9213-0acfbfff4811": {
-            "theme": "green",
-            "outputs": [
-                "8097bcd1-3a2c-4151-a7fe-149f63f71533"
-            ],
-            "content": "<p>Updating powered station display.<\/p><pre><code>quest_ui.grid_status = \"GRID ONLINE\"<\/code><\/pre><pre><code>quest_ui.generator_prompt = \"Review running generator\"<\/code><\/pre><pre><code>quest_ui.generator_label = \"GENERATOR \/ ONLINE\"<\/code><\/pre><pre><code>quest_ui.gate_label = \"GATE 01 \/ ACCESS GRANTED\"<\/code><\/pre>",
-            "title": "<p>Display setup \u00b7 power online<\/p>"
-        },
-        "93ca29ff-abb1-4e7d-bb82-5fa932631783": {
-            "theme": "orange",
-            "content": "<p>This interaction is not supported.<\/p>",
-            "title": "<p>Unrecognized event<\/p>"
         }
     },
     "jumpers": {},
@@ -369,17 +316,17 @@
             "labelLocation": 0.5,
             "label": "<p>Enough power cells<\/p>"
         },
-        "d1857eb2-d333-4106-a851-f9f57f3c7a18": {
-            "type": "Bezier",
-            "theme": "gold",
-            "sourceid": "53a8e27d-542d-4222-85fc-36073d0e37df",
-            "targetid": "e110b153-2cfa-4294-adcc-e4b14cd0aef3",
-            "sourceFace": "right",
-            "sourceType": "elements",
-            "targetFace": "left",
-            "targetType": "branches",
+        "2ade2c20-8e24-4d9d-8c98-8738e5c595c3": {
+            "sourceType": "conditions",
             "labelLocation": 0.5,
-            "label": "<p>Evaluate generator state<\/p>"
+            "sourceid": "91b33bd2-a869-4dda-9b2d-86eebf566271",
+            "targetid": "5a5c96ae-ef6f-421e-b2da-efca55bc5bc3",
+            "sourceFace": "right",
+            "targetFace": "left",
+            "type": "Bezier",
+            "theme": "cyan",
+            "targetType": "branches",
+            "label": "<p>Enter exit<\/p>"
         },
         "445828a6-f158-4e76-bbb1-34351ca30e48": {
             "sourceType": "conditions",
@@ -429,17 +376,17 @@
             "targetType": "elements",
             "label": "<p>Accept task<\/p>"
         },
-        "728a4dc4-33d6-44fa-8dc1-f4e2839ddeff": {
-            "sourceType": "elements",
+        "b06807ec-d45c-4751-9548-8b1fda1f9da2": {
+            "sourceType": "conditions",
             "labelLocation": 0.5,
-            "sourceid": "ebdc3d2e-5680-4b07-831c-fa919ef56da2",
-            "targetid": "270da112-6a6e-466e-b090-d0c0bb7c74ee",
+            "sourceid": "1df2d73c-5ea9-4fd8-a20a-148c183d6faa",
+            "targetid": "469d524b-9a3e-41b4-9f94-67a17246b608",
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
             "theme": "cyan",
-            "targetType": "branches",
-            "label": "<p>Read current task state<\/p>"
+            "targetType": "elements",
+            "label": "<p>Accept the task first<\/p>"
         },
         "7f315855-0c73-4087-bf3e-adbebfa82eae": {
             "sourceType": "conditions",
@@ -477,17 +424,17 @@
             "targetType": "elements",
             "label": "<p>Authorize collection<\/p>"
         },
-        "e47e38aa-d0f1-42b8-9434-9156e121730a": {
-            "sourceType": "elements",
+        "03ee20e5-f8ab-4395-85e6-7b1c354db75e": {
+            "sourceType": "conditions",
             "labelLocation": 0.5,
-            "sourceid": "df460871-e5db-4974-87f8-1b071d5039e6",
+            "sourceid": "c90132f9-67bf-480d-a15d-9f343e1ad3d6",
             "targetid": "fabbd4d2-3d23-41de-b66a-7f819fe7723e",
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
             "theme": "cyan",
             "targetType": "branches",
-            "label": "<p>Check permission<\/p>"
+            "label": "<p>Collect cell<\/p>"
         },
         "cf1cba2c-37e7-445e-be8d-8074e4ee251a": {
             "sourceType": "elements",
@@ -537,17 +484,17 @@
             "targetType": "elements",
             "label": "<p>No exit power<\/p>"
         },
-        "a2305253-4007-482c-8181-dcc093f75d48": {
-            "sourceType": "elements",
+        "8af468c1-2caa-4337-a820-c3473a67368e": {
+            "sourceType": "conditions",
             "labelLocation": 0.5,
-            "sourceid": "802dcbdf-3cf6-4f75-8cbc-f8f03053f85e",
-            "targetid": "5a5c96ae-ef6f-421e-b2da-efca55bc5bc3",
+            "sourceid": "ebcaec9e-848f-4f57-a0db-171b2d212cd3",
+            "targetid": "e110b153-2cfa-4294-adcc-e4b14cd0aef3",
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
             "theme": "cyan",
             "targetType": "branches",
-            "label": "<p>Player enters exit volume<\/p>"
+            "label": "<p>Check generator<\/p>"
         },
         "9c12295b-eedf-4ffc-88e3-14d3b68db577": {
             "sourceType": "conditions",
@@ -661,73 +608,13 @@
             "sourceType": "conditions",
             "labelLocation": 0.5,
             "sourceid": "4217abbe-746f-43f2-a371-d23bb30a00d0",
-            "targetid": "ebdc3d2e-5680-4b07-831c-fa919ef56da2",
+            "targetid": "270da112-6a6e-466e-b090-d0c0bb7c74ee",
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
             "theme": "cyan",
-            "targetType": "elements",
+            "targetType": "branches",
             "label": "<p>Use terminal<\/p>"
-        },
-        "03ee20e5-f8ab-4395-85e6-7b1c354db75e": {
-            "sourceType": "conditions",
-            "labelLocation": 0.5,
-            "sourceid": "c90132f9-67bf-480d-a15d-9f343e1ad3d6",
-            "targetid": "df460871-e5db-4974-87f8-1b071d5039e6",
-            "sourceFace": "right",
-            "targetFace": "left",
-            "type": "Bezier",
-            "theme": "cyan",
-            "targetType": "elements",
-            "label": "<p>Collect cell<\/p>"
-        },
-        "8af468c1-2caa-4337-a820-c3473a67368e": {
-            "sourceType": "conditions",
-            "labelLocation": 0.5,
-            "sourceid": "ebcaec9e-848f-4f57-a0db-171b2d212cd3",
-            "targetid": "53a8e27d-542d-4222-85fc-36073d0e37df",
-            "sourceFace": "right",
-            "targetFace": "left",
-            "type": "Bezier",
-            "theme": "cyan",
-            "targetType": "elements",
-            "label": "<p>Check generator<\/p>"
-        },
-        "2ade2c20-8e24-4d9d-8c98-8738e5c595c3": {
-            "sourceType": "conditions",
-            "labelLocation": 0.5,
-            "sourceid": "91b33bd2-a869-4dda-9b2d-86eebf566271",
-            "targetid": "802dcbdf-3cf6-4f75-8cbc-f8f03053f85e",
-            "sourceFace": "right",
-            "targetFace": "left",
-            "type": "Bezier",
-            "theme": "cyan",
-            "targetType": "elements",
-            "label": "<p>Enter exit<\/p>"
-        },
-        "02768fd6-479e-48fe-a357-8eb5ed1d6deb": {
-            "sourceType": "conditions",
-            "labelLocation": 0.5,
-            "sourceid": "3ae047a2-840d-4127-8d8d-871e801023de",
-            "targetid": "93ca29ff-abb1-4e7d-bb82-5fa932631783",
-            "sourceFace": "right",
-            "targetFace": "left",
-            "type": "Bezier",
-            "theme": "cyan",
-            "targetType": "elements",
-            "label": "<p>Unknown event<\/p>"
-        },
-        "b06807ec-d45c-4751-9548-8b1fda1f9da2": {
-            "sourceType": "conditions",
-            "labelLocation": 0.5,
-            "sourceid": "1df2d73c-5ea9-4fd8-a20a-148c183d6faa",
-            "targetid": "469d524b-9a3e-41b4-9f94-67a17246b608",
-            "sourceFace": "right",
-            "targetFace": "left",
-            "type": "Bezier",
-            "theme": "cyan",
-            "targetType": "elements",
-            "label": "<p>Accept the task first<\/p>"
         }
     },
     "branches": {
@@ -794,7 +681,6 @@
         "e025a541-5646-496a-bb27-4bde51e34596": {
             "conditions": {
                 "ifCondition": "4217abbe-746f-43f2-a371-d23bb30a00d0",
-                "elseCondition": "3ae047a2-840d-4127-8d8d-871e801023de",
                 "elseIfConditions": [
                     "c90132f9-67bf-480d-a15d-9f343e1ad3d6",
                     "ebcaec9e-848f-4f57-a0db-171b2d212cd3",
@@ -1258,9 +1144,9 @@
             "script": "game_event.type == \"use_terminal\"",
             "output": "3b7e9da7-09f5-4541-a0b0-e1f6484403be"
         },
-        "3ae047a2-840d-4127-8d8d-871e801023de": {
-            "script": null,
-            "output": "02768fd6-479e-48fe-a357-8eb5ed1d6deb"
+        "1df2d73c-5ea9-4fd8-a20a-148c183d6faa": {
+            "script": "!questStarted",
+            "output": "b06807ec-d45c-4751-9548-8b1fda1f9da2"
         },
         "c90132f9-67bf-480d-a15d-9f343e1ad3d6": {
             "script": "game_event.type == \"collect_cell\"",
@@ -1273,10 +1159,6 @@
         "91b33bd2-a869-4dda-9b2d-86eebf566271": {
             "script": "game_event.type == \"enter_exit\"",
             "output": "2ade2c20-8e24-4d9d-8c98-8738e5c595c3"
-        },
-        "1df2d73c-5ea9-4fd8-a20a-148c183d6faa": {
-            "script": "!questStarted",
-            "output": "b06807ec-d45c-4751-9548-8b1fda1f9da2"
         }
     },
     "name": "Restore Power \u2014 Unreal C++ Quest Sample",

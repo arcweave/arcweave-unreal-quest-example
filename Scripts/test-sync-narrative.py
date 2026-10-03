@@ -44,13 +44,14 @@ class NarrativeValidationTests(unittest.TestCase):
         return self.project["attributes"][component["attributes"][0]]
 
     def generator_connection(self):
-        return self.project["connections"][self.element("GeneratorElement")["outputs"][0]]
+        return self.route_connection("GeneratorBranch", 0)
 
     def conditions(self, binding):
         group = self.project["branches"][self.bindings[binding]]["conditions"]
-        return [self.project["conditions"][ident] for ident in (
-            [group["ifCondition"]] + (group.get("elseIfConditions", []) or []) + [group["elseCondition"]]
-        )]
+        identifiers = [group["ifCondition"]] + (group.get("elseIfConditions", []) or [])
+        if group.get("elseCondition"):
+            identifiers.append(group["elseCondition"])
+        return [self.project["conditions"][ident] for ident in identifiers]
 
     def route_connection(self, binding, index):
         return self.project["connections"][self.conditions(binding)[index]["output"]]
@@ -109,8 +110,8 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_valid_all_locales_import(self):
         self.project = copy.deepcopy(self.localized)
-        self.assertNotIn("content", self.element("TerminalEntryElement"))
-        self.assertTrue(self.localized_content("TerminalEntryElement")["text"])
+        self.assertNotIn("content", self.element("EventEntryElement"))
+        self.assertTrue(self.localized_content("EventEntryElement")["text"])
         self.validate()
 
     def test_required_cell_count_can_be_tuned(self):
@@ -120,7 +121,7 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_input_display_names_and_feedback_wording_can_change(self):
         self.project["components"][self.bindings["GameEventComponent"]]["name"] = "Interaction inputs"
         self.project["attributes"][self.bindings["EventTypeAttribute"]]["name"] = "Requested interaction"
-        self.element("UnknownEventElement")["content"] = "<p>There is no action for this interaction.</p>"
+        self.element("DuplicatePickupElement")["content"] = "<p>You have already collected this cell.</p>"
         self.validate()
 
     def test_event_router_accepts_equivalent_whitespace_and_quotes(self):
@@ -133,16 +134,16 @@ class NarrativeValidationTests(unittest.TestCase):
         self.validate()
 
     def test_starting_element_must_be_shared_event_entry(self):
-        self.project["startingElement"] = self.bindings["TerminalEntryElement"]
+        self.project["startingElement"] = self.bindings["StartElement"]
         self.assert_invalid("starting element must be the shared world-event entry")
 
     def test_event_entry_cannot_bypass_router(self):
         output = self.element("EventEntryElement")["outputs"][0]
-        self.project["connections"][output].update(targetid=self.bindings["TerminalEntryElement"], targetType="elements")
+        self.project["connections"][output].update(targetid=self.bindings["TerminalBranch"], targetType="branches")
         self.assert_invalid("shared world-event entry must connect directly to its routing branch")
 
     def test_event_route_cannot_select_another_interaction(self):
-        self.route_connection("EventRouterBranch", 0)["targetid"] = self.bindings["GeneratorElement"]
+        self.route_connection("EventRouterBranch", 0)["targetid"] = self.bindings["GeneratorBranch"]
         self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
 
     def test_event_router_has_no_startup_or_separate_duplicate_route(self):
@@ -163,22 +164,48 @@ class NarrativeValidationTests(unittest.TestCase):
         self.project["boards"][self.bindings["Board"]]["connections"].remove(output)
         self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
 
-    def test_unknown_event_cannot_default_to_a_gameplay_action(self):
-        self.route_connection("EventRouterBranch", -1)["targetid"] = self.bindings["ExitEntryElement"]
-        self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
+    def test_event_router_cannot_add_an_else_fallback(self):
+        group = self.project["branches"][self.bindings["EventRouterBranch"]]["conditions"]
+        condition = "496e1844-c29b-40c3-91a8-93d22f790efd"
+        output = "11834d53-50e3-4350-ae59-cec3161688ab"
+        group["elseCondition"] = condition
+        self.project["conditions"][condition] = {"output": output, "script": None}
+        self.project["connections"][output] = {
+            "sourceid": condition, "sourceType": "conditions",
+            "targetid": self.bindings["ExitBranch"], "targetType": "branches",
+        }
+        self.project["boards"][self.bindings["Board"]]["connections"].append(output)
+        self.assert_invalid("without an else fallback")
 
-    def test_unknown_event_fallback_cannot_have_a_condition(self):
-        self.conditions("EventRouterBranch")[-1]["script"] = "questStarted"
-        self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
+    def test_exit_requires_its_explicit_event_condition(self):
+        group = self.project["branches"][self.bindings["EventRouterBranch"]]["conditions"]
+        condition = group["elseIfConditions"].pop()
+        group["elseCondition"] = condition
+        self.project["conditions"][condition]["script"] = None
+        self.assert_invalid("without an else fallback")
 
     def test_event_router_cannot_change_state_while_routing(self):
         self.conditions("EventRouterBranch")[0]["script"] = 'resetAll() || game_event.type == "use_terminal"'
         self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
 
-    def test_pickup_entry_cannot_bypass_duplicate_and_acceptance_checks(self):
-        output = self.element("PickupEntryElement")["outputs"][0]
-        self.project["connections"][output].update(targetid=self.bindings["PickupActionElement"], targetType="elements")
-        self.assert_invalid("pickup entry must connect directly to its duplicate/acceptance checks")
+    def test_pickup_route_cannot_bypass_duplicate_and_acceptance_checks(self):
+        self.route_connection("EventRouterBranch", 1).update(
+            targetid=self.bindings["PickupActionElement"], targetType="elements")
+        self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
+
+    def test_router_cannot_insert_an_intermediate_element_before_a_branch(self):
+        element = "912c9af5-83db-419d-8ab2-cee0fcedd657"
+        output = "8a820365-b29a-4397-9f85-ad55a9babfca"
+        route = self.route_connection("EventRouterBranch", 0)
+        self.project["elements"][element] = {
+            "content": "<p>Checking terminal.</p>", "outputs": [output],
+        }
+        self.project["connections"][output] = dict(route, sourceid=element, sourceType="elements")
+        route.update(targetid=element, targetType="elements")
+        board = self.project["boards"][self.bindings["Board"]]
+        board["elements"].append(element)
+        board["connections"].append(output)
+        self.assert_invalid("directly through its branch")
 
     def test_duplicate_check_runs_before_task_acceptance(self):
         group = self.project["branches"][self.bindings["PickupBranch"]]["conditions"]
@@ -205,36 +232,36 @@ class NarrativeValidationTests(unittest.TestCase):
         self.add_output("PickupTerminalRequiredElement", "PickupActionElement")
         self.assert_invalid("Task-required pickup feedback must end its flow")
 
-    def test_unknown_event_can_show_current_input_without_changing_it(self):
-        self.script("UnknownEventElement", "show(game_event.type)")
+    def test_shared_entry_can_show_current_input_without_changing_it(self):
+        self.script("EventEntryElement", "show(game_event.type)")
         self.validate()
 
-    def test_unknown_event_cannot_change_quest_or_input_state(self):
+    def test_duplicate_feedback_cannot_change_quest_or_input_state(self):
         for script in ('questStarted = true', 'game_event.type = "use_terminal"', 'resetAll()', 'show(random(10))'):
             with self.subTest(script=script):
-                self.script("UnknownEventElement", script)
-                self.assert_invalid("Unknown-event feedback must be feedback only")
+                self.script("DuplicatePickupElement", script)
+                self.assert_invalid("Duplicate-pickup feedback must be feedback only")
 
-    def test_unknown_event_cannot_emit_a_world_command(self):
-        self.element("UnknownEventElement")["components"] = [self.bindings["OpenGateComponent"]]
+    def test_duplicate_feedback_cannot_emit_a_world_command(self):
+        self.element("DuplicatePickupElement")["components"] = [self.bindings["OpenGateComponent"]]
         self.assert_invalid("only Success may restore power and open the gate")
 
-    def test_unknown_event_cannot_enter_another_lane(self):
-        self.add_output("UnknownEventElement", "GeneratorElement")
+    def test_duplicate_feedback_cannot_enter_another_lane(self):
+        self.add_output("DuplicatePickupElement", "MissingCellsElement")
         self.assert_invalid("world-event lanes must not execute one another")
 
     def test_shared_entry_cannot_accept_the_task_during_routing(self):
         self.script("EventEntryElement", "questStarted = true")
         self.assert_invalid("shared event entry must be feedback only")
 
-    def test_pickup_entry_cannot_overwrite_the_identity_flag(self):
-        self.script("PickupEntryElement", "game_event.cell_already_collected = false")
-        self.assert_invalid("pickup entry must be feedback only")
+    def test_shared_entry_cannot_overwrite_the_identity_flag(self):
+        self.script("EventEntryElement", "game_event.cell_already_collected = false")
+        self.assert_invalid("shared event entry must be feedback only")
 
-    def test_localized_unknown_event_cannot_change_state(self):
+    def test_localized_duplicate_feedback_cannot_change_state(self):
         self.project = copy.deepcopy(self.localized)
-        self.localized_content("UnknownEventElement")["text"] = self.code_block("questStarted = true")
-        self.assert_invalid("Unknown-event feedback must be feedback only")
+        self.localized_content("DuplicatePickupElement")["text"] = self.code_block("questStarted = true")
+        self.assert_invalid("Duplicate-pickup feedback must be feedback only")
 
     def test_cross_event_interior_node_is_rejected(self):
         self.generator_connection().update(targetid=self.bindings["TerminalAcceptedElement"], targetType="elements")
@@ -370,9 +397,9 @@ class NarrativeValidationTests(unittest.TestCase):
                 attribute["value"] = value
                 self.assert_invalid("game_event.cell_already_collected input must keep its bound owner, type, and empty/false default")
 
-    def test_missing_bound_entry_is_rejected(self):
-        del self.project["elements"][self.bindings["TerminalEntryElement"]]
-        self.assert_invalid("missing the TerminalEntryElement binding")
+    def test_missing_bound_branch_is_rejected(self):
+        del self.project["branches"][self.bindings["TerminalBranch"]]
+        self.assert_invalid("missing the TerminalBranch binding")
 
     def test_display_assignment_is_rejected(self):
         self.element("PresentationCollectingElement")["content"] = "<pre><code>powerCells = 99</code></pre>"
@@ -632,7 +659,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("not a valid new-game default")
 
     def test_multiple_element_outputs_are_rejected(self):
-        outputs = self.element("GeneratorElement")["outputs"]
+        outputs = self.element("EventEntryElement")["outputs"]
         outputs.append(outputs[0])
         self.assert_invalid("at most one automatic output")
 
@@ -657,11 +684,11 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Each condition row must have exactly one outgoing connection")
 
     def test_automatic_cycle_is_rejected(self):
-        self.generator_connection().update(targetid=self.bindings["GeneratorElement"], targetType="elements")
+        self.generator_connection().update(targetid=self.bindings["GeneratorBranch"], targetType="branches")
         self.assert_invalid("automatic event path contains a cycle")
 
-    def test_automatic_cross_event_entry_is_rejected(self):
-        self.generator_connection().update(targetid=self.bindings["ExitEntryElement"], targetType="elements")
+    def test_automatic_cross_event_branch_is_rejected(self):
+        self.generator_connection().update(targetid=self.bindings["ExitBranch"], targetType="branches")
         self.assert_invalid("world-event lanes must not execute one another")
 
     def test_unconnected_world_event_element_is_rejected(self):
@@ -679,7 +706,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("custom ID no longer matches")
 
     def test_collection_command_on_terminal_is_rejected(self):
-        self.element("TerminalEntryElement")["components"] = [self.bindings["CollectCellComponent"]]
+        self.element("StartElement")["components"] = [self.bindings["CollectCellComponent"]]
         self.assert_invalid("Only PickupAction")
 
     def test_power_command_on_shared_event_entry_is_rejected(self):
@@ -695,7 +722,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Only PickupAction")
 
     def test_empty_executable_entry_is_rejected(self):
-        self.element("TerminalEntryElement")["content"] = None
+        self.element("EventEntryElement")["content"] = None
         self.assert_invalid("Executable elements need nonempty content")
 
     def test_empty_executable_html_is_rejected(self):
@@ -704,7 +731,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_empty_localized_executable_content_is_rejected(self):
         self.project = copy.deepcopy(self.localized)
-        self.localized_content("TerminalEntryElement")["text"] = None
+        self.localized_content("EventEntryElement")["text"] = None
         self.assert_invalid("Executable elements need nonempty content")
 
     def test_localized_display_assignment_is_rejected(self):
