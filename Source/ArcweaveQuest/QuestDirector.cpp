@@ -18,6 +18,17 @@ UQuestDirector::UQuestDirector()
     });
 }
 
+void UQuestDirector::Deinitialize()
+{
+    if (Arcweave)
+    {
+        Arcweave->OnArcweaveVariableChanged.RemoveDynamic(this, &UQuestDirector::HandleVariablesChanged);
+    }
+    StateValues.Reset();
+    bProjectLoaded = false;
+    Super::Deinitialize();
+}
+
 bool UQuestDirector::StartNewGame(FString& Error)
 {
     bProjectLoaded = false;
@@ -71,6 +82,13 @@ bool UQuestDirector::StartNewGame(FString& Error)
             UIVariableIds.Add(FName(*(UI->CustomId + TEXT(".") + Attribute.CustomId)), Attribute.Id);
         }
     }
+    StateValues.Reset();
+    for (const TCHAR* Id : {QuestBindings::QuestStartedAttribute, QuestBindings::QuestCompletedAttribute,
+        QuestBindings::PowerRestoredAttribute, QuestBindings::PowerCellsAttribute, QuestBindings::RequiredPowerCellsAttribute})
+    {
+        StateValues.Add(Id, Project.CurrentVars.FindChecked(Id).Value);
+    }
+    Arcweave->OnArcweaveVariableChanged.AddUniqueDynamic(this, &UQuestDirector::HandleVariablesChanged);
     bProjectLoaded = true;
 
     // Startup computes the authored objective/UI without simulating a world interaction.
@@ -109,32 +127,41 @@ bool UQuestDirector::ReachExit(FString& Error)
 
 bool UQuestDirector::IsQuestStarted() const
 {
-    return bProjectLoaded && Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
-        QuestBindings::QuestStartedAttribute).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
+    return bProjectLoaded && StateValues.FindChecked(QuestBindings::QuestStartedAttribute)
+        .Equals(TEXT("true"), ESearchCase::CaseSensitive);
 }
 
 bool UQuestDirector::IsQuestCompleted() const
 {
-    return bProjectLoaded && Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
-        QuestBindings::QuestCompletedAttribute).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
+    return bProjectLoaded && StateValues.FindChecked(QuestBindings::QuestCompletedAttribute)
+        .Equals(TEXT("true"), ESearchCase::CaseSensitive);
 }
 
 bool UQuestDirector::IsPowerRestored() const
 {
-    return bProjectLoaded && Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
-        QuestBindings::PowerRestoredAttribute).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
+    return bProjectLoaded && StateValues.FindChecked(QuestBindings::PowerRestoredAttribute)
+        .Equals(TEXT("true"), ESearchCase::CaseSensitive);
 }
 
 int32 UQuestDirector::GetPowerCellCount() const
 {
-    return bProjectLoaded ? FCString::Atoi(*Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
-        QuestBindings::PowerCellsAttribute).Value) : 0;
+    return bProjectLoaded ? FCString::Atoi(*StateValues.FindChecked(QuestBindings::PowerCellsAttribute)) : 0;
 }
 
 int32 UQuestDirector::GetRequiredPowerCellCount() const
 {
-    return bProjectLoaded ? FCString::Atoi(*Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
-        QuestBindings::RequiredPowerCellsAttribute).Value) : 0;
+    return bProjectLoaded ? FCString::Atoi(*StateValues.FindChecked(QuestBindings::RequiredPowerCellsAttribute)) : 0;
+}
+
+void UQuestDirector::HandleVariablesChanged(const TArray<FArcweaveVariable>& Variables)
+{
+    for (const FArcweaveVariable& Variable : Variables)
+    {
+        if (FString* Value = StateValues.Find(Variable.Id))
+        {
+            *Value = Variable.Value;
+        }
+    }
 }
 
 bool UQuestDirector::RunEvent(const FString& EventType, FString& Error, bool bCellAlreadyCollected)

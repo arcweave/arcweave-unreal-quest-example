@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ArcweaveVariable.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 
 #include "QuestDirector.generated.h"
@@ -16,6 +17,7 @@ class ARCWEAVEQUEST_API UQuestDirector : public UGameInstanceSubsystem
 
 public:
     UQuestDirector();
+    virtual void Deinitialize() override;
 
     bool StartNewGame(FString& Error);
     bool StartQuest(FString& Error);
@@ -48,6 +50,9 @@ private:
     bool RejectInteraction(const FString& Message, FString& Error);
     void PublishChange();
 
+    UFUNCTION()
+    void HandleVariablesChanged(const TArray<FArcweaveVariable>& Variables);
+
     UPROPERTY()
     UArcweaveSubsystem* Arcweave = nullptr;
 
@@ -59,6 +64,8 @@ private:
     FString PresentationElementId;
     TMap<FName, FString> UIVariableIds;
     TMap<FName, FString> UIText;
+    // Read cache only: Arcweave owns these values and reports every runtime change.
+    TMap<FString, FString> StateValues;
     FString Objective;
     FString Status;
     bool bProjectLoaded = false;
