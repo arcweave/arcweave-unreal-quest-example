@@ -205,6 +205,9 @@
             "outputs": [
                 "634f7d62-b92c-4017-8611-2f775a54ff05"
             ],
+            "attributes": [
+                "e0147f3d-6b80-4752-bb0d-6183862aa38e"
+            ],
             "content": "<p>Refreshing objective display.<\/p><pre><code>reset(quest_ui.mission_heading)<\/code><\/pre><pre><code>reset(quest_ui.grid_status)<\/code><\/pre><pre><code>reset(quest_ui.terminal_prompt)<\/code><\/pre><pre><code>reset(quest_ui.cell_prompt)<\/code><\/pre><pre><code>reset(quest_ui.generator_prompt)<\/code><\/pre><pre><code>reset(quest_ui.generator_label)<\/code><\/pre><pre><code>reset(quest_ui.gate_label)<\/code><\/pre>",
             "title": "<p>Refresh \u00b7 objective and prompts<\/p>"
         },
@@ -1093,6 +1096,16 @@
             "customId": "required_power_cells",
             "cType": "components",
             "cId": "9978622e-a962-4237-a479-07b28cc0e97f"
+        },
+        "e0147f3d-6b80-4752-bb0d-6183862aa38e": {
+            "name": "entry_point",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "objectives_ui"
+            },
+            "cType": "elements",
+            "cId": "7be79d97-39d8-4179-ad71-4b60b4ee62c8"
         }
     },
     "assets": {

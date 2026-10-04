@@ -7,6 +7,7 @@ import json
 from html import escape
 import unittest
 from pathlib import Path
+from uuid import uuid4
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,8 +34,24 @@ class NarrativeValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, message):
             self.validate()
 
+    def element_id(self, binding):
+        if binding == "EventEntryElement":
+            return self.project["startingElement"]
+        if binding == "PresentationEntryElement":
+            board = next(board for board in self.project["boards"].values()
+                         if board.get("customId") == "quest_presentation")
+            return next(ident for ident in board["elements"]
+                        if any(self.project["attributes"][key].get("name") == "entry_point"
+                               for key in self.project["elements"][ident].get("attributes", []) or []))
+        return self.bindings[binding]
+
+    def presentation_marker(self):
+        return next(self.project["attributes"][key]
+                    for key in self.element("PresentationEntryElement")["attributes"]
+                    if self.project["attributes"][key].get("name") == "entry_point")
+
     def element(self, binding):
-        return self.project["elements"][self.bindings[binding]]
+        return self.project["elements"][self.element_id(binding)]
 
     def state_attribute(self, binding):
         return self.project["attributes"][self.bindings[binding]]
@@ -59,15 +76,15 @@ class NarrativeValidationTests(unittest.TestCase):
     def add_output(self, source_binding, target_binding):
         ident = "c4aa7afb-eb4e-40ce-8e2b-ac1cb6b98a5b"
         self.project["connections"][ident] = {
-            "sourceid": self.bindings[source_binding], "sourceType": "elements",
-            "targetid": self.bindings[target_binding], "targetType": "elements",
+            "sourceid": self.element_id(source_binding), "sourceType": "elements",
+            "targetid": self.element_id(target_binding), "targetType": "elements",
         }
         self.element(source_binding)["outputs"] = [ident]
         self.project["boards"][self.bindings["Board"]]["connections"].append(ident)
 
     def localized_content(self, binding):
         locale = next(item["iso"] for item in self.project["locales"] if item["base"] is None)
-        return self.project["contents"][self.bindings[binding]]["content"][locale]
+        return self.project["contents"][self.element_id(binding)]["content"][locale]
 
     def code_block(self, content):
         return "<pre><code>" + escape(content) + "</code></pre>"
@@ -218,7 +235,139 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_starting_element_must_be_shared_event_entry(self):
         self.project["startingElement"] = self.bindings["StartElement"]
-        self.assert_invalid("starting element must be the shared world-event entry")
+        self.assert_invalid("shared world-event entry must connect directly to its routing branch")
+
+    def test_event_entry_can_be_rekeyed_without_changing_bindings(self):
+        self.assertNotIn("EventEntryElement", self.bindings)
+        for name, project in (("unreal", self.unreal), ("authoring", self.authoring), ("localized", self.localized)):
+            with self.subTest(export=name):
+                original = project["startingElement"]
+                replacement = str(uuid4())
+                # Rekey the node and its references, including localized content.
+                self.project = json.loads(json.dumps(project).replace(original, replacement))
+                self.assertNotIn(original, self.project["elements"])
+                self.assertEqual(self.element_id("EventEntryElement"), replacement)
+                self.validate()
+
+    def test_missing_starting_element_is_rejected(self):
+        del self.project["startingElement"]
+        self.assert_invalid("starting element must identify an element on the world-event board")
+
+    def test_null_starting_element_is_rejected(self):
+        self.project["startingElement"] = None
+        self.assert_invalid("starting element must identify an element on the world-event board")
+
+    def test_empty_starting_element_is_rejected(self):
+        self.project["startingElement"] = ""
+        self.assert_invalid("starting element must identify an element on the world-event board")
+
+    def test_unknown_starting_element_is_rejected(self):
+        self.project["startingElement"] = str(uuid4())
+        self.assert_invalid("starting element must identify an element on the world-event board")
+
+    def test_starting_element_cannot_be_a_branch(self):
+        self.project["startingElement"] = self.bindings["EventRouterBranch"]
+        self.assert_invalid("starting element must identify an element on the world-event board")
+
+    def test_starting_element_must_belong_to_world_board(self):
+        entry = self.project["startingElement"]
+        self.project["boards"][self.bindings["Board"]]["elements"].remove(entry)
+        self.project["boards"][self.bindings["PresentationBoard"]]["elements"].append(entry)
+        self.assert_invalid("starting element must identify an element on the world-event board")
+
+    def test_presentation_entry_and_marker_can_be_rekeyed_without_changing_bindings(self):
+        self.assertNotIn("PresentationEntryElement", self.bindings)
+        for name, project in (("unreal", self.unreal), ("authoring", self.authoring), ("localized", self.localized)):
+            with self.subTest(export=name):
+                self.project = copy.deepcopy(project)
+                entry = self.element_id("PresentationEntryElement")
+                marker = self.element("PresentationEntryElement")["attributes"][0]
+                replacement = str(uuid4())
+                self.project = json.loads(json.dumps(project).replace(entry, replacement).replace(marker, str(uuid4())))
+                self.assertNotIn(entry, self.project["elements"])
+                self.assertNotIn(marker, self.project["attributes"])
+                self.assertEqual(self.element_id("PresentationEntryElement"), replacement)
+                self.validate()
+
+    def test_presentation_board_requires_its_custom_id(self):
+        for custom_id in (None, "", "other_presentation"):
+            with self.subTest(custom_id=custom_id):
+                self.project["boards"][self.bindings["PresentationBoard"]]["customId"] = custom_id
+                self.assert_invalid("presentation board must have the unique custom ID quest_presentation")
+
+    def test_presentation_board_custom_id_must_be_unique(self):
+        self.project["boards"][str(uuid4())] = {"customId": "quest_presentation", "elements": []}
+        self.assert_invalid("presentation board must have the unique custom ID quest_presentation")
+
+    def test_presentation_entry_requires_its_marker_reference(self):
+        self.element("PresentationEntryElement")["attributes"] = []
+        self.assert_invalid("must contain exactly one objectives_ui entry marker")
+
+    def test_presentation_entry_requires_its_marker_attribute(self):
+        marker = self.element("PresentationEntryElement")["attributes"][0]
+        del self.project["attributes"][marker]
+        self.assert_invalid("must contain exactly one objectives_ui entry marker")
+
+    def test_presentation_entry_marker_name_is_required(self):
+        marker = self.presentation_marker()
+        for name in (None, "", "other_entry"):
+            with self.subTest(name=name):
+                marker["name"] = name
+                self.assert_invalid("must contain exactly one objectives_ui entry marker")
+
+    def test_presentation_entry_marker_must_be_unique(self):
+        for binding in ("PresentationEntryElement", "PresentationReadyElement"):
+            with self.subTest(element=binding):
+                self.project = copy.deepcopy(self.unreal)
+                target = self.element_id(binding)
+                marker_id = str(uuid4())
+                self.project["attributes"][marker_id] = dict(copy.deepcopy(self.presentation_marker()), cId=target)
+                self.project["elements"][target].setdefault("attributes", []).append(marker_id)
+                self.assert_invalid("must contain exactly one objectives_ui entry marker")
+
+    def test_presentation_marker_requires_plain_string_objectives_ui(self):
+        for value in (
+            {"type": "string", "plain": False, "data": "objectives_ui"},
+            {"type": "string", "data": "objectives_ui"},
+            {"type": "integer", "plain": True, "data": 1},
+            {"type": "string", "plain": True, "data": None},
+            {"type": "string", "plain": True, "data": ""},
+            {"type": "string", "plain": True, "data": "other_entry"},
+            {"type": "string", "plain": True},
+        ):
+            with self.subTest(value=value):
+                self.presentation_marker()["value"] = value
+                self.assert_invalid("objectives_ui entry marker must be a plain-string element attribute owned by its entry")
+
+    def test_presentation_marker_requires_its_element_owner(self):
+        for owner in (
+            {"cType": "elements", "cId": self.bindings["PresentationReadyElement"]},
+            {"cType": "elements", "cId": str(uuid4())},
+            {"cType": "components", "cId": self.bindings["QuestUIComponent"]},
+        ):
+            with self.subTest(owner=owner):
+                self.presentation_marker().update(owner)
+                self.assert_invalid("objectives_ui entry marker must be a plain-string element attribute owned by its entry")
+
+    def test_presentation_marker_cannot_move_to_world_event_board(self):
+        marker_id = self.element("PresentationEntryElement")["attributes"].pop()
+        self.element("EventEntryElement")["attributes"] = [marker_id]
+        self.project["attributes"][marker_id]["cId"] = self.project["startingElement"]
+        self.assert_invalid("must contain exactly one objectives_ui entry marker")
+
+    def test_custom_id_cannot_replace_presentation_marker_name(self):
+        self.presentation_marker().update(name="Objectives refresh entry", customId="entry_point")
+        self.assert_invalid("must contain exactly one objectives_ui entry marker")
+
+    def test_presentation_entry_cannot_add_display_metadata_beside_marker(self):
+        entry = self.element_id("PresentationEntryElement")
+        attribute = str(uuid4())
+        self.project["attributes"][attribute] = {
+            "cType": "elements", "cId": entry, "customId": "objective_title",
+            "value": {"type": "string", "plain": True, "data": "Legacy objective"},
+        }
+        self.element("PresentationEntryElement")["attributes"].append(attribute)
+        self.assert_invalid("Presentation elements must not retain metadata besides the entry marker")
 
     def test_event_entry_cannot_bypass_router(self):
         output = self.element("EventEntryElement")["outputs"][0]
@@ -558,11 +707,12 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Presentation must terminate at exactly its five bound display leaves")
 
     def test_events_cannot_enter_a_presentation_leaf_even_on_the_same_board(self):
-        source = self.project["boards"][self.bindings["PresentationBoard"]]
-        destination = self.project["boards"][self.bindings["Board"]]
+        source = self.project["boards"][self.bindings["Board"]]
+        destination = self.project["boards"][self.bindings["PresentationBoard"]]
         for collection in ("elements", "branches", "connections"):
             destination[collection].extend(source[collection])
             source[collection] = []
+        self.bindings = dict(self.bindings, Board=self.bindings["PresentationBoard"])
         self.generator_connection().update(
             targetid=self.bindings["PresentationReadyElement"], targetType="elements")
         self.assert_invalid("World events must not automatically enter the presentation graph")

@@ -30,11 +30,32 @@ bool UQuestDirector::StartNewGame(FString& Error)
     CollectedCells.Reset();
     PendingCellId = NAME_None;
     CurrentElementId.Empty();
+    PresentationEntryId.Empty();
     PresentationElementId.Empty();
     Status.Empty();
     bGateOpen = false;
 
     const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
+    const FArcweaveBoardData* PresentationBoard = Project.Boards.FindByPredicate(
+        [](const FArcweaveBoardData& Board) { return Board.CustomId == TEXT("quest_presentation"); });
+    if (!PresentationBoard)
+    {
+        return RejectInteraction(TEXT("The narrative export is missing the quest_presentation board."), Error);
+    }
+    const FArcweaveElementData* PresentationEntry = PresentationBoard->Elements.FindByPredicate(
+        [](const FArcweaveElementData& Element)
+        {
+            return Element.Attributes.ContainsByPredicate([](const FArcweaveAttributeData& Attribute)
+            {
+                return Attribute.Name == TEXT("entry_point") && Attribute.Value.Data == TEXT("objectives_ui");
+            });
+        });
+    if (!PresentationEntry)
+    {
+        return RejectInteraction(TEXT("The quest_presentation board is missing its objectives_ui entry point."), Error);
+    }
+    PresentationEntryId = PresentationEntry->Id;
+
     UIVariableIds.Reset();
     for (const TCHAR* ComponentId : {QuestBindings::HUDTextComponent,
         QuestBindings::WorldTextComponent, QuestBindings::QuestUIComponent})
@@ -128,7 +149,7 @@ bool UQuestDirector::RunEvent(const FString& EventType, FString& Error, bool bCe
     Arcweave->SetVariable(QuestBindings::CellAlreadyCollectedAttribute, bCellAlreadyCollected ? TEXT("true") : TEXT("false"));
 
     FArcweaveElementData LastElement;
-    if (!RunGraph(QuestBindings::EventEntryElement, true, LastElement, Error) || !RefreshPresentation(Error))
+    if (!RunGraph(Arcweave->GetArcweaveProjectData().StartingElementId, true, LastElement, Error) || !RefreshPresentation(Error))
     {
         return false;
     }
@@ -198,7 +219,7 @@ bool UQuestDirector::RefreshPresentation(FString& Error)
     // The graph resets quest_ui defaults and applies state-specific overrides without
     // world commands. It runs once per event; HUD and focus getters only read the cache.
     FArcweaveElementData Presentation;
-    if (!RunGraph(QuestBindings::PresentationEntryElement, false, Presentation, Error))
+    if (!RunGraph(PresentationEntryId, false, Presentation, Error))
     {
         return false;
     }

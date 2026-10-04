@@ -21,12 +21,14 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     UQuestDirector* Director = NewObject<UQuestDirector>(GameInstance);
     UArcweaveSubsystem* Arcweave = GEngine->GetEngineSubsystem<UArcweaveSubsystem>();
     FString Error;
-    if (!TestTrue(TEXT("The released plugin loads and initializes the local narrative"), Director->StartNewGame(Error)))
+    if (!TestTrue(TEXT("The pinned plugin loads and initializes the local narrative"), Director->StartNewGame(Error)))
     {
         AddError(Error);
         return false;
     }
     const FArcweaveProjectData InitialState = Arcweave->GetArcweaveProjectData();
+    const FString EventEntryId = InitialState.StartingElementId;
+    if (!TestFalse(TEXT("The imported project supplies its world-event starting element"), EventEntryId.IsEmpty())) return false;
 
     const TSet<FName> RequiredUIFields = {
         TEXT("hud.brand"), TEXT("hud.station_name"), TEXT("hud.mission_tagline"), TEXT("hud.cells_label"),
@@ -254,7 +256,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         }
     });
 
-    const auto Visits = [Arcweave](const TCHAR* Id)
+    const auto Visits = [Arcweave](const FString& Id)
     {
         return Arcweave->GetArcweaveProjectData().Visits.FindChecked(Id);
     };
@@ -262,7 +264,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     {
         return Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(Id).Value;
     };
-    const auto CheckEvent = [this, Arcweave, &Variable](const TCHAR* EventType,
+    const auto CheckEvent = [this, Arcweave, &Variable, &EventEntryId](const TCHAR* EventType,
         const TFunction<bool()>& Action, bool bExpectedDuplicate = false)
     {
         const FArcweaveProjectData Before = Arcweave->GetArcweaveProjectData();
@@ -270,7 +272,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         const FArcweaveProjectData After = Arcweave->GetArcweaveProjectData();
         const FString Prefix = FString(EventType) + TEXT(": ");
         TestEqual(Prefix + TEXT("executes the shared world-event entry exactly once"),
-            After.Visits.FindChecked(QuestBindings::EventEntryElement), Before.Visits.FindChecked(QuestBindings::EventEntryElement) + 1);
+            After.Visits.FindChecked(EventEntryId), Before.Visits.FindChecked(EventEntryId) + 1);
         TestEqual(Prefix + TEXT("sets the event type before routing"), Variable(QuestBindings::EventTypeAttribute), FString(EventType));
         TestEqual(Prefix + TEXT("replaces pickup context before routing"), Variable(QuestBindings::CellAlreadyCollectedAttribute),
             FString(bExpectedDuplicate ? TEXT("true") : TEXT("false")));
@@ -374,7 +376,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TestEqual(Prefix + TEXT("objective is unchanged"), Director->GetObjective(), Objective);
         TestEqual(Prefix + TEXT("status is unchanged"), Director->GetStatus(), Status);
     };
-    const auto CheckRestart = [this, Director, Arcweave, &InitialState, &Visits, &Error, &UIVariableIds, &CheckUIValues]()
+    const auto CheckRestart = [this, Director, Arcweave, &InitialState, &EventEntryId, &Visits, &Error, &UIVariableIds, &CheckUIValues]()
     {
         if (!TestTrue(TEXT("Restart reloads defaults and computes the initial presentation"), Director->StartNewGame(Error)))
         {
@@ -390,7 +392,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TestFalse(TEXT("Restart respawns cell B"), Director->HasCollectedCell(TEXT("cell_b")));
         TestEqual(TEXT("Restart restores authored required count"), Director->GetRequiredPowerCellCount(), 2);
         TestEqual(TEXT("Restart restores collected count"), Director->GetPowerCellCount(), 0);
-        TestEqual(TEXT("Restart does not simulate a world event"), Visits(QuestBindings::EventEntryElement), 0);
+        TestEqual(TEXT("Restart does not simulate a world event"), Visits(EventEntryId), 0);
         TestTrue(TEXT("Restart leaves the gameplay cursor empty"), Director->GetCurrentElementId().IsEmpty());
         TestTrue(TEXT("Restart clears previous gameplay feedback"), Director->GetStatus().IsEmpty());
         TestEqual(TEXT("Restart clears the last event type"), Restarted.CurrentVars.FindChecked(QuestBindings::EventTypeAttribute).Value, FString());
@@ -416,7 +418,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("Initialization does not accept the task"), Director->IsQuestStarted());
     TestFalse(TEXT("Initialization does not complete the task"), Director->IsQuestCompleted());
     TestEqual(TEXT("Initial required cell count comes from the export"), Director->GetRequiredPowerCellCount(), 2);
-    TestEqual(TEXT("Startup does not enter the world-event graph"), Visits(QuestBindings::EventEntryElement), 0);
+    TestEqual(TEXT("Startup does not enter the world-event graph"), Visits(EventEntryId), 0);
     TestTrue(TEXT("Startup has no gameplay cursor"), Director->GetCurrentElementId().IsEmpty());
     TestTrue(TEXT("Startup has no interaction feedback"), Director->GetStatus().IsEmpty());
     TestEqual(TEXT("Unaccepted presentation is selected by the graph"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationUnacceptedElement));
@@ -543,7 +545,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("An unknown event reports an integration error when no router condition matches"),
         CheckEvent(TEXT("unknown_test_event"), [Director, &Error] { return Director->RunEvent(TEXT("unknown_test_event"), Error); }));
     TestEqual(TEXT("An unmatched router uses the existing missing-destination error"), Error, FString(TEXT("The authored branch has no destination.")));
-    TestEqual(TEXT("Unknown input stops at the shared event entry"), Director->GetCurrentElementId(), FString(QuestBindings::EventEntryElement));
+    TestEqual(TEXT("Unknown input stops at the shared event entry"), Director->GetCurrentElementId(), EventEntryId);
     TestEqual(TEXT("The integration error is surfaced in the interaction status"), Director->GetStatus(), Error);
     TestEqual(TEXT("Unknown input preserves the cached objective"), Director->GetObjective(), ObjectiveBeforeUnknown);
     TestEqual(TEXT("Unknown input preserves the presentation cursor"), Director->GetPresentationElementId(), PresentationBeforeUnknown);
@@ -558,7 +560,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Unknown input preserves the visit collection"), AfterUnknown.Visits.Num(), BeforeUnknown.Visits.Num());
     for (const auto& Pair : BeforeUnknown.Visits)
     {
-        const int32 ExpectedIncrement = Pair.Key == QuestBindings::EventEntryElement ? 1 : 0;
+        const int32 ExpectedIncrement = Pair.Key == EventEntryId ? 1 : 0;
         TestEqual(TEXT("Unknown input executes no gameplay or presentation node beyond the event entry: ") + Pair.Key,
             AfterUnknown.Visits.FindChecked(Pair.Key), Pair.Value + ExpectedIncrement);
     }

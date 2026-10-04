@@ -246,8 +246,30 @@ def validate_bindings(project, bindings):
         collection = next((value for suffix, value in suffixes.items() if name.endswith(suffix)), None)
         if collection is None or ident not in project[collection]:
             raise ValueError(f"The export is missing the {name} binding.")
-    if project["startingElement"] != bindings["EventEntryElement"]:
-        raise ValueError("The starting element must be the shared world-event entry.")
+    event_entry = project.get("startingElement")
+    if (event_entry not in project["elements"]
+            or event_entry not in (project["boards"][bindings["Board"]].get("elements") or [])):
+        raise ValueError("The starting element must identify an element on the world-event board.")
+    presentation_boards = {ident: board for ident, board in project["boards"].items()
+                           if board.get("customId") == "quest_presentation"}
+    if len(presentation_boards) != 1 or bindings["PresentationBoard"] not in presentation_boards:
+        raise ValueError("The presentation board must have the unique custom ID quest_presentation.")
+    presentation_board = next(iter(presentation_boards.values()))
+    entry_markers = [
+        (element_id, attribute_id)
+        for element_id in presentation_board.get("elements", []) or []
+        for attribute_id in project["elements"][element_id].get("attributes", []) or []
+        if project["attributes"].get(attribute_id, {}).get("name") == "entry_point"
+    ]
+    if len(entry_markers) != 1:
+        raise ValueError("The quest_presentation board must contain exactly one objectives_ui entry marker.")
+    display_entry, display_marker = entry_markers[0]
+    marker = project["attributes"][display_marker]
+    marker_value = marker.get("value", {})
+    if (marker.get("cType") != "elements" or marker.get("cId") != display_entry
+            or marker_value.get("type") != "string" or marker_value.get("plain") is not True
+            or marker_value.get("data") != "objectives_ui"):
+        raise ValueError("The objectives_ui entry marker must be a plain-string element attribute owned by its entry.")
 
     variable_ids = {key for key, item in project["variables"].items()
                     if not item.get("root") and "children" not in item}
@@ -440,7 +462,6 @@ def validate_bindings(project, bindings):
                 pending.extend(edges[ident])
         return result
 
-    display_entry = bindings["PresentationEntryElement"]
     display_ids = reachable({display_entry})
     required_display = {bindings[name] for name in (
         "PresentationBranch", "PresentationPoweredSetupElement", "PresentationCompletionBranch",
@@ -451,11 +472,10 @@ def validate_bindings(project, bindings):
     terminal_ids = {ident for ident in display_ids if not edges[ident]}
     if terminal_ids != leaves:
         raise ValueError("Presentation must terminate at exactly its five bound display leaves.")
-    if any(item.get("cType") == "elements" and item.get("cId") in display_ids
-           for item in project["attributes"].values()):
-        raise ValueError("Presentation elements must not retain metadata; use quest_ui component fields.")
+    if any(ident != display_marker and item.get("cType") == "elements" and item.get("cId") in display_ids
+           for ident, item in project["attributes"].items()):
+        raise ValueError("Presentation elements must not retain metadata besides the entry marker; use quest_ui component fields.")
 
-    event_entry = bindings["EventEntryElement"]
     event_router = bindings["EventRouterBranch"]
     if edges[event_entry] != [event_router]:
         raise ValueError("The shared world-event entry must connect directly to its routing branch.")
@@ -507,14 +527,14 @@ def validate_bindings(project, bindings):
         raise ValueError("Every world-event node must be reachable from the shared event entry on its board.")
 
     feedback_nodes = {
-        "EventEntryElement": "The shared event entry",
-        "DuplicatePickupElement": "Duplicate-pickup feedback",
-        "PickupTerminalRequiredElement": "Task-required pickup feedback",
+        event_entry: "The shared event entry",
+        bindings["DuplicatePickupElement"]: "Duplicate-pickup feedback",
+        bindings["PickupTerminalRequiredElement"]: "Task-required pickup feedback",
     }
-    for name, label in feedback_nodes.items():
-        if name != "EventEntryElement" and edges[bindings[name]]:
+    for ident, label in feedback_nodes.items():
+        if ident != event_entry and edges[ident]:
             raise ValueError(f"{label} must end its flow without executing additional nodes.")
-        validate_feedback_content(element_content(project, bindings[name]), label)
+        validate_feedback_content(element_content(project, ident), label)
 
     for ident in world_ids | display_ids:
         if ident in project["elements"]:
@@ -522,7 +542,7 @@ def validate_bindings(project, bindings):
             parsed = CodeBlocks()
             parsed.feed(content or "")
             if not parsed.text.strip():
-                raise ValueError("Executable elements need nonempty content for the released v2.1.0 plugin.")
+                raise ValueError("Executable elements need nonempty content for the Unreal plugin.")
     for ident in display_ids:
         if ident in project["branches"]:
             for condition_id in branch_conditions[ident]:
@@ -535,8 +555,9 @@ def validate_bindings(project, bindings):
                     if not read_expression(parsed):
                         raise ValueError("Presentation conditions cannot call functions or change state.")
         else:
-            if project["elements"][ident].get("attributes"):
-                raise ValueError("Presentation elements must not retain metadata; use quest_ui component fields.")
+            allowed_attributes = [display_marker] if ident == display_entry else []
+            if (project["elements"][ident].get("attributes") or []) != allowed_attributes:
+                raise ValueError("Presentation elements must not retain metadata besides the entry marker; use quest_ui component fields.")
             validate_display_content(element_content(project, ident), entry=ident == display_entry)
 
     for ident in world_ids:

@@ -55,6 +55,7 @@ private:
     TSet<FName> CollectedCells;
     FName PendingCellId;
     FString CurrentElementId;
+    FString PresentationEntryId;
     FString PresentationElementId;
     TMap<FName, FString> UIVariableIds;
     TMap<FName, FString> UIText;

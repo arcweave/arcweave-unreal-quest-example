@@ -54,6 +54,7 @@ public:
                     {
                         World = Candidate;
                         Director = Candidate->GetGameInstance()->GetSubsystem<UQuestDirector>();
+                        EventEntryId = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().StartingElementId;
                         ++Step;
                         break;
                     }
@@ -68,7 +69,7 @@ public:
             Test.TestEqual(TEXT("World uses the authored two-cell requirement"), Director->GetRequiredPowerCellCount(), 2);
             Test.TestFalse(TEXT("World starts without power"), Director->IsPowerRestored());
             Test.TestFalse(TEXT("World starts without completion"), Director->IsQuestCompleted());
-            Test.TestEqual(TEXT("World startup does not simulate an interaction"), Visits(QuestBindings::EventEntryElement), 0);
+            Test.TestEqual(TEXT("World startup does not simulate an interaction"), Visits(EventEntryId), 0);
             Test.TestTrue(TEXT("World startup has no gameplay cursor"), Director->GetCurrentElementId().IsEmpty());
             Test.TestTrue(TEXT("World startup has no interaction feedback"), Director->GetStatus().IsEmpty());
             Test.TestEqual(TEXT("World startup computes the authored initial objective"), Director->GetObjective(), FString(TEXT("Use the terminal to begin.")));
@@ -160,10 +161,10 @@ public:
             Test.TestTrue(TEXT("Quest notification hides the actual collected cell A actor"), CellA->IsHidden());
             Test.TestFalse(TEXT("Collected cell A no longer blocks collision"), CellA->GetActorEnableCollision());
             {
-                const int32 BeforeHiddenInteraction = Visits(QuestBindings::EventEntryElement);
+                const int32 BeforeHiddenInteraction = Visits(EventEntryId);
                 Character->QuestInteract();
                 Test.TestEqual(TEXT("Pressing interact again at the collected pickup cannot duplicate it"), Director->GetPowerCellCount(), 1);
-                Test.TestEqual(TEXT("A hidden pickup no longer generates physical interaction events"), Visits(QuestBindings::EventEntryElement), BeforeHiddenInteraction);
+                Test.TestEqual(TEXT("A hidden pickup no longer generates physical interaction events"), Visits(EventEntryId), BeforeHiddenInteraction);
             }
             ++Step;
             return false;
@@ -278,7 +279,7 @@ public:
             Test.TestFalse(TEXT("World restart makes cell B visible again"), CellB->IsHidden());
             Test.TestTrue(TEXT("World restart restores cell A collision"), CellA->GetActorEnableCollision());
             Test.TestTrue(TEXT("World restart restores cell B collision"), CellB->GetActorEnableCollision());
-            Test.TestEqual(TEXT("World restart does not simulate an interaction"), Visits(QuestBindings::EventEntryElement), 0);
+            Test.TestEqual(TEXT("World restart does not simulate an interaction"), Visits(EventEntryId), 0);
             Test.TestTrue(TEXT("World restart clears the gameplay cursor"), Director->GetCurrentElementId().IsEmpty());
             Test.TestTrue(TEXT("World restart clears gameplay feedback"), Director->GetStatus().IsEmpty());
             Test.TestTrue(TEXT("World restart clears the last event type"), Variable(QuestBindings::EventTypeAttribute).IsEmpty());
@@ -340,7 +341,7 @@ public:
     }
 
 private:
-    int32 Visits(const TCHAR* Id) const
+    int32 Visits(const FString& Id) const
     {
         return GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().Visits.FindChecked(Id);
     }
@@ -353,7 +354,7 @@ private:
     void EnterExit()
     {
         BeforeExitVisits = ExitResponseVisits();
-        BeforeExitEventVisits = Visits(QuestBindings::EventEntryElement);
+        BeforeExitEventVisits = Visits(EventEntryId);
         Character->QuestView(TEXT("exit"));
         PhaseStart = World->GetTimeSeconds();
     }
@@ -366,7 +367,7 @@ private:
 
     void CheckExitEvent()
     {
-        Test.TestEqual(TEXT("Physical exit overlap enters the shared event graph once"), Visits(QuestBindings::EventEntryElement), BeforeExitEventVisits + 1);
+        Test.TestEqual(TEXT("Physical exit overlap enters the shared event graph once"), Visits(EventEntryId), BeforeExitEventVisits + 1);
         Test.TestEqual(TEXT("Physical exit overlap executes exactly one authored exit response"), ExitResponseVisits(), BeforeExitVisits + 1);
         Test.TestEqual(TEXT("Physical exit overlap supplies the exit event type"), Variable(QuestBindings::EventTypeAttribute), FString(TEXT("enter_exit")));
         Test.TestEqual(TEXT("Physical exit overlap clears pickup context"), Variable(QuestBindings::CellAlreadyCollectedAttribute), FString(TEXT("false")));
@@ -386,12 +387,12 @@ private:
         AQuestWorldActor* Target = Cast<AQuestWorldActor>(Hit.GetActor());
         if (Test.TestNotNull(FString::Printf(TEXT("%s viewpoint traces a real interactive actor"), View), Target))
         {
-            const int32 BeforeEventVisits = Visits(QuestBindings::EventEntryElement);
+            const int32 BeforeEventVisits = Visits(EventEntryId);
             Character->QuestInteract();
             const FString ExpectedEvent = FString(View) == TEXT("terminal") ? TEXT("use_terminal")
                 : FString(View) == TEXT("generator") ? TEXT("check_generator") : TEXT("collect_cell");
             Test.TestEqual(FString(View) + TEXT(" interaction enters the shared event graph exactly once"),
-                Visits(QuestBindings::EventEntryElement), BeforeEventVisits + 1);
+                Visits(EventEntryId), BeforeEventVisits + 1);
             Test.TestEqual(FString(View) + TEXT(" interaction supplies its event type"), Variable(QuestBindings::EventTypeAttribute), ExpectedEvent);
             Test.TestEqual(FString(View) + TEXT(" interaction supplies fresh pickup context"), Variable(QuestBindings::CellAlreadyCollectedAttribute), FString(TEXT("false")));
         }
@@ -415,6 +416,7 @@ private:
     TWeakObjectPtr<UPrimitiveComponent> GatePanel;
     TArray<TPair<TWeakObjectPtr<UPointLightComponent>, float>> StationLights;
     TMap<FString, int32> InitialVisits;
+    FString EventEntryId;
     int32 Step = 0;
     int32 BeforeExitVisits = 0;
     int32 BeforeExitEventVisits = 0;
