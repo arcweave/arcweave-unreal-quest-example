@@ -6,6 +6,7 @@
 #include "QuestDirector.generated.h"
 
 class UArcweaveSubsystem;
+struct FArcweaveElementData;
 
 /** Owns gameplay interaction timing; Arcweave owns the authored narrative decisions. */
 UCLASS()
@@ -20,22 +21,30 @@ public:
     bool StartQuest(FString& Error);
     bool CollectCell(FName CellId, FString& Error);
     bool TryRestorePower(FString& Error);
+    bool ReachExit(FString& Error);
 
     bool IsQuestStarted() const;
-    bool IsPowerRestored() const { return bPowerRestored; }
+    bool IsQuestCompleted() const;
+    bool IsPowerRestored() const;
     bool IsGateOpen() const { return bGateOpen; }
     bool HasCollectedCell(FName CellId) const { return CollectedCells.Contains(CellId); }
     int32 GetPowerCellCount() const;
+    int32 GetRequiredPowerCellCount() const;
     FString GetObjective() const { return Objective; }
     FString GetStatus() const { return Status; }
     FString GetCurrentElementId() const { return CurrentElementId; }
+    FString GetPresentationElementId() const { return PresentationElementId; }
+    FString GetUIText(FName QualifiedField) const { return UIText.FindRef(QualifiedField); }
 
     FSimpleMulticastDelegate OnQuestChanged;
 
 private:
     friend class FArcweaveQuestFlowTest;
 
-    bool EnterElement(const FString& ElementId, FString& Error);
+    bool RunEvent(const FString& EventType, FString& Error, bool bCellAlreadyCollected = false);
+    bool RunGraph(const FString& EntryElementId, bool bDispatchCommands,
+        FArcweaveElementData& LastElement, FString& Error);
+    bool RefreshPresentation(FString& Error);
     bool RejectInteraction(const FString& Message, FString& Error);
     void PublishChange();
 
@@ -44,10 +53,14 @@ private:
 
     TMap<FName, TFunction<void()>> CommandHandlers;
     TSet<FName> CollectedCells;
+    FName PendingCellId;
     FString CurrentElementId;
-    FString Objective = TEXT("Use the terminal to begin.");
-    FString Status = TEXT("The gate has no power.");
+    FString PresentationEntryId;
+    FString PresentationElementId;
+    TMap<FName, FString> UIVariableIds;
+    TMap<FName, FString> UIText;
+    FString Objective;
+    FString Status;
     bool bProjectLoaded = false;
-    bool bPowerRestored = false;
     bool bGateOpen = false;
 };

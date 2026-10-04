@@ -4,6 +4,8 @@
 #include "QuestDirector.h"
 #include "QuestHUD.h"
 #include "QuestWorldActor.h"
+#include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SkyLightComponent.h"
@@ -27,11 +29,11 @@ AQuestGameMode::AQuestGameMode()
 void AQuestGameMode::BeginPlay()
 {
     Super::BeginPlay();
-    BuildStation();
     Director = GetGameInstance()->GetSubsystem<UQuestDirector>();
-    QuestChangedHandle = Director->OnQuestChanged.AddUObject(this, &AQuestGameMode::RefreshStation);
     FString Error;
     Director->StartNewGame(Error);
+    BuildStation();
+    QuestChangedHandle = Director->OnQuestChanged.AddUObject(this, &AQuestGameMode::RefreshStation);
     RefreshStation();
 }
 
@@ -62,7 +64,7 @@ void AQuestGameMode::AddBlock(FVector Location, FVector Dimensions, FLinearColor
     Mesh->RegisterComponent();
 }
 
-void AQuestGameMode::AddSign(const FString& Value, FVector Location, float Size, FColor Color)
+void AQuestGameMode::AddSign(FName TextKey, FVector Location, float Size, FColor Color)
 {
     AActor* Sign = GetWorld()->SpawnActor<AActor>();
     UTextRenderComponent* Text = NewObject<UTextRenderComponent>(Sign);
@@ -72,9 +74,10 @@ void AQuestGameMode::AddSign(const FString& Value, FVector Location, float Size,
     Text->SetVerticalAlignment(EVRTA_TextCenter);
     Text->SetWorldSize(Size);
     Text->SetTextRenderColor(Color);
-    Text->SetText(FText::FromString(Value));
+    Text->SetText(FText::FromString(Director->GetUIText(TextKey)));
     Text->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Text->RegisterComponent();
+    StationSigns.Add(TextKey, Text);
 }
 
 void AQuestGameMode::BuildStation()
@@ -153,10 +156,23 @@ void AQuestGameMode::BuildStation()
         AddBlock(FVector(190 + Index * 65, 865, 77), FVector(30, 5, 90), Wall);
     }
 
-    AddSign(TEXT("RELAY / 07"), FVector(2175, -755, 324), 58, FColor(175, 205, 218));
-    AddSign(TEXT("POWER DISTRIBUTION"), FVector(2173, -755, 250), 21, FColor(93, 153, 174));
-    AddSign(TEXT("01"), FVector(2175, 785, 295), 124, FColor(65, 96, 115));
-    AddSign(TEXT("AUTHORIZED EXIT"), FVector(2818, 0, 262), 28, FColor(91, 210, 225));
+    AddSign(TEXT("world_text.sign_station"), FVector(2175, -755, 324), 58, FColor(175, 205, 218));
+    AddSign(TEXT("world_text.sign_distribution"), FVector(2173, -755, 250), 21, FColor(93, 153, 174));
+    AddSign(TEXT("world_text.sign_gate"), FVector(2175, 785, 295), 124, FColor(65, 96, 115));
+    AddSign(TEXT("world_text.sign_exit"), FVector(2818, 0, 262), 28, FColor(91, 210, 225));
+
+    AActor* Exit = GetWorld()->SpawnActor<AActor>();
+    ExitTrigger = NewObject<UBoxComponent>(Exit, TEXT("QuestExitTrigger"));
+    Exit->SetRootComponent(ExitTrigger);
+    ExitTrigger->SetWorldLocation(FVector(2630, 0, 160));
+    ExitTrigger->SetBoxExtent(FVector(135, 250, 160));
+    ExitTrigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    ExitTrigger->SetCollisionObjectType(ECC_WorldDynamic);
+    ExitTrigger->SetCollisionResponseToAllChannels(ECR_Ignore);
+    ExitTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+    ExitTrigger->SetGenerateOverlapEvents(true);
+    ExitTrigger->OnComponentBeginOverlap.AddDynamic(this, &AQuestGameMode::HandleExitBeginOverlap);
+    ExitTrigger->RegisterComponent();
 
     ADirectionalLight* Sun = GetWorld()->SpawnActor<ADirectionalLight>(FVector(0, 0, 1000), FRotator(-50, -28, 0));
     Sun->GetLightComponent()->SetMobility(EComponentMobility::Movable);
@@ -196,5 +212,22 @@ void AQuestGameMode::RefreshStation()
         Light->SetLightColor(Director->IsPowerRestored()
             ? FLinearColor(0.50f, 0.83f, 1.0f) : FLinearColor(1.0f, 0.76f, 0.49f));
         Light->SetIntensity(Director->IsPowerRestored() ? 24000.0f : 18000.0f);
+    }
+    for (const auto& Sign : StationSigns)
+    {
+        Sign.Value->SetText(FText::FromString(Director->GetUIText(Sign.Key)));
+    }
+}
+
+void AQuestGameMode::HandleExitBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+    UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+    const AQuestCharacter* Character = Cast<AQuestCharacter>(OtherActor);
+    if (Character && OtherComponent == Character->GetCapsuleComponent())
+    {
+        // A capsule begin-overlap is one deliberate entry. The authored graph decides
+        // whether this arrival completes the quest; native collision only defines the zone.
+        FString Error;
+        Director->ReachExit(Error);
     }
 }

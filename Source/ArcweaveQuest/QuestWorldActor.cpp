@@ -80,7 +80,6 @@ void AQuestWorldActor::Configure(EQuestStationObject InKind, FName InCellId)
             AddPart(TEXT("Cube"), FVector(-26, -32 + Index * 21, 150), FVector(0.035f, 0.12f, 0.035f), Edge);
         }
         Label->SetRelativeLocation(FVector(0, 0, 207));
-        Label->SetText(FText::FromString(TEXT("STATION TERMINAL")));
         StatusLight->SetRelativeLocation(FVector(-65, 0, 155));
         break;
     case EQuestStationObject::PowerCell:
@@ -91,7 +90,6 @@ void AQuestWorldActor::Configure(EQuestStationObject InKind, FName InCellId)
         AddPart(TEXT("Cylinder"), FVector(0, 0, 147), FVector(0.58f, 0.58f, 0.15f), Edge);
         AddPart(TEXT("Cylinder"), FVector(0, 0, 157), FVector(0.25f, 0.25f, 0.07f), Cyan, true);
         Label->SetRelativeLocation(FVector(0, 0, 211));
-        Label->SetText(FText::FromString(CellId == TEXT("cell_a") ? TEXT("CELL A / READY") : TEXT("CELL B / READY")));
         StatusLight->SetRelativeLocation(FVector(0, 0, 170));
         break;
     case EQuestStationObject::Generator:
@@ -122,6 +120,7 @@ void AQuestWorldActor::Configure(EQuestStationObject InKind, FName InCellId)
             AddPart(TEXT("Cube"), FVector(-56, Side * 325, 260), FVector(0.08f, 0.16f, 2.35f), Amber, true, RootComponent);
         }
         Label->SetRelativeLocation(FVector(-70, 0, 486));
+        Label->SetRelativeRotation(FRotator(0, 180, 0));
         Label->SetWorldSize(30.0f);
         StatusLight->SetRelativeLocation(FVector(-140, 0, 385));
         StatusLight->SetAttenuationRadius(680.0f);
@@ -143,9 +142,18 @@ void AQuestWorldActor::ApplyQuestState(const UQuestDirector& Director, bool bAni
     }
     StatusLight->SetLightColor(Color);
     StatusLight->SetVisibility(!bCollected);
+    if (Kind == EQuestStationObject::Terminal)
+    {
+        Label->SetText(FText::FromString(Director.GetUIText(TEXT("world_text.terminal_label"))));
+    }
+    if (Kind == EQuestStationObject::PowerCell)
+    {
+        Label->SetText(FText::FromString(Director.GetUIText(
+            CellId == TEXT("cell_a") ? TEXT("world_text.cell_a_label") : TEXT("world_text.cell_b_label"))));
+    }
     if (Kind == EQuestStationObject::Generator)
     {
-        Label->SetText(FText::FromString(bPowered ? TEXT("GENERATOR / ONLINE") : TEXT("GENERATOR / OFFLINE")));
+        Label->SetText(FText::FromString(Director.GetUIText(TEXT("quest_ui.generator_label"))));
     }
     if (Kind == EQuestStationObject::Gate)
     {
@@ -155,7 +163,7 @@ void AQuestWorldActor::ApplyQuestState(const UQuestDirector& Director, bool bAni
             GateOpenAmount = GateTarget;
             VisualRoot->SetRelativeLocation(FVector(0, 0, GateOpenAmount * 440.0f));
         }
-        Label->SetText(FText::FromString(Director.IsGateOpen() ? TEXT("GATE 01 / ACCESS GRANTED") : TEXT("GATE 01 / NO POWER")));
+        Label->SetText(FText::FromString(Director.GetUIText(TEXT("quest_ui.gate_label"))));
     }
 }
 
@@ -164,11 +172,11 @@ FString AQuestWorldActor::GetInteractionText(const UQuestDirector& Director) con
     switch (Kind)
     {
     case EQuestStationObject::Terminal:
-        return Director.IsQuestStarted() ? TEXT("Review station terminal") : TEXT("Read station terminal");
+        return Director.GetUIText(TEXT("quest_ui.terminal_prompt"));
     case EQuestStationObject::PowerCell:
-        return Director.IsQuestStarted() ? TEXT("Collect power cell") : TEXT("Read the station terminal first");
+        return Director.GetUIText(TEXT("quest_ui.cell_prompt"));
     case EQuestStationObject::Generator:
-        return Director.IsPowerRestored() ? FString() : (Director.GetPowerCellCount() == 2 ? TEXT("Install cells and restore power") : TEXT("Inspect generator sockets"));
+        return Director.GetUIText(TEXT("quest_ui.generator_prompt"));
     default:
         return FString();
     }
@@ -201,6 +209,8 @@ void AQuestWorldActor::Tick(float DeltaSeconds)
     {
         GateOpenAmount = FMath::FInterpConstantTo(GateOpenAmount, GateTarget, DeltaSeconds, 0.42f);
         VisualRoot->SetRelativeLocation(FVector(0, 0, GateOpenAmount * 440.0f));
+        // The gate sign stays aligned with its frame instead of facing the camera.
+        return;
     }
     else if (Kind == EQuestStationObject::PowerCell)
     {

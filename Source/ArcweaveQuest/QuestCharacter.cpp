@@ -131,6 +131,11 @@ void AQuestCharacter::QuestView(const FString& View)
         Location = FVector(1780, 0, 110);
         Target = FVector(2220, 0, 190);
     }
+    else if (View == TEXT("exit"))
+    {
+        Location = FVector(2630, 0, 110);
+        Target = FVector(2818, 0, 220);
+    }
     else if (View == TEXT("overview"))
     {
         Location = FVector(-200, 410, 110);

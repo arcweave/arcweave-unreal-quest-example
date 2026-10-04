@@ -9,26 +9,75 @@
 
 UQuestDirector::UQuestDirector()
 {
-    // Designers attach these component custom IDs to an element. Game code defines their effects.
-    CommandHandlers.Add(TEXT("restore_power"), [this] { bPowerRestored = true; });
+    // Arcweave decides when to request an action; these handlers implement its world effect.
     CommandHandlers.Add(TEXT("open_gate"), [this] { bGateOpen = true; });
+    CommandHandlers.Add(TEXT("collect_cell"), [this]
+    {
+        CollectedCells.Add(PendingCellId);
+        Arcweave->SetVariable(QuestBindings::PowerCellsAttribute, FString::FromInt(CollectedCells.Num()));
+    });
 }
 
 bool UQuestDirector::StartNewGame(FString& Error)
 {
+    bProjectLoaded = false;
     Arcweave = GEngine->GetEngineSubsystem<UArcweaveSubsystem>();
-    // The packaged project contains a local export. No API token or network import is required.
     if (!Arcweave->LoadJsonFile())
     {
         return RejectInteraction(TEXT("Could not load Content/ArcweaveExport/quest.json."), Error);
     }
 
     CollectedCells.Reset();
+    PendingCellId = NAME_None;
     CurrentElementId.Empty();
-    bPowerRestored = false;
+    PresentationEntryId.Empty();
+    PresentationElementId.Empty();
+    Status.Empty();
     bGateOpen = false;
+
+    const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
+    const FArcweaveBoardData* PresentationBoard = Project.Boards.FindByPredicate(
+        [](const FArcweaveBoardData& Board) { return Board.CustomId == TEXT("quest_presentation"); });
+    if (!PresentationBoard)
+    {
+        return RejectInteraction(TEXT("The narrative export is missing the quest_presentation board."), Error);
+    }
+    const FArcweaveElementData* PresentationEntry = PresentationBoard->Elements.FindByPredicate(
+        [](const FArcweaveElementData& Element)
+        {
+            return Element.Attributes.ContainsByPredicate([](const FArcweaveAttributeData& Attribute)
+            {
+                return Attribute.Name == TEXT("entry_point") && Attribute.Value.Data == TEXT("objectives_ui");
+            });
+        });
+    if (!PresentationEntry)
+    {
+        return RejectInteraction(TEXT("The quest_presentation board is missing its objectives_ui entry point."), Error);
+    }
+    PresentationEntryId = PresentationEntry->Id;
+
+    UIVariableIds.Reset();
+    for (const TCHAR* ComponentId : {QuestBindings::HUDTextComponent,
+        QuestBindings::WorldTextComponent, QuestBindings::QuestUIComponent})
+    {
+        const FArcweaveComponentData* UI = Project.Components.FindByPredicate(
+            [ComponentId](const FArcweaveComponentData& Component) { return Component.Id == ComponentId; });
+        if (!UI)
+        {
+            return RejectInteraction(TEXT("The narrative export is missing a required UI component."), Error);
+        }
+        for (const FArcweaveAttributeData& Attribute : UI->Attributes)
+        {
+            UIVariableIds.Add(FName(*(UI->CustomId + TEXT(".") + Attribute.CustomId)), Attribute.Id);
+        }
+    }
     bProjectLoaded = true;
-    Status = TEXT("The gate has no power. Use the terminal to begin.");
+
+    // Startup computes the authored objective/UI without simulating a world interaction.
+    if (!RefreshPresentation(Error))
+    {
+        return false;
+    }
     Error.Empty();
     PublishChange();
     return true;
@@ -36,118 +85,154 @@ bool UQuestDirector::StartNewGame(FString& Error)
 
 bool UQuestDirector::StartQuest(FString& Error)
 {
-    if (!bProjectLoaded)
-    {
-        return RejectInteraction(TEXT("The local narrative export has not been loaded. Restart after checking the export file."), Error);
-    }
-    if (IsQuestStarted())
-    {
-        Status = TEXT("The terminal's task has already been accepted.");
-        Error.Empty();
-        PublishChange();
-        return true;
-    }
-    if (!EnterElement(QuestBindings::StartElement, Error))
-    {
-        return false;
-    }
-    PublishChange();
-    return true;
+    return RunEvent(TEXT("use_terminal"), Error);
 }
 
 bool UQuestDirector::CollectCell(FName CellId, FString& Error)
 {
-    if (!IsQuestStarted())
-    {
-        return RejectInteraction(TEXT("Use the terminal to accept the task first."), Error);
-    }
-    if (CollectedCells.Contains(CellId))
-    {
-        return RejectInteraction(TEXT("This power cell has already been collected."), Error);
-    }
-
-    CollectedCells.Add(CellId);
-    Arcweave->SetVariable(QuestBindings::PowerCellsVariable, FString::FromInt(CollectedCells.Num()));
-    Status = FString::Printf(TEXT("Collected a power cell (%d/2)."), GetPowerCellCount());
-    Error.Empty();
-    PublishChange();
-    return true;
+    // Physical item identity belongs to Unreal. Arcweave owns permission and feedback.
+    PendingCellId = CellId;
+    const bool bResult = RunEvent(TEXT("collect_cell"), Error, CollectedCells.Contains(CellId));
+    PendingCellId = NAME_None;
+    return bResult;
 }
 
 bool UQuestDirector::TryRestorePower(FString& Error)
 {
-    if (!IsQuestStarted())
-    {
-        return RejectInteraction(TEXT("Use the terminal to accept the task first."), Error);
-    }
-    if (bPowerRestored)
-    {
-        Status = TEXT("The generator is already running and the gate is open.");
-        Error.Empty();
-        PublishChange();
-        return true;
-    }
+    return RunEvent(TEXT("check_generator"), Error);
+}
 
-    if (!EnterElement(QuestBindings::GeneratorElement, Error))
-    {
-        return false;
-    }
-    FArcweaveElementData Generator;
-    FArcweaveBoardData* Board = nullptr;
-    Arcweave->GetBoardForObject(QuestBindings::GeneratorElement, Generator, Board);
-
-    // Follow the actual exported connection. GetIsTargetBranch evaluates its authored
-    // condition against the latest variables and resolves the matching output connection.
-    const FGetIsTargetBranchOutput Branch = Arcweave->GetIsTargetBranch(*Board, Generator.Outputs[0]);
-    if (!Branch.IsBranch || Branch.BranchConnections.IsEmpty())
-    {
-        return RejectInteraction(TEXT("The generator's authored branch has no destination."), Error);
-    }
-    if (!EnterElement(Branch.BranchConnections[0].Targetid, Error))
-    {
-        return false;
-    }
-
-    // A failed narrative condition is a valid interaction. The player can collect cells
-    // and try again; the next interaction evaluates the condition afresh.
-    PublishChange();
-    return true;
+bool UQuestDirector::ReachExit(FString& Error)
+{
+    return RunEvent(TEXT("enter_exit"), Error);
 }
 
 bool UQuestDirector::IsQuestStarted() const
 {
     return bProjectLoaded && Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
-        QuestBindings::QuestStartedVariable).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
+        QuestBindings::QuestStartedAttribute).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
+}
+
+bool UQuestDirector::IsQuestCompleted() const
+{
+    return bProjectLoaded && Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
+        QuestBindings::QuestCompletedAttribute).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
+}
+
+bool UQuestDirector::IsPowerRestored() const
+{
+    return bProjectLoaded && Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
+        QuestBindings::PowerRestoredAttribute).Value.Equals(TEXT("true"), ESearchCase::CaseSensitive);
 }
 
 int32 UQuestDirector::GetPowerCellCount() const
 {
     return bProjectLoaded ? FCString::Atoi(*Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
-        QuestBindings::PowerCellsVariable).Value) : 0;
+        QuestBindings::PowerCellsAttribute).Value) : 0;
 }
 
-bool UQuestDirector::EnterElement(const FString& ElementId, FString& Error)
+int32 UQuestDirector::GetRequiredPowerCellCount() const
 {
-    bool bSuccess = false;
-    const FArcweaveElementData Element = Arcweave->TranspileObject(ElementId, bSuccess);
-    if (!bSuccess)
+    return bProjectLoaded ? FCString::Atoi(*Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(
+        QuestBindings::RequiredPowerCellsAttribute).Value) : 0;
+}
+
+bool UQuestDirector::RunEvent(const FString& EventType, FString& Error, bool bCellAlreadyCollected)
+{
+    if (!bProjectLoaded)
     {
-        return RejectInteraction(TEXT("Could not execute the requested narrative element."), Error);
+        return RejectInteraction(TEXT("The local narrative export has not been loaded. Restart after checking the export file."), Error);
     }
 
-    CurrentElementId = Element.Id;
-    Status = Element.Content;
-    for (const FArcweaveComponentData& Component : Element.Components)
+    // Replace the complete event input each time; pickup context cannot leak into later events.
+    Arcweave->SetVariable(QuestBindings::EventTypeAttribute, EventType);
+    Arcweave->SetVariable(QuestBindings::CellAlreadyCollectedAttribute, bCellAlreadyCollected ? TEXT("true") : TEXT("false"));
+
+    FArcweaveElementData LastElement;
+    if (!RunGraph(Arcweave->GetArcweaveProjectData().StartingElementId, true, LastElement, Error) || !RefreshPresentation(Error))
     {
-        const FName Command(*Component.CustomId);
-        const TFunction<void()>* Handler = CommandHandlers.Find(Command);
-        if (!Handler)
-        {
-            return RejectInteraction(FString::Printf(TEXT("No C++ handler is registered for '%s'."), *Component.CustomId), Error);
-        }
-        (*Handler)();
+        return false;
     }
     Error.Empty();
+    PublishChange();
+    return true;
+}
+
+bool UQuestDirector::RunGraph(const FString& EntryElementId, bool bDispatchCommands,
+    FArcweaveElementData& LastElement, FString& Error)
+{
+    FString ElementId = EntryElementId;
+    // Each authored event is an acyclic sequence with one automatic output per element.
+    // Branches select the next connection; an element without outputs waits for a new event.
+    while (true)
+    {
+        bool bSuccess = false;
+        LastElement = Arcweave->TranspileObject(ElementId, bSuccess);
+        if (!bSuccess)
+        {
+            return RejectInteraction(TEXT("Could not execute the requested narrative element."), Error);
+        }
+
+        if (bDispatchCommands)
+        {
+            CurrentElementId = LastElement.Id;
+            if (!LastElement.Content.IsEmpty())
+            {
+                Status = LastElement.Content;
+            }
+            for (const FArcweaveComponentData& Component : LastElement.Components)
+            {
+                const TFunction<void()>* Handler = CommandHandlers.Find(FName(*Component.CustomId));
+                if (!Handler)
+                {
+                    return RejectInteraction(FString::Printf(TEXT("No C++ handler is registered for '%s'."), *Component.CustomId), Error);
+                }
+                (*Handler)();
+            }
+        }
+
+        if (LastElement.Outputs.IsEmpty())
+        {
+            return true;
+        }
+
+        FArcweaveElementData Source;
+        FArcweaveBoardData* Board = nullptr;
+        Arcweave->GetBoardForObject(LastElement.Id, Source, Board);
+        FArcweaveConnectionsData Connection = LastElement.Outputs[0];
+        FGetIsTargetBranchOutput Branch = Arcweave->GetIsTargetBranch(*Board, Connection);
+        while (Branch.IsBranch)
+        {
+            if (Branch.BranchConnections.IsEmpty())
+            {
+                return RejectInteraction(TEXT("The authored branch has no destination."), Error);
+            }
+            Connection = Branch.BranchConnections[0];
+            Branch = Arcweave->GetIsTargetBranch(*Board, Connection);
+        }
+        ElementId = Connection.Targetid;
+    }
+}
+
+bool UQuestDirector::RefreshPresentation(FString& Error)
+{
+    // The graph resets quest_ui defaults and applies state-specific overrides without
+    // world commands. It runs once per event; HUD and focus getters only read the cache.
+    FArcweaveElementData Presentation;
+    if (!RunGraph(PresentationEntryId, false, Presentation, Error))
+    {
+        return false;
+    }
+    PresentationElementId = Presentation.Id;
+    Objective = Presentation.Content;
+    // Read current values after Arcscript has updated quest_ui. Shared hud and world_text
+    // variables also retain runtime changes until the game explicitly changes or resets them.
+    const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
+    UIText.Reset();
+    for (const auto& Variable : UIVariableIds)
+    {
+        UIText.Add(Variable.Key, Project.CurrentVars.FindChecked(Variable.Value).Value);
+    }
     return true;
 }
 
@@ -161,21 +246,5 @@ bool UQuestDirector::RejectInteraction(const FString& Message, FString& Error)
 
 void UQuestDirector::PublishChange()
 {
-    if (bPowerRestored)
-    {
-        Objective = TEXT("Power restored. Walk through the open gate.");
-    }
-    else if (!IsQuestStarted())
-    {
-        Objective = TEXT("Use the terminal to begin.");
-    }
-    else if (GetPowerCellCount() < 2)
-    {
-        Objective = FString::Printf(TEXT("Collect power cells (%d/2), then use the generator."), GetPowerCellCount());
-    }
-    else
-    {
-        Objective = TEXT("Return to the generator and restore power.");
-    }
     OnQuestChanged.Broadcast();
 }

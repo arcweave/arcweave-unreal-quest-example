@@ -69,29 +69,33 @@ void AQuestHUD::DrawHUD()
     const float CenterX = Canvas->ClipX * 0.5f;
     const float CenterY = Canvas->ClipY * 0.5f;
     const bool bOnline = Director->IsPowerRestored();
+    const bool bCompleted = Director->IsQuestCompleted();
+    const int32 RequiredCells = Director->GetRequiredPowerCellCount();
+    const int32 CollectedCells = Director->GetPowerCellCount();
 
     DrawRect(Panel, Left, Margin, 442 * S, 83 * S);
     DrawRect(Cyan, Left, Margin, 3 * S, 83 * S);
-    Text(TEXT("ARCWEAVE  /  FIELD OPERATIONS"), Left + 19 * S, Margin + 13 * S, 0.78f * S, Muted);
-    Text(TEXT("RELAY 07"), Left + 18 * S, Margin + 35 * S, 1.52f * S, White);
+    Text(Director->GetUIText(TEXT("hud.brand")), Left + 19 * S, Margin + 13 * S, 0.78f * S, Muted);
+    Text(Director->GetUIText(TEXT("hud.station_name")), Left + 18 * S, Margin + 35 * S, 1.52f * S, White);
 
     const float ObjectiveY = Margin + 95 * S;
     DrawRect(Panel, Left, ObjectiveY, 442 * S, 143 * S);
-    Text(bOnline ? TEXT("MISSION COMPLETE") : TEXT("CURRENT OBJECTIVE"), Left + 19 * S, ObjectiveY + 15 * S, 0.79f * S, bOnline ? Cyan : Amber);
+    Text(Director->GetUIText(TEXT("quest_ui.mission_heading")), Left + 19 * S, ObjectiveY + 15 * S,
+        0.79f * S, bCompleted ? Cyan : Amber);
     WrappedText(Director->GetObjective(), Left + 19 * S, ObjectiveY + 43 * S, 402 * S, 1.04f * S, White);
-    Text(TEXT("RESTORE POWER. OPEN THE GATE."), Left + 19 * S, ObjectiveY + 117 * S, 0.68f * S, Muted);
+    Text(Director->GetUIText(TEXT("hud.mission_tagline")), Left + 19 * S, ObjectiveY + 117 * S, 0.68f * S, Muted);
 
     DrawRect(Panel, Right - 242 * S, Margin, 242 * S, 112 * S);
     DrawRect(bOnline ? Cyan : Amber, Right - 242 * S, Margin, 242 * S, 2 * S);
-    Text(bOnline ? TEXT("GRID ONLINE") : TEXT("AUXILIARY POWER"), Right - 223 * S, Margin + 15 * S, 0.81f * S, bOnline ? Cyan : Amber);
-    Text(TEXT("POWER CELLS"), Right - 223 * S, Margin + 46 * S, 0.76f * S, Muted);
-    Text(FString::Printf(TEXT("%d / 2"), Director->GetPowerCellCount()), Right - 87 * S, Margin + 42 * S, 1.04f * S, White);
-    for (int32 Index = 0; Index < 2; ++Index)
-    {
-        const FName Id = Index == 0 ? TEXT("cell_a") : TEXT("cell_b");
-        DrawRect(Director->HasCollectedCell(Id) ? Cyan : FLinearColor(0.13f, 0.20f, 0.25f),
-            Right - 223 * S + Index * 104 * S, Margin + 82 * S, 96 * S, 8 * S);
-    }
+    Text(Director->GetUIText(TEXT("quest_ui.grid_status")), Right - 223 * S, Margin + 15 * S,
+        0.81f * S, bOnline ? Cyan : Amber);
+    Text(Director->GetUIText(TEXT("hud.cells_label")), Right - 223 * S, Margin + 46 * S, 0.76f * S, Muted);
+    Text(FString::Printf(TEXT("%d / %d"), CollectedCells, RequiredCells), Right - 87 * S, Margin + 42 * S, 1.04f * S, White);
+    const float Progress = RequiredCells > 0
+        ? FMath::Clamp(static_cast<float>(CollectedCells) / RequiredCells, 0.0f, 1.0f)
+        : 0.0f;
+    DrawRect(FLinearColor(0.13f, 0.20f, 0.25f), Right - 223 * S, Margin + 82 * S, 200 * S, 8 * S);
+    DrawRect(Cyan, Right - 223 * S, Margin + 82 * S, 200 * S * Progress, 8 * S);
 
     const FString Status = Director->GetStatus();
     const float StatusWidth = FMath::Min(860.0f * S, Canvas->ClipX - Margin * 2);
@@ -130,5 +134,5 @@ void AQuestHUD::DrawHUD()
     DrawRect(Panel, Left, Canvas->ClipY - 48 * S, 588 * S, 28 * S);
     Text(TEXT("WASD  MOVE     MOUSE  LOOK     E  INTERACT     R  RESTART"),
         Left + 12 * S, Canvas->ClipY - 42 * S, 0.73f * S, Muted);
-    Text(TEXT("STATION 07   /   MAINTENANCE ACCESS"), Right - 297 * S, Canvas->ClipY - 42 * S, 0.68f * S, Muted);
+    Text(Director->GetUIText(TEXT("hud.station_footer")), Right - 297 * S, Canvas->ClipY - 42 * S, 0.68f * S, Muted);
 }
