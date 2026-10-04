@@ -14,7 +14,6 @@ namespace QuestBindings
     inline constexpr const TCHAR* HUDTextComponent = TEXT("06e4e920-e844-4509-9891-18e05d39f48b");
     inline constexpr const TCHAR* WorldTextComponent = TEXT("db3ac52b-3cc2-4a1b-86c8-2d2cd5903573");
     inline constexpr const TCHAR* QuestUIComponent = TEXT("e170ad75-b550-436b-9877-32a16bcaffbe");
-    inline constexpr const TCHAR* PickupCollectedElement = TEXT("6af8cc14-6034-4e97-ab3f-6ebbdc207161");
     inline constexpr const TCHAR* CompletedElement = TEXT("f2d75b83-f348-4b58-8190-b68d119db86d");
     inline constexpr const TCHAR* TerminalAcceptedElement = TEXT("2689f5bc-f257-4b93-8d03-16760617ef62");
     inline constexpr const TCHAR* TerminalPoweredElement = TEXT("41df4d86-d079-4785-a22a-013597633640");
@@ -30,8 +29,6 @@ namespace QuestBindings
     inline constexpr const TCHAR* PresentationCollectingElement = TEXT("903c2f59-6079-49a6-b099-83a9ab0e8091");
     inline constexpr const TCHAR* PresentationReadyElement = TEXT("a3cd505b-7878-42cf-9523-063ffb62eb58");
     inline constexpr const TCHAR* PresentationBranch = TEXT("82527135-0d06-4109-a594-733eff9f09c1");
-    inline constexpr const TCHAR* PresentationPoweredSetupElement = TEXT("4305f923-a70e-4d44-b42c-5ec60ea0fbf5");
-    inline constexpr const TCHAR* PresentationCompletionBranch = TEXT("c200e6f6-ad02-4179-a061-86f5455838a8");
     inline constexpr const TCHAR* PickupBranch = TEXT("fabbd4d2-3d23-41de-b66a-7f819fe7723e");
     inline constexpr const TCHAR* GameEventComponent = TEXT("c6d692fd-c0f0-4045-9fe4-c69315169526");
     inline constexpr const TCHAR* EventTypeAttribute = TEXT("8ed8d440-99a2-49ed-9ed5-794e356827ac");

@@ -78,7 +78,7 @@ EVENT_LANES = {
     ),
     "PickupBranch": (
         "DuplicatePickupElement", "PickupTerminalRequiredElement",
-        "PickupActionElement", "PickupCollectedElement",
+        "PickupActionElement",
     ),
     "GeneratorBranch": (
         "SuccessElement", "MissingCellsElement", "TerminalRequiredElement", "AlreadyOnlineElement",
@@ -170,17 +170,36 @@ def read_expression(node):
 def validate_display_content(content, entry=False):
     blocks = CodeBlocks()
     blocks.feed(content or "")
-    statements = []
-    for script in blocks.blocks:
+    resets = []
+    conditionals = []
+    for index, script in enumerate(blocks.blocks):
+        code = arcscript_expression(script).strip()
+        conditional = re.match(r"^(if|elseif)\b", code)
+        if conditional or code in {"else", "endif"}:
+            token = conditional[1] if conditional else code
+            if conditional:
+                try:
+                    parsed = ast.parse(code[conditional.end():].strip(), mode="eval")
+                except SyntaxError as error:
+                    raise ValueError("Presentation conditions must be read-only expressions in their own code blocks.") from error
+                if not read_expression(parsed):
+                    raise ValueError("Presentation conditions cannot call functions or change state.")
+            if token == "if":
+                conditionals.append(False)
+            elif not conditionals or (token in {"elseif", "else"} and conditionals[-1]):
+                raise ValueError("Presentation conditional blocks must use balanced if/elseif/else/endif fragments.")
+            elif token == "else":
+                conditionals[-1] = True
+            elif token == "endif":
+                conditionals.pop()
+            continue
         try:
-            parsed = ast.parse(arcscript_expression(script).strip()).body
+            statements = ast.parse(code).body
         except SyntaxError as error:
             raise ValueError("Presentation scripts must use simple assignments, show(), or entry resets.") from error
-        if len(parsed) != 1:
+        if len(statements) != 1:
             raise ValueError("Each presentation code block must contain exactly one simple statement for the native plugin.")
-        statements.extend(parsed)
-    resets = []
-    for index, statement in enumerate(statements):
+        statement = statements[0]
         if isinstance(statement, ast.Assign):
             if (len(statement.targets) == 1 and scoped_field(statement.targets[0], "quest_ui")
                     and read_expression(statement.value)):
@@ -197,6 +216,8 @@ def validate_display_content(content, entry=False):
                 resets.append(call.args[0].attr)
                 continue
         raise ValueError("Presentation may only assign quest_ui fields, show known values, or reset its entry defaults.")
+    if conditionals:
+        raise ValueError("Presentation conditional blocks must use balanced if/elseif/else/endif fragments.")
     if entry and (len(resets) != len(DISPLAY_FIELDS) or set(resets) != DISPLAY_FIELDS):
         raise ValueError("Presentation entry must reset each of the seven quest_ui fields exactly once.")
 
@@ -462,7 +483,8 @@ def validate_bindings(project, bindings):
     used_connections = set()
     used_conditions = set()
     used_jumpers = set()
-    jumper_sources = set()
+    return_sources = set()
+    world_jumper_sources = {}
     display_leaves = {bindings[name] for name in DISPLAY_LEAVES}
 
     def edge(origin, source_id, source_type, connection_id):
@@ -471,14 +493,22 @@ def validate_bindings(project, bindings):
         target_type = connection["targetType"]
         if target_type == "jumpers":
             if target not in project["jumpers"] or owners.get(target) != owners.get(origin):
-                raise ValueError("A return jumper must exist on the same board as its connection.")
-            if origin not in display_leaves or source_type != "elements" or target in used_jumpers:
-                raise ValueError("Each return jumper must be used only by its own presentation leaf.")
-            if project["jumpers"][target].get("elementId") != event_entry:
-                raise ValueError("Every return jumper must target the interaction menu.")
+                raise ValueError("A boundary jumper must exist on the same board as its connection.")
+            if source_type != "elements":
+                raise ValueError("Only element outcomes may use boundary jumpers.")
+            destination = project["jumpers"][target].get("elementId")
+            if origin in display_leaves:
+                if destination != event_entry:
+                    raise ValueError("Every return jumper must target the interaction menu.")
+                if target in used_jumpers:
+                    raise ValueError("Each return jumper must be used only by its own presentation leaf.")
+                return_sources.add(origin)
+            else:
+                if destination != display_entry:
+                    raise ValueError("World-event jumpers must target the objectives_ui entry.")
+                world_jumper_sources.setdefault(target, set()).add(origin)
             used_jumpers.add(target)
-            jumper_sources.add(origin)
-            target = event_entry
+            target = destination
             target_type = "elements"
         if (
             connection_id in used_connections or connection["sourceid"] != source_id
@@ -526,9 +556,11 @@ def validate_bindings(project, bindings):
             edge(ident, condition_id, "conditions", output)
     if used_connections != set(project["connections"]) or used_conditions != set(project["conditions"]):
         raise ValueError("Every condition and connection must belong to an automatic graph path.")
-    if (used_jumpers != set(project["jumpers"]) or jumper_sources != display_leaves
+    if return_sources != display_leaves:
+        raise ValueError("Each of the five presentation leaves must use its own return jumper.")
+    if (used_jumpers != set(project["jumpers"])
             or used_jumpers != set(project["boards"][bindings["Board"]].get("jumpers", []) or [])):
-        raise ValueError("Each of the five presentation leaves must use its own return jumper, with no unused jumpers.")
+        raise ValueError("Every jumper must be owned and used, with no unused jumpers.")
 
     def reachable(starts, stop):
         result = set()
@@ -559,11 +591,8 @@ def validate_bindings(project, bindings):
 
     display_ids = reachable({display_entry}, event_entry)
     validate_acyclic(display_ids, event_entry)
-    required_display = {bindings[name] for name in (
-        "PresentationBranch", "PresentationPoweredSetupElement", "PresentationCompletionBranch",
-    )}
-    if not required_display.issubset(display_ids):
-        raise ValueError("Presentation must reach its shared power setup and bound state branches.")
+    if bindings["PresentationBranch"] not in display_ids:
+        raise ValueError("Presentation must reach its bound state branch.")
     leaves = display_leaves
     terminal_ids = {ident for ident in display_ids if edges[ident] == [event_entry]}
     if terminal_ids != leaves or any(not edges[ident] for ident in display_ids):
@@ -635,6 +664,11 @@ def validate_bindings(project, bindings):
             raise ValueError("Separate world-event lanes must not execute one another or share automatic paths.")
         if not {bindings[item] for item in EVENT_LANES[name]}.issubset(current):
             raise ValueError("Each world-event lane must retain its bound outcomes and gameplay checks.")
+        boundary_sources = {ident for ident in current if display_entry in edges[ident]}
+        jumpers = {ident: sources for ident, sources in world_jumper_sources.items()
+                   if sources.intersection(current)}
+        if len(jumpers) != 1 or next(iter(jumpers.values())) != boundary_sources:
+            raise ValueError("Each world-event lane must share its own objectives_ui jumper without mixing lanes or bypassing it.")
     world_board = project["boards"][bindings["Board"]]
     world_nodes = set(world_board.get("elements", []) or []) | set(world_board.get("branches", []) or [])
     if world_ids | display_ids != world_nodes:

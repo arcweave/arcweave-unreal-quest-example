@@ -159,6 +159,8 @@ public:
             CellA = InteractAt(TEXT("cell_a"));
             if (!CellA.IsValid()) return true;
             Test.TestEqual(TEXT("Actual cell A pickup updates the narrative variable"), Director->GetPowerCellCount(), 1);
+            Test.TestEqual(TEXT("Actual cell A pickup ends at the combined action and feedback element"),
+                Director->GetCurrentElementId(), FString(QuestBindings::PickupActionElement));
             Test.TestEqual(TEXT("Actual cell A pickup updates its shared collected flag"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("true")));
             Test.TestEqual(TEXT("Actual cell A pickup leaves cell B available in the narrative"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
             Test.TestEqual(TEXT("World pickup displays feedback after the count update"),
@@ -178,6 +180,8 @@ public:
             CellB = InteractAt(TEXT("cell_b"));
             if (!CellB.IsValid()) return true;
             Test.TestEqual(TEXT("Actual cell B pickup updates the narrative variable"), Director->GetPowerCellCount(), 2);
+            Test.TestEqual(TEXT("Actual cell B pickup reuses the combined action and feedback element"),
+                Director->GetCurrentElementId(), FString(QuestBindings::PickupActionElement));
             Test.TestEqual(TEXT("Actual cell B pickup updates its shared collected flag"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("true")));
             Test.TestTrue(TEXT("Quest notification hides the actual collected cell B actor"), CellB->IsHidden());
             Test.TestFalse(TEXT("Collected cell B no longer blocks collision"), CellB->GetActorEnableCollision());

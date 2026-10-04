@@ -805,13 +805,15 @@ class NarrativeValidationTests(unittest.TestCase):
         self.project["conditions"][branch["conditions"]["ifCondition"]]["script"] = "resetVisits()"
         self.assert_invalid("Presentation conditions cannot call functions")
 
-    def test_nested_completion_condition_is_read_only(self):
-        branch = self.project["branches"][self.bindings["PresentationCompletionBranch"]]
+    def test_completed_display_condition_is_read_only(self):
+        branch = self.project["branches"][self.bindings["PresentationBranch"]]
         self.project["conditions"][branch["conditions"]["ifCondition"]]["script"] = "reset(quest_ui.mission_heading)"
         self.assert_invalid("Presentation conditions cannot call functions")
 
     def test_shared_power_setup_cannot_modify_gameplay(self):
-        self.script("PresentationPoweredSetupElement", "quest.completed = true")
+        self.element("PresentationEntryElement")["content"] = ("".join(self.entry_resets())
+            + self.code_block("if quest.completed || quest.power_restored")
+            + self.code_block("quest.completed = true") + self.code_block("endif"))
         self.assert_invalid("Presentation may only assign quest_ui fields")
 
     def test_presentation_internal_element_needs_no_cpp_binding(self):
@@ -846,7 +848,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_world_outcomes_cannot_loop_back_to_menu_without_presentation(self):
         output = self.element("TerminalAcceptedElement")["outputs"][0]
-        self.project["connections"][output]["targetid"] = self.element_id("EventEntryElement")
+        self.project["connections"][output].update(targetid=self.element_id("EventEntryElement"), targetType="elements")
         self.assert_invalid("automatic event path contains a cycle before its execution boundary")
 
     def test_presentation_must_return_to_the_menu(self):
@@ -880,11 +882,11 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_missing_return_jumper_is_rejected(self):
         del self.project["jumpers"][self.return_connection()["targetid"]]
-        self.assert_invalid("return jumper must exist on the same board")
+        self.assert_invalid("boundary jumper must exist on the same board")
 
     def test_unowned_return_jumper_is_rejected(self):
         self.project["boards"][self.bindings["Board"]]["jumpers"].remove(self.return_connection()["targetid"])
-        self.assert_invalid("return jumper must exist on the same board")
+        self.assert_invalid("boundary jumper must exist on the same board")
 
     def test_return_jumper_requires_its_destination(self):
         del self.return_jumper()["elementId"]
@@ -915,15 +917,53 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_world_lane_cannot_jump_to_menu_before_refreshing_objectives(self):
         ident = self.element("TerminalAcceptedElement")["outputs"][0]
         self.project["connections"][ident].update(targetid=self.return_connection()["targetid"], targetType="jumpers")
-        self.assert_invalid("Each return jumper must be used only by its own presentation leaf")
+        self.assert_invalid("World-event jumpers must target the objectives_ui entry")
 
     def test_condition_cannot_jump_directly_to_menu(self):
         self.generator_connection().update(targetid=self.return_connection()["targetid"], targetType="jumpers")
-        self.assert_invalid("Each return jumper must be used only by its own presentation leaf")
+        self.assert_invalid("Only element outcomes may use boundary jumpers")
 
     def test_long_return_connection_cannot_replace_local_jumper(self):
         self.return_connection().update(targetid=self.element_id("EventEntryElement"), targetType="elements")
         self.assert_invalid("five presentation leaves must use its own return jumper")
+
+    def test_world_outcomes_share_one_jumper_per_lane(self):
+        for bindings in SYNC.EVENT_LANES.values():
+            targets = {self.return_connection(binding)["targetid"] for binding in bindings}
+            self.assertEqual(len(targets), 1)
+            self.assertEqual(self.project["jumpers"][targets.pop()]["elementId"],
+                             self.element_id("PresentationEntryElement"))
+        self.validate()
+
+    def test_world_jumper_requires_an_owned_destination(self):
+        for change in ("missing", "unowned", "target"):
+            with self.subTest(change=change):
+                self.project = copy.deepcopy(self.unreal)
+                ident = self.return_connection("TerminalAcceptedElement")["targetid"]
+                if change == "missing":
+                    del self.project["jumpers"][ident]
+                elif change == "unowned":
+                    self.project["boards"][self.bindings["Board"]]["jumpers"].remove(ident)
+                else:
+                    self.project["jumpers"][ident]["elementId"] = self.bindings["PickupActionElement"]
+                self.assert_invalid("boundary jumper must exist on the same board|World-event jumpers must target")
+
+    def test_world_lanes_cannot_share_the_same_ui_jumper(self):
+        self.return_connection("TerminalAcceptedElement")["targetid"] = self.return_connection("PickupActionElement")["targetid"]
+        self.assert_invalid("Each world-event lane must share its own objectives_ui jumper")
+
+    def test_world_lane_outcome_cannot_bypass_its_shared_jumper(self):
+        self.return_connection("TerminalAcceptedElement").update(
+            targetid=self.element_id("PresentationEntryElement"), targetType="elements")
+        self.assert_invalid("Each world-event lane must share its own objectives_ui jumper")
+
+    def test_world_lane_cannot_split_its_return_across_multiple_jumpers(self):
+        ident = str(uuid4())
+        original = self.return_connection("TerminalAcceptedElement")["targetid"]
+        self.project["jumpers"][ident] = dict(self.project["jumpers"][original])
+        self.project["boards"][self.bindings["Board"]]["jumpers"].append(ident)
+        self.return_connection("TerminalAcceptedElement")["targetid"] = ident
+        self.assert_invalid("Each world-event lane must share its own objectives_ui jumper")
 
     def test_stale_element_display_metadata_is_rejected(self):
         self.element("PresentationReadyElement")["attributes"] = ["legacy-display-attribute"]
@@ -1177,9 +1217,69 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("reset all seven fields before any other statements")
 
     def test_entry_resets_cannot_be_conditional(self):
-        self.script("PresentationEntryElement", "if quest.started:\n"
-                    "    reset(quest_ui.mission_heading)")
-        self.assert_invalid("Presentation may only assign quest_ui fields")
+        self.element("PresentationEntryElement")["content"] = (self.code_block("if quest.started")
+            + "".join(self.entry_resets()) + self.code_block("endif"))
+        self.assert_invalid("reset all seven fields before any other statements")
+
+    def test_entry_shared_overrides_accept_read_only_conditionals_in_all_exports(self):
+        content = ("".join(self.entry_resets()) + "".join(self.code_block(script) for script in (
+            "if quest.completed || quest.power_restored", 'quest_ui.grid_status = "POWER ONLINE"',
+            "elseif quest.started", 'quest_ui.grid_status = "RESTORATION IN PROGRESS"',
+            "else", 'show("Visit the terminal")', "endif", "show(player.power_cells)",
+        )))
+        for export in (self.unreal, self.authoring, self.localized):
+            with self.subTest(localized="contents" in export):
+                self.project = copy.deepcopy(export)
+                if "content" in self.element("PresentationEntryElement"):
+                    self.element("PresentationEntryElement")["content"] = content
+                else:
+                    self.localized_content("PresentationEntryElement")["text"] = content
+                self.validate()
+
+    def test_nested_ui_conditionals_remain_read_only(self):
+        self.element("PresentationEntryElement")["content"] = ("".join(self.entry_resets())
+            + "".join(self.code_block(script) for script in (
+                "if quest.power_restored", "if quest.completed", 'quest_ui.grid_status = "COMPLETE"',
+                "else", 'quest_ui.grid_status = "ONLINE"', "endif", "endif")))
+        self.validate()
+
+    def test_ui_conditional_expressions_cannot_call_or_write(self):
+        for expression in ("resetAll()", "quest.started = true", "random(2) > 0", "other.state"):
+            with self.subTest(expression=expression):
+                self.element("PresentationEntryElement")["content"] = ("".join(self.entry_resets())
+                    + self.code_block("if " + expression) + self.code_block('quest_ui.grid_status = "ONLINE"')
+                    + self.code_block("endif"))
+                self.assert_invalid("Presentation conditions")
+
+    def test_conditional_ui_assignments_cannot_change_shared_state(self):
+        for script in ("quest.completed = true", "player.power_cells += 1", "cell_a.collected = true",
+                       'game_event.type = "enter_exit"', 'hud.station_name = "Changed"'):
+            with self.subTest(script=script):
+                self.element("PresentationEntryElement")["content"] = ("".join(self.entry_resets())
+                    + self.code_block("if quest.power_restored") + self.code_block(script) + self.code_block("endif"))
+                self.assert_invalid("Presentation may only assign quest_ui fields")
+
+    def test_ui_condition_fragments_require_separate_code_blocks(self):
+        for scripts in (("if quest.power_restored", 'quest_ui.grid_status = "ONLINE"'),
+                        ("elseif quest.started", 'quest_ui.grid_status = "READY"')):
+            with self.subTest(scripts=scripts):
+                self.element("PresentationEntryElement")["content"] = ("".join(self.entry_resets())
+                    + self.code_block("\n".join(scripts)))
+                self.assert_invalid("Presentation conditions must be read-only expressions in their own code blocks")
+
+    def test_ui_conditional_fragments_must_be_balanced(self):
+        for scripts in (("if quest.started",), ("else",), ("endif",), ("elseif quest.started",),
+                        ("if quest.started", "else", "else", "endif"),
+                        ("if quest.started", "else", "elseif quest.power_restored", "endif")):
+            with self.subTest(scripts=scripts):
+                self.element("PresentationEntryElement")["content"] = ("".join(self.entry_resets())
+                    + "".join(self.code_block(script) for script in scripts))
+                self.assert_invalid("Presentation conditional blocks must use balanced")
+
+    def test_entry_cannot_reset_again_inside_conditional_overrides(self):
+        self.element("PresentationEntryElement")["content"] = ("".join(self.entry_resets())
+            + self.code_block("if quest.power_restored") + self.entry_resets()[0] + self.code_block("endif"))
+        self.assert_invalid("reset all seven fields before any other statements")
 
     def test_reset_all_cannot_replace_entry_defaults(self):
         self.script("PresentationEntryElement", "resetAll()")
@@ -1196,20 +1296,20 @@ class NarrativeValidationTests(unittest.TestCase):
                 self.assert_invalid("Only the presentation entry may reset known quest_ui fields")
 
     def test_later_presentation_elements_cannot_reset_defaults(self):
-        self.element("PresentationPoweredSetupElement")["content"] = self.entry_resets()[0]
+        self.element("PresentationPoweredElement")["content"] = self.entry_resets()[0]
         self.assert_invalid("Only the presentation entry may reset known quest_ui fields")
 
     def test_multiple_statements_in_one_code_block_are_rejected(self):
         for separator in ("\n", "; "):
             with self.subTest(separator=separator):
-                self.script("PresentationPoweredSetupElement", separator.join((
+                self.script("PresentationPoweredElement", separator.join((
                     "quest_ui.mission_heading = hud.station_name",
                     "quest_ui.grid_status = world_text.sign_gate",
                 )))
                 self.assert_invalid("Each presentation code block must contain exactly one simple statement")
 
     def test_multiple_assignments_in_separate_code_blocks_are_allowed(self):
-        self.element("PresentationPoweredSetupElement")["content"] = (
+        self.element("PresentationPoweredElement")["content"] = (
             self.code_block("quest_ui.mission_heading = hud.station_name")
             + self.code_block("quest_ui.grid_status = world_text.sign_gate"))
         self.validate()

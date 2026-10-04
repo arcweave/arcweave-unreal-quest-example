@@ -26,7 +26,11 @@
           "a8ab6e66-0283-456c-a481-48e305b3caea",
           "09723e37-9162-4652-9919-b6fa5f36dfa7",
           "de810c6c-0e95-4291-a5dd-0465b9329e24",
-          "56c1fc5e-90ba-4dab-a12b-587dcbf4c4b5"
+          "56c1fc5e-90ba-4dab-a12b-587dcbf4c4b5",
+          "d60ee1ae-646c-4cef-8a4c-1b2fa4869430",
+          "7841550a-3630-4291-a28d-64748f6301a9",
+          "cfce673f-9067-41b2-932c-e11cbbba5a29",
+          "f65d0040-815d-4df2-8fb8-073e2d6619b2"
         ],
         "branches": [
           "e110b153-2cfa-4294-adcc-e4b14cd0aef3",
@@ -34,8 +38,7 @@
           "fabbd4d2-3d23-41de-b66a-7f819fe7723e",
           "5a5c96ae-ef6f-421e-b2da-efca55bc5bc3",
           "e025a541-5646-496a-bb27-4bde51e34596",
-          "82527135-0d06-4109-a594-733eff9f09c1",
-          "c200e6f6-ad02-4179-a061-86f5455838a8"
+          "82527135-0d06-4109-a594-733eff9f09c1"
         ],
         "customId": "restore_power_quest",
         "elements": [
@@ -45,7 +48,6 @@
           "05d919db-a991-45b7-b20f-db02dbd6f307",
           "76724a0b-9935-4c27-9941-90c63f3a795c",
           "35f2414d-8156-474e-98d3-eaf74211d45b",
-          "6af8cc14-6034-4e97-ab3f-6ebbdc207161",
           "f2d75b83-f348-4b58-8190-b68d119db86d",
           "2689f5bc-f257-4b93-8d03-16760617ef62",
           "41df4d86-d079-4785-a22a-013597633640",
@@ -60,8 +62,7 @@
           "3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0",
           "2562dfc6-156c-425d-a9d3-3ae7796d594b",
           "903c2f59-6079-49a6-b099-83a9ab0e8091",
-          "a3cd505b-7878-42cf-9523-063ffb62eb58",
-          "4305f923-a70e-4d44-b42c-5ec60ea0fbf5"
+          "a3cd505b-7878-42cf-9523-063ffb62eb58"
         ],
         "attributes": null,
         "connections": [
@@ -90,9 +91,6 @@
           "b2887056-7cba-4136-b7b5-06070de76ede",
           "153c112e-4d03-4d53-a329-9e4414280c69",
           "d5ffccab-0083-495e-b69a-124298a1d100",
-          "26ad1280-1cc5-4585-80a3-c5448906c4d9",
-          "077c266d-5bb2-4e4a-ac44-d4d41748eb95",
-          "96eb1d96-51b5-4c09-8a41-46511cc02667",
           "79dfcf7f-d765-4c35-a091-e2c4fce94e95",
           "27a3b224-c7fd-47d7-a4de-e9e26ff0c149",
           "d6bcdedf-3dd0-4d3e-bdfe-ece309441e0b",
@@ -102,7 +100,6 @@
           "dc6b5643-1c9b-44c7-8821-00cc1807a6db",
           "626372c7-1302-4658-a5df-a5630fdf1583",
           "8a2a9df2-b367-4178-8c1d-84f2ad3f6c04",
-          "04110049-59d0-4584-8ebf-857758d39a0d",
           "d5d12e68-a95e-4197-88c0-e003e746d7b5",
           "62967cbe-88a2-4bd7-958a-6689ad10fbe7",
           "1c9e907a-0cbb-434e-9878-54dfe87ed293",
@@ -115,7 +112,8 @@
           "3cfa09a5-67c6-4f71-9b90-198dba4032cd",
           "978971a0-7003-489d-ac39-07aef2601576",
           "ce30ad8d-5408-45c4-943a-4262e397177a",
-          "e84d28c5-e54b-47ea-a415-88aecc7858e7"
+          "e84d28c5-e54b-47ea-a415-88aecc7858e7",
+          "55d0bee6-ac69-4107-aee3-7eb3bb836878"
         ]
       }
     },
@@ -158,7 +156,7 @@
       },
       "567ce162-983d-43ba-b0d6-409dce845e18": {
         "theme": "purple",
-        "content": "<p><strong>PICKUP · collect_cell</strong></p><p>cell_id identifies cell_a or cell_b. Check its shared collected flag, then task acceptance. Arcscript marks the cell and increments inventory; collect_cell requests the physical Unreal effect.</p>",
+        "content": "<p><strong>PICKUP · collect_cell</strong></p><p>cell_id identifies cell_a or cell_b. Check its collected flag, then task acceptance. The accepted element marks the cell, increments inventory, and shows the new count. The collect_cell reference applies the physical Unreal effect afterward.</p>",
         "x": 11360,
         "y": 9590,
         "width": 650,
@@ -167,10 +165,10 @@
       },
       "c2b03497-1971-4bd0-815e-1025fae44a13": {
         "theme": "purple",
-        "content": "<p><strong>OBJECTIVES AND INTERFACE · SAME PLAYTHROUGH</strong></p><p>All event outcomes enter the element marked entry_point = objectives_ui. Reset only quest_ui defaults, then apply state-specific overrides. Each objective returns to Station. Unreal runs this section once per event and stops before re-entering the menu.</p><p>State lives in Player, Quest, Cell A, and Cell B. HUD and world strings remain in UI components. Use one Arcscript statement per code block.</p>",
+        "content": "<p><strong>OBJECTIVES AND INTERFACE · SAME PLAYTHROUGH</strong></p><p>Each interaction group uses a local jumper to this section. Reset quest_ui defaults, apply shared powered overrides when completed or powered, then select one of five objectives. Each objective returns to Station through its own jumper.</p><p>Unreal stops before this entry, refreshes it once, and stops before the menu. State lives in Player, Quest, Cell A, and Cell B; text remains in UI components. Use one Arcscript statement per code block.</p>",
         "x": 14650,
         "y": 8500,
-        "width": 3700,
+        "width": 2950,
         "height": 250,
         "autoHeight": true
       },
@@ -265,21 +263,21 @@
         "outputs": [
           "3cfa09a5-67c6-4f71-9b90-198dba4032cd"
         ],
-        "x": 17900,
+        "x": 16500,
         "y": 9540,
         "width": 430,
         "height": 180,
         "autoHeight": true
       },
-      "4305f923-a70e-4d44-b42c-5ec60ea0fbf5": {
+      "961efa28-f033-44aa-ae8f-25bcb9a8e3e1": {
         "theme": "green",
         "outputs": [
-          "26ad1280-1cc5-4585-80a3-c5448906c4d9"
+          "7b6875d8-4af2-4292-9a3e-04b9403dd096"
         ],
-        "x": 16500,
-        "y": 9290,
-        "width": 501,
-        "height": 290,
+        "x": 12500,
+        "y": 12680,
+        "width": 370,
+        "height": 150,
         "autoHeight": true
       },
       "35f2414d-8156-474e-98d3-eaf74211d45b": {
@@ -329,15 +327,15 @@
         "height": 180,
         "autoHeight": true
       },
-      "6af8cc14-6034-4e97-ab3f-6ebbdc207161": {
+      "82aad47c-b3de-45af-93b7-f83c76cf7344": {
         "theme": "green",
         "outputs": [
-          "04110049-59d0-4584-8ebf-857758d39a0d"
+          "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16"
         ],
-        "x": 13400,
-        "y": 10500,
-        "width": 370,
-        "height": 150,
+        "x": 16500,
+        "y": 9160,
+        "width": 430,
+        "height": 180,
         "autoHeight": true
       },
       "f2d75b83-f348-4b58-8190-b68d119db86d": {
@@ -430,28 +428,6 @@
         "width": 370,
         "height": 150,
         "autoHeight": true
-      },
-      "961efa28-f033-44aa-ae8f-25bcb9a8e3e1": {
-        "theme": "green",
-        "outputs": [
-          "7b6875d8-4af2-4292-9a3e-04b9403dd096"
-        ],
-        "x": 12500,
-        "y": 12680,
-        "width": 370,
-        "height": 150,
-        "autoHeight": true
-      },
-      "82aad47c-b3de-45af-93b7-f83c76cf7344": {
-        "theme": "green",
-        "outputs": [
-          "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16"
-        ],
-        "x": 17900,
-        "y": 9160,
-        "width": 430,
-        "height": 180,
-        "autoHeight": true
       }
     },
     "jumpers": {
@@ -459,14 +435,14 @@
         "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "height": 90,
         "width": 240,
-        "x": 18550,
+        "x": 17150,
         "y": 9200
       },
       "a8ab6e66-0283-456c-a481-48e305b3caea": {
         "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "height": 90,
         "width": 240,
-        "x": 18550,
+        "x": 17150,
         "y": 9580
       },
       "09723e37-9162-4652-9919-b6fa5f36dfa7": {
@@ -489,6 +465,34 @@
         "width": 240,
         "x": 17150,
         "y": 11140
+      },
+      "d60ee1ae-646c-4cef-8a4c-1b2fa4869430": {
+        "elementId": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "height": 90,
+        "width": 290,
+        "x": 13400,
+        "y": 9030
+      },
+      "7841550a-3630-4291-a28d-64748f6301a9": {
+        "elementId": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "height": 90,
+        "width": 290,
+        "x": 13400,
+        "y": 10290
+      },
+      "cfce673f-9067-41b2-932c-e11cbbba5a29": {
+        "elementId": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "height": 90,
+        "width": 290,
+        "x": 13400,
+        "y": 11600
+      },
+      "f65d0040-815d-4df2-8fb8-073e2d6619b2": {
+        "elementId": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "height": 90,
+        "width": 290,
+        "x": 13400,
+        "y": 12980
       }
     },
     "connections": {
@@ -637,14 +641,15 @@
       },
       "cf1cba2c-37e7-445e-be8d-8074e4ee251a": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "988b8226-23eb-4990-b481-19cd7cd3145c",
-        "targetid": "6af8cc14-6034-4e97-ab3f-6ebbdc207161",
+        "targetid": "7841550a-3630-4291-a28d-64748f6301a9",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "green",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
       "001db9e3-0994-414e-aa9d-f0d8df03efd1": {
         "sourceType": "conditions",
@@ -692,14 +697,15 @@
       },
       "3b7e83e5-707e-4124-87ef-be501f7bd93f": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "469d524b-9a3e-41b4-9f94-67a17246b608",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "targetid": "7841550a-3630-4291-a28d-64748f6301a9",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
       "3cfa09a5-67c6-4f71-9b90-198dba4032cd": {
         "sourceType": "elements",
@@ -714,25 +720,27 @@
       },
       "9babcdd5-8018-44a0-a11b-e776ec3119b9": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "12c92fd1-be9a-40c9-9bc3-1d6f5573ee9a",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "targetid": "f65d0040-815d-4df2-8fb8-073e2d6619b2",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
       "7b6875d8-4af2-4292-9a3e-04b9403dd096": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "961efa28-f033-44aa-ae8f-25bcb9a8e3e1",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "targetid": "f65d0040-815d-4df2-8fb8-073e2d6619b2",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
       "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16": {
         "sourceType": "elements",
@@ -805,7 +813,7 @@
         "sourceType": "conditions",
         "labelLocation": 0.5,
         "sourceid": "ce27fd0d-3342-4712-b62d-d52730ced795",
-        "targetid": "4305f923-a70e-4d44-b42c-5ec60ea0fbf5",
+        "targetid": "82aad47c-b3de-45af-93b7-f83c76cf7344",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
@@ -856,38 +864,41 @@
         "theme": "default",
         "targetType": "branches"
       },
-      "26ad1280-1cc5-4585-80a3-c5448906c4d9": {
+      "b986e560-4139-4ea2-80ac-93795a81ec3a": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
-        "sourceid": "4305f923-a70e-4d44-b42c-5ec60ea0fbf5",
-        "targetid": "c200e6f6-ad02-4179-a061-86f5455838a8",
+        "labelLocation": 0.3,
+        "sourceid": "f0fd0f64-ef53-446f-a43b-63746394bba0",
+        "targetid": "cfce673f-9067-41b2-932c-e11cbbba5a29",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "branches"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
-      "077c266d-5bb2-4e4a-ac44-d4d41748eb95": {
-        "sourceType": "conditions",
-        "labelLocation": 0.5,
-        "sourceid": "505599bc-c9cf-4442-8f53-6c810b9af4ac",
-        "targetid": "82aad47c-b3de-45af-93b7-f83c76cf7344",
+      "31a718c4-aa21-4b8a-a29f-423f4c22ebce": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "c80115f9-8323-42c8-b514-6d7895ad6852",
+        "targetid": "d60ee1ae-646c-4cef-8a4c-1b2fa4869430",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
-      "96eb1d96-51b5-4c09-8a41-46511cc02667": {
-        "sourceType": "conditions",
-        "labelLocation": 0.5,
-        "sourceid": "3a7f1091-fdbd-4b8c-b3b5-177ba1f70f95",
-        "targetid": "3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0",
+      "1c9e907a-0cbb-434e-9878-54dfe87ed293": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "41df4d86-d079-4785-a22a-013597633640",
+        "targetid": "d60ee1ae-646c-4cef-8a4c-1b2fa4869430",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
       "79dfcf7f-d765-4c35-a091-e2c4fce94e95": {
         "sourceType": "elements",
@@ -939,64 +950,69 @@
       },
       "7ae2eea9-275c-4739-a233-3b497f456910": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "targetid": "d60ee1ae-646c-4cef-8a4c-1b2fa4869430",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
       "1f8c9ff9-21aa-4880-924b-76abdb696ef5": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "bfc100c0-7b99-4404-a71c-c1b42b102c02",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "targetid": "cfce673f-9067-41b2-932c-e11cbbba5a29",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
       "dc6b5643-1c9b-44c7-8821-00cc1807a6db": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "10be7825-974e-4306-b8e4-d2bbc63486dd",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "targetid": "cfce673f-9067-41b2-932c-e11cbbba5a29",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
       "626372c7-1302-4658-a5df-a5630fdf1583": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "05d919db-a991-45b7-b20f-db02dbd6f307",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "targetid": "cfce673f-9067-41b2-932c-e11cbbba5a29",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
       "8a2a9df2-b367-4178-8c1d-84f2ad3f6c04": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "35f2414d-8156-474e-98d3-eaf74211d45b",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "targetid": "7841550a-3630-4291-a28d-64748f6301a9",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
-      "04110049-59d0-4584-8ebf-857758d39a0d": {
-        "sourceType": "elements",
+      "55d0bee6-ac69-4107-aee3-7eb3bb836878": {
+        "sourceType": "conditions",
         "labelLocation": 0.5,
-        "sourceid": "6af8cc14-6034-4e97-ab3f-6ebbdc207161",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "sourceid": "5675ffc9-4c7c-4779-8c5e-881d72fdb154",
+        "targetid": "3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
@@ -1005,58 +1021,27 @@
       },
       "d5d12e68-a95e-4197-88c0-e003e746d7b5": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "f2d75b83-f348-4b58-8190-b68d119db86d",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "targetid": "f65d0040-815d-4df2-8fb8-073e2d6619b2",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
       "62967cbe-88a2-4bd7-958a-6689ad10fbe7": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "2689f5bc-f257-4b93-8d03-16760617ef62",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "targetid": "d60ee1ae-646c-4cef-8a4c-1b2fa4869430",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
-      },
-      "1c9e907a-0cbb-434e-9878-54dfe87ed293": {
-        "sourceType": "elements",
-        "labelLocation": 0.5,
-        "sourceid": "41df4d86-d079-4785-a22a-013597633640",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
-        "sourceFace": "right",
-        "targetFace": "left",
-        "type": "Bezier",
-        "theme": "default",
-        "targetType": "elements"
-      },
-      "31a718c4-aa21-4b8a-a29f-423f4c22ebce": {
-        "sourceType": "elements",
-        "labelLocation": 0.5,
-        "sourceid": "c80115f9-8323-42c8-b514-6d7895ad6852",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
-        "sourceFace": "right",
-        "targetFace": "left",
-        "type": "Bezier",
-        "theme": "default",
-        "targetType": "elements"
-      },
-      "b986e560-4139-4ea2-80ac-93795a81ec3a": {
-        "sourceType": "elements",
-        "labelLocation": 0.5,
-        "sourceid": "f0fd0f64-ef53-446f-a43b-63746394bba0",
-        "targetid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
-        "sourceFace": "right",
-        "targetFace": "left",
-        "type": "Bezier",
-        "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       }
     },
     "branches": {
@@ -1115,6 +1100,7 @@
           "ifCondition": "ce27fd0d-3342-4712-b62d-d52730ced795",
           "elseCondition": "9f614a6b-d917-419f-b9c0-906337284257",
           "elseIfConditions": [
+            "5675ffc9-4c7c-4779-8c5e-881d72fdb154",
             "da9ad430-4148-4ade-90d5-41496e523d19",
             "51c6a840-f315-4f42-b5b9-fc6109b77e38"
           ]
@@ -1122,15 +1108,6 @@
         "theme": "gold",
         "x": 15500,
         "y": 10100
-      },
-      "c200e6f6-ad02-4179-a061-86f5455838a8": {
-        "conditions": {
-          "ifCondition": "505599bc-c9cf-4442-8f53-6c810b9af4ac",
-          "elseCondition": "3a7f1091-fdbd-4b8c-b3b5-177ba1f70f95"
-        },
-        "theme": "green",
-        "x": 17250,
-        "y": 9390
       },
       "e025a541-5646-496a-bb27-4bde51e34596": {
         "conditions": {
@@ -1337,15 +1314,10 @@
         },
         "_status": {}
       },
-      "6af8cc14-6034-4e97-ab3f-6ebbdc207161": {
-        "title": {
+      "626372c7-1302-4658-a5df-a5630fdf1583": {
+        "label": {
           "en": {
-            "text": "<p>Pickup accepted · updated inventory</p>"
-          }
-        },
-        "content": {
-          "en": {
-            "text": "<pre data-id=\"f341b597-4df3-4678-9129-f8d9aadbe6ba\" spellcheck=\"false\"><code class=\"language-arcscript\">show(\"Collected a power cell (\", player.power_cells, \"/\", quest.required_power_cells, \").\")</code></pre>"
+            "text": "<p>View current objective</p>"
           }
         },
         "_status": {}
@@ -1436,7 +1408,7 @@
         },
         "content": {
           "en": {
-            "text": "<pre data-id=\"d229f417-23e1-493c-a93b-0eee12237e18\" spellcheck=\"false\"><code class=\"language-arcscript\">if game_event.cell_id == \"cell_a\"</code></pre><pre data-id=\"d88e7e4d-c74f-4f15-bd12-68bffdf20331\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">cell_a.collected = true</code></pre><pre data-id=\"2e3db5b8-61fd-4547-8924-e9644cbab925\" spellcheck=\"false\"><code class=\"language-arcscript\">else</code></pre><pre data-id=\"a2e60713-20e8-4867-827c-854fe4f4c73b\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">cell_b.collected = true</code></pre><pre data-id=\"e1a85fd0-ec6f-41c2-8f2a-50b01c0e73ef\" spellcheck=\"false\"><code class=\"language-arcscript\">endif</code></pre><pre data-id=\"8427b63e-9eb5-489a-a0e2-49dc5256e45c\" spellcheck=\"false\"><code class=\"language-arcscript\">player.power_cells += 1</code></pre><p>You pick up the power cell.</p>"
+            "text": "<pre data-id=\"cf22e68d-ef13-4880-b2b2-fc0212cdb7b7\" spellcheck=\"false\"><code class=\"language-arcscript\">if game_event.cell_id == \"cell_a\"</code></pre><pre data-id=\"15385699-e9f8-4dae-a322-850b9412f814\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">cell_a.collected = true</code></pre><pre data-id=\"eeda2a02-4ad3-4adc-98bb-a640e8b4b02f\" spellcheck=\"false\"><code class=\"language-arcscript\">else</code></pre><pre data-id=\"23ae268c-d858-4912-ba80-0383d19c5502\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">cell_b.collected = true</code></pre><pre data-id=\"332d1fcf-28b0-4111-b58e-ed36eb72fd36\" spellcheck=\"false\"><code class=\"language-arcscript\">endif</code></pre><pre data-id=\"b14bb3fd-ae62-4a24-b086-d6adb3017c45\" spellcheck=\"false\"><code class=\"language-arcscript\">player.power_cells += 1</code></pre><pre data-id=\"af12f933-bab0-429d-9f2b-1187b8523e93\" spellcheck=\"false\"><code class=\"language-arcscript\">show(\"Collected a power cell (\", player.power_cells, \"/\", quest.required_power_cells, \").\")</code></pre>"
           }
         },
         "_status": {}
@@ -1467,10 +1439,10 @@
         },
         "_status": {}
       },
-      "04110049-59d0-4584-8ebf-857758d39a0d": {
+      "55d0bee6-ac69-4107-aee3-7eb3bb836878": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1574,7 +1546,7 @@
       "cf1cba2c-37e7-445e-be8d-8074e4ee251a": {
         "label": {
           "en": {
-            "text": "<p>Check inventory</p>"
+            "text": "<p>View current objective</p>"
           }
         },
         "_status": {}
@@ -1751,7 +1723,7 @@
         },
         "content": {
           "en": {
-            "text": "<pre data-id=\"a8c44661-ad8a-4bc7-bc84-27f36e07d88b\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.mission_heading)</code></pre><pre data-id=\"b97b4b42-d4f4-4222-9386-c41ae2215365\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.grid_status)</code></pre><pre data-id=\"25997592-108c-4410-9789-84b287abd7b5\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.terminal_prompt)</code></pre><pre data-id=\"2078ab39-b5e8-4091-981e-392f3bc5bdd9\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.cell_prompt)</code></pre><pre data-id=\"79c9c724-542f-4dcb-8c71-c1976b6506ee\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_prompt)</code></pre><pre data-id=\"37c51d9e-b7d7-48b6-97b6-1ce408fe3b30\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_label)</code></pre><pre data-id=\"f22fb2cc-f139-439a-9633-20adcf5a6885\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.gate_label)</code></pre><pre data-id=\"ad019cba-9a7e-4de5-a11a-661f6f94d930\" spellcheck=\"false\"><code class=\"language-arcscript\">show(\"Power cells: \", player.power_cells, \"/\", quest.required_power_cells)</code></pre>"
+            "text": "<pre data-id=\"4e19ba53-0aae-4495-a89b-ec41a1fb3c78\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.mission_heading)</code></pre><pre data-id=\"f4804461-412f-407f-83e7-1b3ad25ff049\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.grid_status)</code></pre><pre data-id=\"792ac0bb-531a-4c7d-a809-f31cc21da6a9\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.terminal_prompt)</code></pre><pre data-id=\"ab8b4e64-16a7-4a47-957b-c28ab3add5e2\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.cell_prompt)</code></pre><pre data-id=\"b41a7ead-9293-4e0f-8634-c53244a080f5\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_prompt)</code></pre><pre data-id=\"ac839f8b-d238-48db-b719-d86699e1dede\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_label)</code></pre><pre data-id=\"6a630679-c8c0-497f-99eb-c8b1b13b3020\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.gate_label)</code></pre><pre data-id=\"0aba6238-e7ef-447a-83a9-76551d279938\" spellcheck=\"false\"><code class=\"language-arcscript\">if quest.completed || quest.power_restored</code></pre><pre data-id=\"87dd10af-8b32-45dc-a126-333e08001e91\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.grid_status = \"GRID ONLINE\"</code></pre><pre data-id=\"82ce16f4-654f-4458-86a1-18e0e6584b93\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_prompt = \"Review running generator\"</code></pre><pre data-id=\"8f9623ee-f2fd-4fe4-a912-e66087d3e882\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_label = \"GENERATOR / ONLINE\"</code></pre><pre data-id=\"47956083-3ef9-4f49-84fe-c1fae53d591f\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.gate_label = \"GATE 01 / ACCESS GRANTED\"</code></pre><pre data-id=\"30d10423-a1a9-4d8a-a7c8-97f3dfae9fdf\" spellcheck=\"false\"><code class=\"language-arcscript\">endif</code></pre><pre data-id=\"268b6dfc-9edb-4b31-85c8-3493696d37bb\" spellcheck=\"false\"><code class=\"language-arcscript\">show(\"Power cells: \", player.power_cells, \"/\", quest.required_power_cells)</code></pre>"
           }
         },
         "_status": {}
@@ -1821,15 +1793,10 @@
         },
         "_status": {}
       },
-      "4305f923-a70e-4d44-b42c-5ec60ea0fbf5": {
-        "title": {
+      "1f8c9ff9-21aa-4880-924b-76abdb696ef5": {
+        "label": {
           "en": {
-            "text": "<p>Display setup · power online</p>"
-          }
-        },
-        "content": {
-          "en": {
-            "text": "<p>The station has power.</p><pre data-id=\"9c3d1648-27a9-45a7-b43a-8c7c7d920676\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.grid_status = \"GRID ONLINE\"</code></pre><pre data-id=\"c48fa58d-d2e6-4b3c-858a-49e2f9ec7cb8\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_prompt = \"Review running generator\"</code></pre><pre data-id=\"28126e42-98ba-41a1-a4f6-c33a9229a60a\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_label = \"GENERATOR / ONLINE\"</code></pre><pre data-id=\"6a6e085f-cb55-4085-bd96-9483a725126d\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.gate_label = \"GATE 01 / ACCESS GRANTED\"</code></pre>"
+            "text": "<p>View current objective</p>"
           }
         },
         "_status": {}
@@ -1874,26 +1841,26 @@
         },
         "_status": {}
       },
-      "26ad1280-1cc5-4585-80a3-c5448906c4d9": {
+      "dc6b5643-1c9b-44c7-8821-00cc1807a6db": {
         "label": {
           "en": {
-            "text": "<p>See current objective</p>"
+            "text": "<p>View current objective</p>"
           }
         },
         "_status": {}
       },
-      "077c266d-5bb2-4e4a-ac44-d4d41748eb95": {
+      "7ae2eea9-275c-4739-a233-3b497f456910": {
         "label": {
           "en": {
-            "text": null
+            "text": "<p>View current objective</p>"
           }
         },
         "_status": {}
       },
-      "96eb1d96-51b5-4c09-8a41-46511cc02667": {
+      "41245d97-81d4-4857-849c-02895783844a": {
         "label": {
           "en": {
-            "text": null
+            "text": "<pre data-id=\"c4da3779-bb16-408f-ab61-89790024f10f\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.type = \"enter_exit\"</code></pre><pre data-id=\"71183117-38f7-4e42-9c14-b39d1ce341f8\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.cell_id = \"\"</code></pre><p>Enter the exit</p>"
           }
         },
         "_status": {}
@@ -1918,46 +1885,6 @@
         "label": {
           "en": {
             "text": "<pre data-id=\"1cef964b-66c6-4480-9997-f0f2aac90b04\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.type = \"check_generator\"</code></pre><pre data-id=\"fe14a8e8-85d2-4c9d-bcc8-046d006972ee\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.cell_id = \"\"</code></pre><p>Check the generator</p>"
-          }
-        },
-        "_status": {}
-      },
-      "41245d97-81d4-4857-849c-02895783844a": {
-        "label": {
-          "en": {
-            "text": "<pre data-id=\"c4da3779-bb16-408f-ab61-89790024f10f\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.type = \"enter_exit\"</code></pre><pre data-id=\"71183117-38f7-4e42-9c14-b39d1ce341f8\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.cell_id = \"\"</code></pre><p>Enter the exit</p>"
-          }
-        },
-        "_status": {}
-      },
-      "7ae2eea9-275c-4739-a233-3b497f456910": {
-        "label": {
-          "en": {
-            "text": "<p>View current objective</p>"
-          }
-        },
-        "_status": {}
-      },
-      "1f8c9ff9-21aa-4880-924b-76abdb696ef5": {
-        "label": {
-          "en": {
-            "text": "<p>View current objective</p>"
-          }
-        },
-        "_status": {}
-      },
-      "dc6b5643-1c9b-44c7-8821-00cc1807a6db": {
-        "label": {
-          "en": {
-            "text": "<p>View current objective</p>"
-          }
-        },
-        "_status": {}
-      },
-      "626372c7-1302-4658-a5df-a5630fdf1583": {
-        "label": {
-          "en": {
-            "text": "<p>View current objective</p>"
           }
         },
         "_status": {}
@@ -2471,12 +2398,12 @@
         "output": "b2887056-7cba-4136-b7b5-06070de76ede"
       },
       "ce27fd0d-3342-4712-b62d-d52730ced795": {
-        "script": "quest.completed || quest.power_restored",
+        "script": "quest.completed",
         "output": "82b38a8a-e6ec-4d1f-82c1-397c616c9bd6"
       },
-      "505599bc-c9cf-4442-8f53-6c810b9af4ac": {
-        "script": "quest.completed",
-        "output": "077c266d-5bb2-4e4a-ac44-d4d41748eb95"
+      "5675ffc9-4c7c-4779-8c5e-881d72fdb154": {
+        "script": "quest.power_restored",
+        "output": "55d0bee6-ac69-4107-aee3-7eb3bb836878"
       },
       "da9ad430-4148-4ade-90d5-41496e523d19": {
         "script": "!quest.started",
@@ -2486,9 +2413,9 @@
         "script": null,
         "output": "153c112e-4d03-4d53-a329-9e4414280c69"
       },
-      "3a7f1091-fdbd-4b8c-b3b5-177ba1f70f95": {
-        "script": null,
-        "output": "96eb1d96-51b5-4c09-8a41-46511cc02667"
+      "91b33bd2-a869-4dda-9b2d-86eebf566271": {
+        "script": "game_event.type == \"enter_exit\"",
+        "output": "2ade2c20-8e24-4d9d-8c98-8738e5c595c3"
       },
       "4217abbe-746f-43f2-a371-d23bb30a00d0": {
         "script": "game_event.type == \"use_terminal\"",
@@ -2505,10 +2432,6 @@
       "ebcaec9e-848f-4f57-a0db-171b2d212cd3": {
         "script": "game_event.type == \"check_generator\"",
         "output": "8af468c1-2caa-4337-a820-c3473a67368e"
-      },
-      "91b33bd2-a869-4dda-9b2d-86eebf566271": {
-        "script": "game_event.type == \"enter_exit\"",
-        "output": "2ade2c20-8e24-4d9d-8c98-8738e5c595c3"
       }
     },
     "locales": [
