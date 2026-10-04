@@ -9,7 +9,6 @@ namespace QuestBindings
     inline constexpr const TCHAR* MissingCellsElement = TEXT("10be7825-974e-4306-b8e4-d2bbc63486dd");
     inline constexpr const TCHAR* OpenGateComponent = TEXT("80c7c42c-bb19-4065-8afa-7cd5b54776fc");
     inline constexpr const TCHAR* TerminalRequiredElement = TEXT("05d919db-a991-45b7-b20f-db02dbd6f307");
-    inline constexpr const TCHAR* PresentationBoard = TEXT("a9ad17ae-15e4-49b7-aff7-7df07bc1f5a2");
     inline constexpr const TCHAR* CollectCellComponent = TEXT("06f4de3e-a022-472e-a2f9-bd73ee5875ee");
     inline constexpr const TCHAR* DuplicatePickupElement = TEXT("35f2414d-8156-474e-98d3-eaf74211d45b");
     inline constexpr const TCHAR* HUDTextComponent = TEXT("06e4e920-e844-4509-9891-18e05d39f48b");
@@ -25,18 +24,17 @@ namespace QuestBindings
     inline constexpr const TCHAR* PickupActionElement = TEXT("988b8226-23eb-4990-b481-19cd7cd3145c");
     inline constexpr const TCHAR* ExitDeniedElement = TEXT("12c92fd1-be9a-40c9-9bc3-1d6f5573ee9a");
     inline constexpr const TCHAR* ExitAlreadyCompletedElement = TEXT("961efa28-f033-44aa-ae8f-25bcb9a8e3e1");
-    inline constexpr const TCHAR* PresentationCompletedElement = TEXT("13031eea-0fa8-4721-ac16-8a583906a6ae");
-    inline constexpr const TCHAR* PresentationPoweredElement = TEXT("09438fc8-be1d-4f8a-adad-30170999ca60");
-    inline constexpr const TCHAR* PresentationUnacceptedElement = TEXT("172fb20d-be4b-40f7-acec-fb22e76afe50");
-    inline constexpr const TCHAR* PresentationCollectingElement = TEXT("825244f4-6345-4314-b731-1f378ae010a1");
-    inline constexpr const TCHAR* PresentationReadyElement = TEXT("b87fd479-2ae1-4201-aaae-a738b8b53f99");
-    inline constexpr const TCHAR* PresentationBranch = TEXT("3cd93c4b-0dbb-47b0-9335-f36e3a27af08");
-    inline constexpr const TCHAR* PresentationPoweredSetupElement = TEXT("a21dc333-37fa-4de2-9213-0acfbfff4811");
-    inline constexpr const TCHAR* PresentationCompletionBranch = TEXT("6562a23b-ba75-455b-9cba-119f77f7dd80");
+    inline constexpr const TCHAR* PresentationCompletedElement = TEXT("82aad47c-b3de-45af-93b7-f83c76cf7344");
+    inline constexpr const TCHAR* PresentationPoweredElement = TEXT("3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0");
+    inline constexpr const TCHAR* PresentationUnacceptedElement = TEXT("2562dfc6-156c-425d-a9d3-3ae7796d594b");
+    inline constexpr const TCHAR* PresentationCollectingElement = TEXT("903c2f59-6079-49a6-b099-83a9ab0e8091");
+    inline constexpr const TCHAR* PresentationReadyElement = TEXT("a3cd505b-7878-42cf-9523-063ffb62eb58");
+    inline constexpr const TCHAR* PresentationBranch = TEXT("82527135-0d06-4109-a594-733eff9f09c1");
+    inline constexpr const TCHAR* PresentationPoweredSetupElement = TEXT("4305f923-a70e-4d44-b42c-5ec60ea0fbf5");
+    inline constexpr const TCHAR* PresentationCompletionBranch = TEXT("c200e6f6-ad02-4179-a061-86f5455838a8");
     inline constexpr const TCHAR* PickupBranch = TEXT("fabbd4d2-3d23-41de-b66a-7f819fe7723e");
     inline constexpr const TCHAR* GameEventComponent = TEXT("c6d692fd-c0f0-4045-9fe4-c69315169526");
     inline constexpr const TCHAR* EventTypeAttribute = TEXT("8ed8d440-99a2-49ed-9ed5-794e356827ac");
-    inline constexpr const TCHAR* CellAlreadyCollectedAttribute = TEXT("7d1df7b7-0fdc-47bd-80aa-0374c9e43f04");
     inline constexpr const TCHAR* EventRouterBranch = TEXT("e025a541-5646-496a-bb27-4bde51e34596");
     inline constexpr const TCHAR* TerminalBranch = TEXT("270da112-6a6e-466e-b090-d0c0bb7c74ee");
     inline constexpr const TCHAR* GeneratorBranch = TEXT("e110b153-2cfa-4294-adcc-e4b14cd0aef3");
@@ -48,4 +46,9 @@ namespace QuestBindings
     inline constexpr const TCHAR* PowerRestoredAttribute = TEXT("6c9b981f-563b-4dfd-af02-d97bf2e92a81");
     inline constexpr const TCHAR* QuestCompletedAttribute = TEXT("3431c35c-5ff4-4f7d-a153-0ceb186178a3");
     inline constexpr const TCHAR* RequiredPowerCellsAttribute = TEXT("14eb1e2e-757b-4712-9b8b-a3c0512ddb2d");
+    inline constexpr const TCHAR* CellAComponent = TEXT("8734a155-9d79-4acf-b340-6bbe667f5d7d");
+    inline constexpr const TCHAR* CellACollectedAttribute = TEXT("00804dbc-96dd-4632-9c09-fd52d10d4b5a");
+    inline constexpr const TCHAR* CellBComponent = TEXT("a5de1ba7-3d2b-48be-9175-b68c452fd845");
+    inline constexpr const TCHAR* CellBCollectedAttribute = TEXT("65bcb1a3-27dc-45ff-a494-a67b26587ccd");
+    inline constexpr const TCHAR* CellIdAttribute = TEXT("a4b099e4-f7c4-4ba5-8d21-62e8ca2ae359");
 }

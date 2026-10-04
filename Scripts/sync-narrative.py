@@ -39,10 +39,16 @@ UI_COMPONENTS = {
 SCOPED_FIELDS = dict(UI_COMPONENTS.values())
 EVENT_INPUTS = {
     "EventTypeAttribute": ("type", "string", ""),
-    "CellAlreadyCollectedAttribute": ("cell_already_collected", "boolean", False),
+    "CellIdAttribute": ("cell_id", "string", ""),
 }
 SCOPED_FIELDS["game_event"] = {item[0] for item in EVENT_INPUTS.values()}
 STATE_COMPONENTS = {
+    "CellAComponent": ("cell_a", {
+        "CellACollectedAttribute": ("collected", "boolean", False),
+    }),
+    "CellBComponent": ("cell_b", {
+        "CellBCollectedAttribute": ("collected", "boolean", False),
+    }),
     "PlayerComponent": ("player", {
         "PowerCellsAttribute": ("power_cells", "integer", 0),
     }),
@@ -61,6 +67,10 @@ EVENT_ROUTES = {
     "collect_cell": "PickupBranch",
     "check_generator": "GeneratorBranch",
     "enter_exit": "ExitBranch",
+}
+MENU_EVENTS = {
+    ("use_terminal", ""), ("collect_cell", "cell_a"), ("collect_cell", "cell_b"),
+    ("check_generator", ""), ("enter_exit", ""),
 }
 EVENT_LANES = {
     "TerminalBranch": (
@@ -86,6 +96,7 @@ class CodeBlocks(HTMLParser):
         self.blocks = []
         self.in_code = False
         self.text = ""
+        self.visible_text = ""
         self.mask_references = mask_references
         self.reference_depth = 0
 
@@ -110,6 +121,8 @@ class CodeBlocks(HTMLParser):
 
     def handle_data(self, data):
         self.text += data
+        if not self.in_code:
+            self.visible_text += data
         if self.in_code and not self.reference_depth:
             self.blocks[-1] += data
 
@@ -236,14 +249,45 @@ def condition_expression(script):
         return None
 
 
-def element_content(project, element_id):
-    element = project["elements"][element_id]
-    if "content" in element:
-        return element["content"]
+def localized_field(project, collection, ident, field):
+    item = project[collection][ident]
+    if field in item:
+        return item[field]
     # The reproducible import keeps the API's all-locales representation.
     locale = next((item["iso"] for item in project.get("locales", []) if item.get("base") is None), "en")
-    contents = project.get("contents", {}).get(element_id, {})
-    return contents.get("content", {}).get(locale, {}).get("text")
+    contents = project.get("contents", {}).get(ident, {})
+    return contents.get(field, {}).get(locale, {}).get("text")
+
+
+def element_content(project, element_id):
+    return localized_field(project, "elements", element_id, "content")
+
+
+def validate_menu_label(content):
+    blocks = CodeBlocks()
+    blocks.feed(content or "")
+    if not blocks.visible_text.strip():
+        raise ValueError("Each interaction menu label must include visible action text.")
+    inputs = {}
+    for script in blocks.blocks:
+        try:
+            statements = ast.parse(arcscript_expression(script).strip()).body
+        except SyntaxError as error:
+            raise ValueError("Menu labels must set each game_event input exactly once with a literal string.") from error
+        if len(statements) != 1:
+            raise ValueError("Each menu label code block must contain exactly one statement for the native plugin.")
+        statement = statements[0]
+        if not (
+            isinstance(statement, ast.Assign) and len(statement.targets) == 1
+            and scoped_field(statement.targets[0], "game_event")
+            and isinstance(statement.value, ast.Constant) and isinstance(statement.value.value, str)
+            and statement.targets[0].attr not in inputs
+        ):
+            raise ValueError("Menu labels must set each game_event input exactly once with a literal string.")
+        inputs[statement.targets[0].attr] = statement.value.value
+    if set(inputs) != {"type", "cell_id"} or (inputs["type"], inputs["cell_id"]) not in MENU_EVENTS:
+        raise ValueError("Each menu choice must supply a complete supported event type and cell identity pair.")
+    return inputs["type"], inputs["cell_id"]
 
 
 def validate_ui_component(project, component_id, scope, fields):
@@ -279,11 +323,10 @@ def validate_bindings(project, bindings):
     if (event_entry not in project["elements"]
             or event_entry not in (project["boards"][bindings["Board"]].get("elements") or [])):
         raise ValueError("The starting element must identify an element on the world-event board.")
-    presentation_boards = {ident: board for ident, board in project["boards"].items()
-                           if board.get("customId") == "quest_presentation"}
-    if len(presentation_boards) != 1 or bindings["PresentationBoard"] not in presentation_boards:
-        raise ValueError("The presentation board must have the unique custom ID quest_presentation.")
-    presentation_board = next(iter(presentation_boards.values()))
+    actual_boards = {ident for ident, board in project["boards"].items() if "children" not in board}
+    if actual_boards != {bindings["Board"]}:
+        raise ValueError("The sample must use one shared board for interactions and objectives/UI.")
+    presentation_board = project["boards"][bindings["Board"]]
     entry_markers = [
         (element_id, attribute_id)
         for element_id in presentation_board.get("elements", []) or []
@@ -291,8 +334,10 @@ def validate_bindings(project, bindings):
         if project["attributes"].get(attribute_id, {}).get("name") == "entry_point"
     ]
     if len(entry_markers) != 1:
-        raise ValueError("The quest_presentation board must contain exactly one objectives_ui entry marker.")
+        raise ValueError("The shared board must contain exactly one objectives_ui entry marker.")
     display_entry, display_marker = entry_markers[0]
+    if display_entry == event_entry:
+        raise ValueError("The objectives_ui entry must be distinct from the interaction menu.")
     marker = project["attributes"][display_marker]
     marker_value = marker.get("value", {})
     if (marker.get("cType") != "elements" or marker.get("cId") != display_entry
@@ -353,7 +398,7 @@ def validate_bindings(project, bindings):
             or "data" not in value or type(data) is not type(default) or data != default
             or (kind == "string" and value.get("plain") is not True)
         ):
-            raise ValueError(f"The game_event.{name} input must keep its bound owner, type, and empty/false default.")
+            raise ValueError(f"The game_event.{name} input must keep its bound owner, type, and empty-string default.")
     scoped_attributes = {**state_attributes, **ui_attributes,
                          **{ident: event_component_id for ident in event_attributes}}
     for attribute_id, attribute in project["attributes"].items():
@@ -362,7 +407,7 @@ def validate_bindings(project, bindings):
             if value["type"] in {"boolean", "integer", "float"} or (value["type"] == "string" and value.get("plain")):
                 if (attribute_id not in scoped_attributes or attribute["cType"] != "components"
                         or attribute.get("cId") != scoped_attributes[attribute_id]):
-                    raise ValueError("Only the five state values, nineteen UI strings, and two game_event inputs may add scoped variables.")
+                    raise ValueError("Only the seven state values, nineteen UI strings, and two game_event inputs may add scoped variables.")
     state_ids = {bindings[name] for name in STATE_COMPONENTS}
     data_ids = ui_ids | state_ids | {event_component_id}
     for component_id, component in project["components"].items():
@@ -399,7 +444,7 @@ def validate_bindings(project, bindings):
             raise ValueError(f"The {name} custom ID no longer matches C++.")
     component_ids = {ident for ident, item in project["components"].items() if "children" not in item}
     if component_ids != data_ids | {bindings[name] for name in COMMANDS}:
-        raise ValueError("The sample requires six data components and exactly the collect_cell and open_gate action components.")
+        raise ValueError("The sample requires eight data components and exactly the collect_cell and open_gate action components.")
     command_elements = {
         bindings["PickupActionElement"]: {bindings["CollectCellComponent"]},
         bindings["SuccessElement"]: {bindings["OpenGateComponent"]},
@@ -408,7 +453,7 @@ def validate_bindings(project, bindings):
     # Model automatic execution through elements and every possible branch outcome.
     owners = {}
     for board_id, board in project["boards"].items():
-        for collection in ("elements", "branches", "connections"):
+        for collection in ("elements", "branches", "connections", "jumpers"):
             for ident in board.get(collection, []) or []:
                 if ident in owners:
                     raise ValueError("An automatic graph object belongs to multiple boards.")
@@ -416,15 +461,30 @@ def validate_bindings(project, bindings):
     edges = {ident: [] for collection in ("elements", "branches") for ident in project[collection]}
     used_connections = set()
     used_conditions = set()
+    used_jumpers = set()
+    jumper_sources = set()
+    display_leaves = {bindings[name] for name in DISPLAY_LEAVES}
 
     def edge(origin, source_id, source_type, connection_id):
         connection = project["connections"][connection_id]
         target = connection["targetid"]
+        target_type = connection["targetType"]
+        if target_type == "jumpers":
+            if target not in project["jumpers"] or owners.get(target) != owners.get(origin):
+                raise ValueError("A return jumper must exist on the same board as its connection.")
+            if origin not in display_leaves or source_type != "elements" or target in used_jumpers:
+                raise ValueError("Each return jumper must be used only by its own presentation leaf.")
+            if project["jumpers"][target].get("elementId") != event_entry:
+                raise ValueError("Every return jumper must target the interaction menu.")
+            used_jumpers.add(target)
+            jumper_sources.add(origin)
+            target = event_entry
+            target_type = "elements"
         if (
             connection_id in used_connections or connection["sourceid"] != source_id
             or connection["sourceType"] != source_type
-            or connection["targetType"] not in {"elements", "branches"}
-            or target not in project[connection["targetType"]]
+            or target_type not in {"elements", "branches"}
+            or target not in project[target_type]
             or owners.get(origin) is None
             or owners.get(origin) != owners.get(target)
             or owners.get(origin) != owners.get(connection_id)
@@ -435,7 +495,7 @@ def validate_bindings(project, bindings):
 
     for ident, element in project["elements"].items():
         outputs = element.get("outputs", []) or []
-        if len(outputs) > 1:
+        if ident != event_entry and len(outputs) > 1:
             raise ValueError("Event elements must have at most one automatic output.")
         for output in outputs:
             edge(ident, ident, "elements", output)
@@ -466,48 +526,68 @@ def validate_bindings(project, bindings):
             edge(ident, condition_id, "conditions", output)
     if used_connections != set(project["connections"]) or used_conditions != set(project["conditions"]):
         raise ValueError("Every condition and connection must belong to an automatic graph path.")
+    if (used_jumpers != set(project["jumpers"]) or jumper_sources != display_leaves
+            or used_jumpers != set(project["boards"][bindings["Board"]].get("jumpers", []) or [])):
+        raise ValueError("Each of the five presentation leaves must use its own return jumper, with no unused jumpers.")
 
-    visited, active = set(), set()
-    def visit(ident):
-        if ident in active:
-            raise ValueError("An automatic event path contains a cycle.")
-        if ident in visited:
-            return
-        active.add(ident)
-        for target in edges[ident]:
-            visit(target)
-        active.remove(ident)
-        visited.add(ident)
-    for ident in edges:
-        visit(ident)
-
-    def reachable(starts):
+    def reachable(starts, stop):
         result = set()
         pending = list(starts)
         while pending:
             ident = pending.pop()
-            if ident not in result:
+            if ident not in result and ident != stop:
                 result.add(ident)
                 pending.extend(edges[ident])
         return result
 
-    display_ids = reachable({display_entry})
+    def validate_acyclic(node_ids, stop):
+        visited, active = set(), set()
+        def visit(ident):
+            if ident == stop:
+                return
+            if ident in active:
+                raise ValueError("An automatic event path contains a cycle before its execution boundary.")
+            if ident in visited:
+                return
+            active.add(ident)
+            for target in edges[ident]:
+                visit(target)
+            active.remove(ident)
+            visited.add(ident)
+        for ident in node_ids:
+            visit(ident)
+
+    display_ids = reachable({display_entry}, event_entry)
+    validate_acyclic(display_ids, event_entry)
     required_display = {bindings[name] for name in (
         "PresentationBranch", "PresentationPoweredSetupElement", "PresentationCompletionBranch",
     )}
     if not required_display.issubset(display_ids):
         raise ValueError("Presentation must reach its shared power setup and bound state branches.")
-    leaves = {bindings[name] for name in DISPLAY_LEAVES}
-    terminal_ids = {ident for ident in display_ids if not edges[ident]}
-    if terminal_ids != leaves:
-        raise ValueError("Presentation must terminate at exactly its five bound display leaves.")
+    leaves = display_leaves
+    terminal_ids = {ident for ident in display_ids if edges[ident] == [event_entry]}
+    if terminal_ids != leaves or any(not edges[ident] for ident in display_ids):
+        raise ValueError("Presentation must return to the interaction menu through exactly its five bound display leaves.")
     if any(ident != display_marker and item.get("cType") == "elements" and item.get("cId") in display_ids
            for ident, item in project["attributes"].items()):
         raise ValueError("Presentation elements must not retain metadata besides the entry marker; use quest_ui component fields.")
 
     event_router = bindings["EventRouterBranch"]
-    if edges[event_entry] != [event_router]:
-        raise ValueError("The shared world-event entry must connect directly to its routing branch.")
+    if edges[event_entry] != [event_router] * len(MENU_EVENTS):
+        raise ValueError("The shared world-event entry must connect directly to its routing branch with five menu choices.")
+    menu_connections = set(project["elements"][event_entry]["outputs"])
+    menu_events = [validate_menu_label(localized_field(project, "connections", ident, "label"))
+                   for ident in project["elements"][event_entry]["outputs"]]
+    if len(menu_events) != len(MENU_EVENTS) or set(menu_events) != MENU_EVENTS:
+        raise ValueError("The interaction menu must offer terminal, both cells, generator, and exit exactly once.")
+    for ident in set(project["connections"]) - menu_connections:
+        content = localized_field(project, "connections", ident, "label")
+        validate_feedback_content(content, "Automatic connection labels")
+        if project["connections"][ident]["sourceType"] == "conditions":
+            label = CodeBlocks()
+            label.feed(content or "")
+            if label.text.strip() or label.blocks:
+                raise ValueError("Condition-output labels must stay empty so they cannot replace interaction menu text.")
     router_group = project["branches"][event_router]["conditions"]
     router_conditions = branch_conditions[event_router]
     router_else = router_group.get("elseCondition")
@@ -531,17 +611,22 @@ def validate_bindings(project, bindings):
         len(pickup_conditions) != 3 or pickup_conditions[-1] != pickup_else
         or project["conditions"][pickup_else].get("script")
         or [condition_expression(project["conditions"][ident].get("script")) for ident in pickup_conditions[:-1]]
-        != [condition_expression("game_event.cell_already_collected"), condition_expression("!quest.started")]
+        != [condition_expression('(game_event.cell_id == "cell_a" && cell_a.collected) || '
+                                 '(game_event.cell_id == "cell_b" && cell_b.collected)'),
+            condition_expression("!quest.started")]
         or edges[pickup_branch] != [bindings[name] for name in (
             "DuplicatePickupElement", "PickupTerminalRequiredElement", "PickupActionElement",
         )]
     ):
         raise ValueError("The pickup branch must check duplicate identity first, then task acceptance, before collecting.")
 
-    world_ids = reachable({event_entry})
+    world_ids = reachable({event_entry}, display_entry)
     if world_ids.intersection(display_ids):
-        raise ValueError("World events must not automatically enter the presentation graph.")
-    lane_ids = {name: reachable({bindings[name]}) for name in EVENT_LANES}
+        raise ValueError("World events must enter presentation only through its objectives_ui entry boundary.")
+    validate_acyclic(world_ids, display_entry)
+    if any(not edges[ident] for ident in world_ids):
+        raise ValueError("Every world-event outcome must continue to the objectives_ui entry.")
+    lane_ids = {name: reachable({bindings[name]}, display_entry) for name in EVENT_LANES}
     for name, current in lane_ids.items():
         if name != "PickupBranch" and bindings["PickupActionElement"] in current:
             raise ValueError("Only the pickup event supplies the physical identity needed by collect_cell.")
@@ -552,8 +637,8 @@ def validate_bindings(project, bindings):
             raise ValueError("Each world-event lane must retain its bound outcomes and gameplay checks.")
     world_board = project["boards"][bindings["Board"]]
     world_nodes = set(world_board.get("elements", []) or []) | set(world_board.get("branches", []) or [])
-    if world_ids != world_nodes:
-        raise ValueError("Every world-event node must be reachable from the shared event entry on its board.")
+    if world_ids | display_ids != world_nodes:
+        raise ValueError("Every shared-board node must be reachable from the interaction menu or objectives_ui entry.")
 
     feedback_nodes = {
         event_entry: "The shared event entry",
@@ -561,8 +646,8 @@ def validate_bindings(project, bindings):
         bindings["PickupTerminalRequiredElement"]: "Task-required pickup feedback",
     }
     for ident, label in feedback_nodes.items():
-        if ident != event_entry and edges[ident]:
-            raise ValueError(f"{label} must end its flow without executing additional nodes.")
+        if ident != event_entry and edges[ident] != [display_entry]:
+            raise ValueError(f"{label} must continue directly to the objectives_ui entry.")
         validate_feedback_content(element_content(project, ident), label)
 
     for ident in world_ids | display_ids:

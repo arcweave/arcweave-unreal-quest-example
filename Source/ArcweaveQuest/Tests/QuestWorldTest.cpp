@@ -74,7 +74,9 @@ public:
             Test.TestTrue(TEXT("World startup has no interaction feedback"), Director->GetStatus().IsEmpty());
             Test.TestEqual(TEXT("World startup computes the authored initial objective"), Director->GetObjective(), FString(TEXT("Use the terminal to begin.")));
             Test.TestTrue(TEXT("World startup leaves the event type empty"), Variable(QuestBindings::EventTypeAttribute).IsEmpty());
-            Test.TestEqual(TEXT("World startup leaves duplicate context false"), Variable(QuestBindings::CellAlreadyCollectedAttribute), FString(TEXT("false")));
+            Test.TestTrue(TEXT("World startup leaves the pickup identity empty"), Variable(QuestBindings::CellIdAttribute).IsEmpty());
+            Test.TestEqual(TEXT("World startup leaves shared cell A available"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("false")));
+            Test.TestEqual(TEXT("World startup leaves shared cell B available"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
             InitialVisits = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().Visits;
             FHitResult Hit;
             Test.TestTrue(TEXT("Closed gate blocks the actual doorway collision trace"), TraceGate(Hit));
@@ -118,6 +120,7 @@ public:
             Test.TestEqual(TEXT("Real pickup before acceptance uses the authored prerequisite"),
                 Director->GetCurrentElementId(), FString(QuestBindings::PickupTerminalRequiredElement));
             Test.TestEqual(TEXT("Denied world pickup leaves the narrative count at zero"), Director->GetPowerCellCount(), 0);
+            Test.TestEqual(TEXT("Denied world pickup leaves the shared collected flag false"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("false")));
             Test.TestFalse(TEXT("Denied world pickup remains visible"), CellA->IsHidden());
             Test.TestTrue(TEXT("Denied world pickup retains collision"), CellA->GetActorEnableCollision());
             Test.TestEqual(TEXT("Physical cell label comes from the authored catalog"),
@@ -156,6 +159,8 @@ public:
             CellA = InteractAt(TEXT("cell_a"));
             if (!CellA.IsValid()) return true;
             Test.TestEqual(TEXT("Actual cell A pickup updates the narrative variable"), Director->GetPowerCellCount(), 1);
+            Test.TestEqual(TEXT("Actual cell A pickup updates its shared collected flag"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("true")));
+            Test.TestEqual(TEXT("Actual cell A pickup leaves cell B available in the narrative"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
             Test.TestEqual(TEXT("World pickup displays feedback after the count update"),
                 Director->GetStatus(), FString(TEXT("Collected a power cell (1/2).")));
             Test.TestTrue(TEXT("Quest notification hides the actual collected cell A actor"), CellA->IsHidden());
@@ -173,6 +178,7 @@ public:
             CellB = InteractAt(TEXT("cell_b"));
             if (!CellB.IsValid()) return true;
             Test.TestEqual(TEXT("Actual cell B pickup updates the narrative variable"), Director->GetPowerCellCount(), 2);
+            Test.TestEqual(TEXT("Actual cell B pickup updates its shared collected flag"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("true")));
             Test.TestTrue(TEXT("Quest notification hides the actual collected cell B actor"), CellB->IsHidden());
             Test.TestFalse(TEXT("Collected cell B no longer blocks collision"), CellB->GetActorEnableCollision());
             ++Step;
@@ -283,7 +289,9 @@ public:
             Test.TestTrue(TEXT("World restart clears the gameplay cursor"), Director->GetCurrentElementId().IsEmpty());
             Test.TestTrue(TEXT("World restart clears gameplay feedback"), Director->GetStatus().IsEmpty());
             Test.TestTrue(TEXT("World restart clears the last event type"), Variable(QuestBindings::EventTypeAttribute).IsEmpty());
-            Test.TestEqual(TEXT("World restart clears duplicate context"), Variable(QuestBindings::CellAlreadyCollectedAttribute), FString(TEXT("false")));
+            Test.TestTrue(TEXT("World restart clears the pickup identity"), Variable(QuestBindings::CellIdAttribute).IsEmpty());
+            Test.TestEqual(TEXT("World restart resets shared cell A"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("false")));
+            Test.TestEqual(TEXT("World restart resets shared cell B"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
             Test.TestEqual(TEXT("World restart clears the previous completion visit"), Visits(QuestBindings::CompletedElement), 0);
             Test.TestEqual(TEXT("World restart selects the unaccepted presentation"),
                 Director->GetPresentationElementId(), FString(QuestBindings::PresentationUnacceptedElement));
@@ -370,7 +378,7 @@ private:
         Test.TestEqual(TEXT("Physical exit overlap enters the shared event graph once"), Visits(EventEntryId), BeforeExitEventVisits + 1);
         Test.TestEqual(TEXT("Physical exit overlap executes exactly one authored exit response"), ExitResponseVisits(), BeforeExitVisits + 1);
         Test.TestEqual(TEXT("Physical exit overlap supplies the exit event type"), Variable(QuestBindings::EventTypeAttribute), FString(TEXT("enter_exit")));
-        Test.TestEqual(TEXT("Physical exit overlap clears pickup context"), Variable(QuestBindings::CellAlreadyCollectedAttribute), FString(TEXT("false")));
+        Test.TestTrue(TEXT("Physical exit overlap clears the pickup identity"), Variable(QuestBindings::CellIdAttribute).IsEmpty());
     }
 
     AQuestWorldActor* InteractAt(const TCHAR* View)
@@ -394,7 +402,9 @@ private:
             Test.TestEqual(FString(View) + TEXT(" interaction enters the shared event graph exactly once"),
                 Visits(EventEntryId), BeforeEventVisits + 1);
             Test.TestEqual(FString(View) + TEXT(" interaction supplies its event type"), Variable(QuestBindings::EventTypeAttribute), ExpectedEvent);
-            Test.TestEqual(FString(View) + TEXT(" interaction supplies fresh pickup context"), Variable(QuestBindings::CellAlreadyCollectedAttribute), FString(TEXT("false")));
+            const FString ExpectedCellId = ExpectedEvent == TEXT("collect_cell") ? FString(View) : FString();
+            Test.TestEqual(FString(View) + TEXT(" interaction supplies its physical cell identity or clears it"),
+                Variable(QuestBindings::CellIdAttribute), ExpectedCellId);
         }
         return Target;
     }

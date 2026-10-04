@@ -13,8 +13,8 @@ UQuestDirector::UQuestDirector()
     CommandHandlers.Add(TEXT("open_gate"), [this] { bGateOpen = true; });
     CommandHandlers.Add(TEXT("collect_cell"), [this]
     {
+        // Arcscript already updated inventory. This hides the collected world actor.
         CollectedCells.Add(PendingCellId);
-        Arcweave->SetVariable(QuestBindings::PowerCellsAttribute, FString::FromInt(CollectedCells.Num()));
     });
 }
 
@@ -47,13 +47,19 @@ bool UQuestDirector::StartNewGame(FString& Error)
     bGateOpen = false;
 
     const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
-    const FArcweaveBoardData* PresentationBoard = Project.Boards.FindByPredicate(
-        [](const FArcweaveBoardData& Board) { return Board.CustomId == TEXT("quest_presentation"); });
-    if (!PresentationBoard)
+    const FArcweaveBoardData* QuestBoard = Project.Boards.FindByPredicate(
+        [&Project](const FArcweaveBoardData& Board)
+        {
+            return Board.Elements.ContainsByPredicate([&Project](const FArcweaveElementData& Element)
+            {
+                return Element.Id == Project.StartingElementId;
+            });
+        });
+    if (!QuestBoard)
     {
-        return RejectInteraction(TEXT("The narrative export is missing the quest_presentation board."), Error);
+        return RejectInteraction(TEXT("The narrative export is missing its starting element's board."), Error);
     }
-    const FArcweaveElementData* PresentationEntry = PresentationBoard->Elements.FindByPredicate(
+    const FArcweaveElementData* PresentationEntry = QuestBoard->Elements.FindByPredicate(
         [](const FArcweaveElementData& Element)
         {
             return Element.Attributes.ContainsByPredicate([](const FArcweaveAttributeData& Attribute)
@@ -63,7 +69,7 @@ bool UQuestDirector::StartNewGame(FString& Error)
         });
     if (!PresentationEntry)
     {
-        return RejectInteraction(TEXT("The quest_presentation board is missing its objectives_ui entry point."), Error);
+        return RejectInteraction(TEXT("The quest board is missing its objectives_ui entry point."), Error);
     }
     PresentationEntryId = PresentationEntry->Id;
 
@@ -108,9 +114,9 @@ bool UQuestDirector::StartQuest(FString& Error)
 
 bool UQuestDirector::CollectCell(FName CellId, FString& Error)
 {
-    // Physical item identity belongs to Unreal. Arcweave owns permission and feedback.
+    // Physical interactions and Play Mode choices supply the same authored cell identity.
     PendingCellId = CellId;
-    const bool bResult = RunEvent(TEXT("collect_cell"), Error, CollectedCells.Contains(CellId));
+    const bool bResult = RunEvent(TEXT("collect_cell"), Error, CellId);
     PendingCellId = NAME_None;
     return bResult;
 }
@@ -164,7 +170,7 @@ void UQuestDirector::HandleVariablesChanged(const TArray<FArcweaveVariable>& Var
     }
 }
 
-bool UQuestDirector::RunEvent(const FString& EventType, FString& Error, bool bCellAlreadyCollected)
+bool UQuestDirector::RunEvent(const FString& EventType, FString& Error, FName CellId)
 {
     if (!bProjectLoaded)
     {
@@ -173,7 +179,7 @@ bool UQuestDirector::RunEvent(const FString& EventType, FString& Error, bool bCe
 
     // Replace the complete event input each time; pickup context cannot leak into later events.
     Arcweave->SetVariable(QuestBindings::EventTypeAttribute, EventType);
-    Arcweave->SetVariable(QuestBindings::CellAlreadyCollectedAttribute, bCellAlreadyCollected ? TEXT("true") : TEXT("false"));
+    Arcweave->SetVariable(QuestBindings::CellIdAttribute, CellId.IsNone() ? FString() : CellId.ToString());
 
     FArcweaveElementData LastElement;
     if (!RunGraph(Arcweave->GetArcweaveProjectData().StartingElementId, true, LastElement, Error) || !RefreshPresentation(Error))
@@ -189,8 +195,10 @@ bool UQuestDirector::RunGraph(const FString& EntryElementId, bool bDispatchComma
     FArcweaveElementData& LastElement, FString& Error)
 {
     FString ElementId = EntryElementId;
-    // Each authored event is an acyclic sequence with one automatic output per element.
-    // Branches select the next connection; an element without outputs waits for a new event.
+    // The complete Play Mode graph loops through events, objectives, and the menu.
+    // Each native call executes only one acyclic section, stopping before its boundary.
+    const FString StopElementId = bDispatchCommands ? PresentationEntryId
+        : Arcweave->GetArcweaveProjectData().StartingElementId;
     while (true)
     {
         bool bSuccess = false;
@@ -226,6 +234,8 @@ bool UQuestDirector::RunGraph(const FString& EntryElementId, bool bDispatchComma
         FArcweaveElementData Source;
         FArcweaveBoardData* Board = nullptr;
         Arcweave->GetBoardForObject(LastElement.Id, Source, Board);
+        // All starting-menu choices share this destination. Their label assignments
+        // are Play Mode inputs; Unreal supplies the event itself and never executes them.
         FArcweaveConnectionsData Connection = LastElement.Outputs[0];
         FGetIsTargetBranchOutput Branch = Arcweave->GetIsTargetBranch(*Board, Connection);
         while (Branch.IsBranch)
@@ -237,7 +247,22 @@ bool UQuestDirector::RunGraph(const FString& EntryElementId, bool bDispatchComma
             Connection = Branch.BranchConnections[0];
             Branch = Arcweave->GetIsTargetBranch(*Board, Connection);
         }
-        ElementId = Connection.Targetid;
+        FString NextElementId = Connection.Targetid;
+        if (Connection.TargetType == TEXT("jumpers"))
+        {
+            const FArcweaveJumpersData* Jumper = Board->Jumpers.FindByPredicate(
+                [&Connection](const FArcweaveJumpersData& Candidate) { return Candidate.Id == Connection.Targetid; });
+            if (!Jumper)
+            {
+                return RejectInteraction(TEXT("The authored return jumper is missing."), Error);
+            }
+            NextElementId = Jumper->ElementData.Id;
+        }
+        if (NextElementId == StopElementId)
+        {
+            return true;
+        }
+        ElementId = NextElementId;
     }
 }
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "name": "Restore Power — Unreal C++ Quest Sample",
+  "name": "Restore Power \u2014 Unreal C++ Quest Sample",
   "projectHash": "MWEZgMb62g",
   "projectUrl": "https://arcweave.com/app/project/MWEZgMb62g",
   "workspaceHash": "Z7gAR6XY",
@@ -8,9 +8,9 @@
   "bindingsFile": "bindings.json",
   "authoringExport": "authoring.json",
   "unrealExport": "../Content/ArcweaveExport/quest.json",
-  "exportedAt": "2026-10-04T10:39:20.532077+00:00",
+  "exportedAt": "2026-10-04T15:34:51.610332+00:00",
   "unrealExportUrl": "https://arcweave.com/api/v1/MWEZgMb62g/unreal",
   "authoringExportUrl": "https://arcweave.com/api/v1/MWEZgMb62g/json",
-  "unrealSha256": "1e0df6241620eaa258a67bf18686ab7f8f83729ee5326a3d96f15e21b3a179a3",
-  "authoringSha256": "3bd5fcf9fe6e5fe52b5dd519cc43c9e98229ab7f2b385e170a3d80041a7ceb83"
+  "unrealSha256": "a0fbfcee38bd80cf91f91dd83eda55b4a78d6600115e04ec9efcef50baeb4af4",
+  "authoringSha256": "078676382ad5ff7bf9fe44ff162387db5e380561a93e8597523519aa7923336d"
 }
