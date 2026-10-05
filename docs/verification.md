@@ -15,6 +15,8 @@ Verified on 2026-10-05 with Unreal Engine 5.6.1, Visual Studio 2022 / MSVC 14.38
 
 The actual project's DLL was rebuilt while its editor was closed, then both Flow and World passed there. The package was built separately in an isolated project and tested before copying it to `Builds/Windows`; installed executable and narrative-export hashes match the tested build.
 
+A later wording update changed the inventory and five objective return labels to **Back to station**, retaining three live jumper-position adjustments. Both return links were checked in browser Play Mode and all 245 validator tests passed again. The bundled and local packaged exports were refreshed; native binaries and gameplay logic did not change, so Unreal was not rebuilt for this wording update.
+
 ## Shared Play Mode and Unreal flow
 
 The export contains **one board, 22 elements, six branches, 23 conditions with one output each, 49 connections, twelve jumpers, and 28 component runtime variables**. Player, Restore power quest, Cell A, and Cell B contribute seven state attributes; the three UI components add nineteen strings, and Game event supplies `type` and `cell_id`. There are no globals or simulation-only variables. The two query-entry markers are metadata, not runtime state, and the existing 45 UUID bindings are unchanged.

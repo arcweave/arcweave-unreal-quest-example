@@ -10,8 +10,8 @@ Open [Play Mode](https://arcweave.com/app/project/MWEZgMb62g/play) at **Station 
 
 | Choice | Path |
 | --- | --- |
-| **Check inventory** | Jumper to the current inventory, then return to Station. |
-| **Check current objective** | Jumper to the objectives/UI path, then return to Station. |
+| **Check inventory** | Jumper to the current inventory, then **Back to station**. |
+| **Check current objective** | Jumper to the objectives/UI path, then **Back to station**. |
 | **Use the terminal** | Terminal response, then return to Station. |
 | **Collect cell A** / **Collect cell B** | Pickup response, then return to Station. |
 | **Check the generator** | Generator response, then return to Station. |

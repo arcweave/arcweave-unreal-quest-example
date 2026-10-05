@@ -498,20 +498,20 @@
         "height": 90,
         "width": 290,
         "x": 13400,
-        "y": 9030
+        "y": 9020
       },
       "7841550a-3630-4291-a28d-64748f6301a9": {
         "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "height": 90,
         "width": 290,
         "x": 13400,
-        "y": 10290
+        "y": 10300
       },
       "cfce673f-9067-41b2-932c-e11cbbba5a29": {
         "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "height": 90,
         "width": 290,
-        "x": 13400,
+        "x": 13380,
         "y": 11600
       },
       "f65d0040-815d-4df2-8fb8-073e2d6619b2": {
@@ -1348,7 +1348,7 @@
       "ce30ad8d-5408-45c4-943a-4262e397177a": {
         "label": {
           "en": {
-            "text": "<p>Choose another interaction</p>"
+            "text": "<p>Back to station</p>"
           }
         },
         "_status": {}
@@ -1364,7 +1364,7 @@
       "e84d28c5-e54b-47ea-a415-88aecc7858e7": {
         "label": {
           "en": {
-            "text": "<p>Choose another interaction</p>"
+            "text": "<p>Back to station</p>"
           }
         },
         "_status": {}
@@ -1673,7 +1673,7 @@
       "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16": {
         "label": {
           "en": {
-            "text": "<p>Choose another interaction</p>"
+            "text": "<p>Back to station</p>"
           }
         },
         "_status": {}
@@ -1681,7 +1681,7 @@
       "3cfa09a5-67c6-4f71-9b90-198dba4032cd": {
         "label": {
           "en": {
-            "text": "<p>Choose another interaction</p>"
+            "text": "<p>Back to station</p>"
           }
         },
         "_status": {}
@@ -1720,7 +1720,7 @@
       "978971a0-7003-489d-ac39-07aef2601576": {
         "label": {
           "en": {
-            "text": "<p>Choose another interaction</p>"
+            "text": "<p>Back to station</p>"
           }
         },
         "_status": {}
@@ -1960,7 +1960,7 @@
       "dbb25391-1885-4453-afe5-8d36f974b5c4": {
         "label": {
           "en": {
-            "text": "<p>Choose another interaction</p>"
+            "text": "<p>Back to station</p>"
           }
         },
         "_status": {}

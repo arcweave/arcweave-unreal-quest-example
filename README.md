@@ -27,7 +27,7 @@ Use `-EngineRoot` and `-CompilerVersion` to override the script defaults. If clo
 
 ## Play the mission
 
-In [Arcweave Play Mode](https://arcweave.com/app/project/MWEZgMb62g/play), **Station · choose an interaction** offers seven choices: check inventory, check the current objective, use the terminal, collect cell A or B, check the generator, or enter the exit. Inventory and objective checks are optional and return to the menu without advancing the quest. Each interaction also returns directly to the menu after its feedback, except a successful exit, which ends the playthrough. You can try interactions out of order and attempt duplicate pickups without editing variables in the Debugger. Play Mode uses the same quest conditions and state changes as Unreal; physical collection, lighting, and the gate are represented by their authored feedback. Use Play Mode's restart control to reset the mission.
+In [Arcweave Play Mode](https://arcweave.com/app/project/MWEZgMb62g/play), **Station · choose an interaction** offers seven choices: check inventory, check the current objective, use the terminal, collect cell A or B, check the generator, or enter the exit. Inventory and objective checks are optional; choose **Back to station** to return to the menu without advancing the quest. Each interaction also returns directly to the menu after its feedback, except a successful exit, which ends the playthrough. You can try interactions out of order and attempt duplicate pickups without editing variables in the Debugger. Play Mode uses the same quest conditions and state changes as Unreal; physical collection, lighting, and the gate are represented by their authored feedback. Use Play Mode's restart control to reset the mission.
 
 In Unreal:
 
