@@ -1,55 +1,41 @@
 # Local verification
 
-Verified on 2026-10-05 with Unreal Engine 5.6.1, Visual Studio 2022 / MSVC 14.38.33130, Windows SDK 10.0.26100.0, and Arcweave plugin main commit `3b235a2a16cdff2f7bcdee5022bb1f16db466270`.
+Verified on 2026-10-05 with Unreal Engine 5.6.1, Visual Studio 2022 / MSVC 14.38.33130, and Windows SDK 10.0.26100.0. The sample pins [plugin v2.2.0](https://github.com/arcweave/arcweave-unreal-plugin/releases/tag/v2.2.0) at `1eb60cdcd0ebbefe14d92f996481f603397e13a4`. Its release tree matches the tested preparation commit exactly.
 
-The actual project's editor and plugin DLLs rebuilt successfully while its editor was closed. The Win64 Development package built, cooked, staged, and archived successfully in an isolated project. After testing, it was copied to `Builds/Windows`; the installed executable and narrative-export hashes match the tested package.
+The isolated project's Development Editor build and Win64 Development package passed. The actual project's DLLs were rebuilt after its editor closed. The tested package is installed in `Builds/Windows`; all 57 installed files match their tested hashes, and existing saves and local project settings were preserved.
 
-| Automation check | Result |
+## Native checks
+
+| Check | Result / report |
 | --- | --- |
-| `ArcweaveQuest.Flow` | Passed; `Report-Test-20261005-102117` |
-| `ArcweaveQuest.Persistence` | Passed; `Report-Test-20261005-102631` |
-| `ArcweaveQuest.World` | Passed; `Report-WorldTest-20261005-103027` |
-| `ArcweaveQuest.SaveLoadWorld` | Passed; `Report-WorldTest-20261005-102216` |
-| `ArcweaveQuest.SaveSession — Write` | Passed; `Report-Test-20261005-102732` |
-| `ArcweaveQuest.SaveSession — Read (new process)` | Passed; `Report-Test-20261005-102850` |
-| `Arcweave.Project.RuntimeState` | Passed; `Report-Test-20261005-102935` |
-| `Packaged ArcweaveQuest.World` | Passed; `Report-WorldTest-20261005-103110` |
-| `Packaged ArcweaveQuest.SaveLoadWorld` | Passed; `Report-WorldTest-20261005-103027` |
+| `Arcweave.Project` | All four tests passed without warnings; `Report-Test-20261005-111739` |
+| `ArcweaveQuest.Flow` | Passed; `Report-Test-20261005-111823` |
+| `ArcweaveQuest.Persistence` | Passed; `Report-Test-20261005-111914` |
+| Packaged `ArcweaveQuest.SaveLoadWorld` | Passed; `Report-WorldTest-20261005-112229` |
 
-All nine native automation runs completed with one passed test and zero failures each. The sample reports retain existing plugin cover/condition warnings; the plugin runtime-state test completed without warnings. The 249 offline narrative-validator tests pass, the three PowerShell build-script fixtures pass, and Laravel normalization/import integrity reports zero errors.
+The plugin checks cover starting-element discovery, runtime snapshots, component/board variables, and import failures. The sample checks cover the shared narrative flow and 36-variable UI/state model, disk saves and rejected loads, F5/F9 input routing, actual pickup visibility/collision, gate and lighting restoration, player pose, and exit overlaps without replaying quest events. The sample retains the plugin's existing cover/condition warnings; there are no test failures.
 
-## Save and restore coverage
+Both sample notices and all four plugin license/notice files are present as loose packaged files and match their source bytes. No credentials are required by the game or these native tests.
 
-`Persistence` writes real `USaveGame` files after one cell, after power restoration, and after completion. It advances the live mission, loads each earlier checkpoint, and compares every variable and visit counter, authored defaults, cached UI text, resolved objective/feedback, narrative cursors, applied pickups, gate state, player transform, and view rotation. Loading publishes the restored director state once and dispatches no collection or gate-opening command. Repeated loads preserve the snapshot exactly.
+## Narrative and import checks
 
-The test also verifies missing and unreadable slots, incompatible narrative fingerprints, unsupported save formats, unknown pickup IDs, and incomplete plugin snapshots. Failed loads preserve narrative/world state and output transforms while providing authored operation feedback. Restart preserves the disk save, and a replacement director can restore it and continue collecting. A separate case saves narrative power with the native gate still closed, proving loading does not infer an unexecuted gate command from the power variable.
+- **256 Python checks** pass for narrative structure, defaults, query restrictions, import consistency, project selection, and synchronized exports.
+- **Three PowerShell fixtures** pass for build-script routing and automation-report handling without Unreal. GitHub Actions runs these offline checks on Windows.
+- The directly uploadable `Narrative/import.json` passes the actual frontend `JsonImportHandler.formatData()` with zero content errors or normalization logs.
+- Both browser-normalized and API-normalized imports pass the backend integrity checker with zero errors. Starting element, graph IDs, component custom IDs, locales, and layout are preserved.
 
-`SaveLoadWorld` uses actual terminal, pickup, generator, and exit interactions. It saves with one cell, while the gate is opening, and inside the completed exit. Loading restores actor visibility/collision, lighting, world labels, player pose, camera rotation, and the HUD. Gate restoration snaps immediately to its saved logical state. The test waits through subsequent ticks to confirm loading inside the exit does not synthesize another event or increase visits, then restores the earlier checkpoint and collects the remaining cell normally. It passes against both the rebuilt project and the packaged executable.
+The live graph is unchanged: one board, 22 elements, six branches, 23 conditions with one output each, 49 connections, and twelve jumpers. Adding `hud.controls` brings the runtime to seven state variables, 27 UI strings, and two event inputs. `TerminalAcceptElement` names the terminal-acceptance binding; the real starting element remains the station menu.
 
-`SaveSession` runs in two separate Unreal processes. The writer accepts the task, collects cell B, and writes an automation-only slot. The reader starts with fresh variables and visits, loads the file, checks all saved variables and visits plus resolved UI/world state and player pose, then collects cell A. The read phase removes the test slot. These tests never write or delete the player's `ArcweaveQuestCheckpoint` slot.
+The refreshed Unreal export SHA-256 is `28b25533d5e98a112cf68bcd06d8e99bb80556cc3c745913be8e5f705f82e26b`. Runtime, authoring, and uploadable import exports are generated together and recorded in `Narrative/project.json`. Changed narrative content invalidates older checkpoints.
 
-The plugin's own `Arcweave.Project.RuntimeState` test passes against the pinned plugin. Its snapshot stores mutable values and visits; the sample supplies the file, cursor/presentation, applied world effects, and player pose. Matching imported narrative content is required, including text and layout. This sample does not migrate checkpoints between content versions.
+## Screenshots and public access
 
-## Checkpoint keyboard regression
+The [gameplay screenshot](images/gameplay.png) was captured from the running game after accepting the task, collecting both cells, and restoring power. It uses offscreen rendering at 1920×1080 and shows the actual HUD, authored controls, lighting, and open gate state.
 
-Unreal's inherited debug shortcuts conflicted with the sample's checkpoint keys: F5 switched to shader-complexity rendering and F9 requested a screenshot. `DefaultInput.ini` now removes those two engine bindings while retaining the gameplay actions. An open editor needs restarting to reload this configuration; the fix requires no C++ rebuild.
-
-`SaveLoadWorld` now sends simulated F5/F9 presses and releases through the running player controller and processes the real input mappings. Isolated action handlers verify exactly one save and load action without accessing the player's checkpoint. The test also checks the viewport mode and screenshot-request state. Against the old configuration, it reproduced the switch from Lit to Shader Complexity and the F9 screenshot request (`Report-WorldTest-20261005-104135`, expected failure). With the fix, the full world save/load test passes both in the isolated project (`Report-WorldTest-20261005-104322`) and the rebuilt Win64 Development package (`Report-WorldTest-20261005-104714`). The updated package is installed in `Builds/Windows`, with matching file hashes and existing saves preserved.
-
-The updated automation DLL was built in the isolated project while the user's editor remained open. These input checks run with rendering disabled and verify the engine's view-mode state, rather than comparing rendered images. Follow-up logs and reports are stored separately under `Saved/Validation/CheckpointInput-20261005`.
-
-## Quest and narrative regressions
-
-The export contains one board, 22 elements, six branches, 23 conditions with one output each, 49 connections, and twelve jumpers. The four State components contribute seven variables; four UI components contribute 26 strings; Game event contributes two inputs. There are 35 component runtime variables, no globals, and 46 UUID bindings.
-
-Adding `save_ui` left the graph, starting element, jumpers, notes, and layout unchanged. The previously verified browser playthrough remains the same: inventory and objectives are optional, both return with **Back to station**, ordinary interactions return to Station, and successful exit ends the run. File save/load is implemented by Unreal.
-
-`Flow` covers query-first routing, all five objective states, read-only inventory and objective query restrictions, configurable cell requirements, either pickup order, denied and duplicate interactions, command timing, cached reads, exact presentation refresh counts, and restart. `World` covers real focus raycasts, collected-actor collision, lighting, gate animation and doorway collision, the fixed gate sign, and completion through actual capsule overlaps. Both pass with the new plugin and UI component; `World` also passes in the package.
-
-The validator checks the four UI schemas and prevents query paths from writing save controls or feedback. It retains the single-board graph, one-output condition, command placement, default/type, entry discovery, jumper ownership, and automatic-path cycle checks. The reproducible authoring import passes Laravel's normalization and integrity checks without changing database content.
+The [board screenshot](images/arcweave-board.png) comes from the live Arcweave project. Its public design view was verified with no signed-in user. Public Play Mode also loaded anonymously; generator guidance before acceptance and terminal acceptance were checked. The browser host disconnected before the remainder of that browser playthrough, so this pass does not claim a new complete browser run. Native Flow coverage checks the unchanged quest paths.
 
 ## Repeating the checks
 
-Commands are listed in the [README](../README.md#verification-and-packaging). Run the `SaveSession` writer before the reader, using `-SavePhase Write` and `-SavePhase Read`; omitting the phase reports an error. The runner validates each JSON report and fails if no tests run or any test fails. Package tests use the same custom output directory as packaging.
+See [development commands](development.md#native-automation). Automation and cooking use `-NullRHI -RenderOffscreen`; the gameplay screenshot uses rendering enabled with `-RenderOffscreen`. These results cover the Windows single-player sample, not multiplayer or VR/mobile targets.
 
-Native automation and cooking use `-NullRHI -RenderOffscreen`, so no game window opens. These checks exercise gameplay with rendering disabled; they are not a rendered HUD review, multiplayer test, or VR/mobile validation. Logs, actual/packaged JSON and HTML reports, and installed hashes are under `Saved/Validation/SaveLoad-20261005`, excluded from Git.
+Logs, JSON/HTML reports, import evidence, packaged-license checks, and installed hashes are under `Saved/Validation/Publication-20261005`, excluded from Git. Earlier save/load and keyboard-regression reports remain under `Saved/Validation/SaveLoad-20261005` and `Saved/Validation/CheckpointInput-20261005`.

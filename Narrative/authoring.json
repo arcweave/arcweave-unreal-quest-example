@@ -9,7 +9,7 @@
             ]
         },
         "b031a811-813e-45a6-8d7f-30c0e4e46eac": {
-            "name": "Restore power · playable quest",
+            "name": "Restore power \u00b7 playable quest",
             "notes": [
                 "6c069694-7fea-4980-b59d-d9dc2c857cc4",
                 "e1d06b05-73ac-4040-97d1-04a6f8091204",
@@ -124,35 +124,35 @@
     "notes": {
         "6c069694-7fea-4980-b59d-d9dc2c857cc4": {
             "theme": "purple",
-            "content": "<p><strong>RESTORE POWER · ONE PLAYABLE QUEST</strong></p><p>Start at Station. Check inventory or objectives through the two query jumpers, or choose a physical interaction. Ordinary responses return directly to Station. The powered exit ends the playthrough. All condition rows have one output.</p>"
+            "content": "<p><strong>RESTORE POWER \u00b7 ONE PLAYABLE QUEST<\/strong><\/p><p>Start at Station. Check inventory or objectives through the two query jumpers, or choose a physical interaction. Ordinary responses return directly to Station. The powered exit ends the playthrough. All condition rows have one output.<\/p>"
         },
         "e1d06b05-73ac-4040-97d1-04a6f8091204": {
             "theme": "purple",
-            "content": "<p><strong>START HERE · PLAY MODE AND UNREAL</strong></p><p>Two query choices use jumpers and leave game_event unchanged. Five gameplay labels set type and cell_id, then share the event router. Unreal injects these inputs, selects the branch connection, and refreshes its HUD after each event.</p>"
+            "content": "<p><strong>START HERE \u00b7 PLAY MODE AND UNREAL<\/strong><\/p><p>Two query choices use jumpers and leave game_event unchanged. Five gameplay labels set type and cell_id, then share the event router. Unreal injects these inputs, selects the branch connection, and refreshes its HUD after each event.<\/p>"
         },
         "b7583d4b-fa40-4507-9057-7d2538281cc6": {
             "theme": "purple",
-            "content": "<p><strong>TERMINAL · use_terminal</strong></p><p>Accept the task once. Later visits show quest progress.</p>"
+            "content": "<p><strong>TERMINAL \u00b7 use_terminal<\/strong><\/p><p>Accept the task once. Later visits show quest progress.<\/p>"
         },
         "63297b78-e94e-4676-9e36-7dbdb9b02061": {
             "theme": "purple",
-            "content": "<p><strong>GENERATOR · check_generator</strong></p><p>Restore power after accepting the task and collecting enough cells. Then reach the exit.</p>"
+            "content": "<p><strong>GENERATOR \u00b7 check_generator<\/strong><\/p><p>Restore power after accepting the task and collecting enough cells. Then reach the exit.<\/p>"
         },
         "567ce162-983d-43ba-b0d6-409dce845e18": {
             "theme": "purple",
-            "content": "<p><strong>PICKUP · collect_cell</strong></p><p>cell_id identifies cell_a or cell_b. Check its collected flag, then task acceptance. The accepted element marks the cell, increments inventory, and shows the new count. The collect_cell reference applies the physical Unreal effect afterward.</p>"
+            "content": "<p><strong>PICKUP \u00b7 collect_cell<\/strong><\/p><p>cell_id identifies cell_a or cell_b. Check its collected flag, then task acceptance. The accepted element marks the cell, increments inventory, and shows the new count. The collect_cell reference applies the physical Unreal effect afterward.<\/p>"
         },
         "c2b03497-1971-4bd0-815e-1025fae44a13": {
             "theme": "purple",
-            "content": "<p><strong>OPTIONAL OBJECTIVES · AUTOMATIC UNREAL HUD</strong></p><p>Station's Check current objective jumper enters this section. Reset quest_ui, apply shared powered overrides, then select the current objective and return to Station. Quest progress and event inputs are unchanged.</p><p>Unreal refreshes this same section automatically after every interaction, including the final exit. Use one Arcscript statement per code block.</p>"
+            "content": "<p><strong>OPTIONAL OBJECTIVES \u00b7 AUTOMATIC UNREAL HUD<\/strong><\/p><p>Station's Check current objective jumper enters this section. Reset quest_ui, apply shared powered overrides, then select the current objective and return to Station. Quest progress and event inputs are unchanged.<\/p><p>Unreal refreshes this same section automatically after every interaction, including the final exit. Use one Arcscript statement per code block.<\/p>"
         },
         "8a1702ae-b5fe-44cb-bacd-97868065a17c": {
             "theme": "purple",
-            "content": "<p><strong>EXIT · enter_exit</strong></p><p>Entering the powered exit completes the task. Repeat entry only shows feedback.</p>"
+            "content": "<p><strong>EXIT \u00b7 enter_exit<\/strong><\/p><p>Entering the powered exit completes the task. Repeat entry only shows feedback.<\/p>"
         },
         "8bea571f-426b-463c-81a7-d54c50c3855f": {
             "theme": "purple",
-            "content": "<p><strong>OPTIONAL INVENTORY</strong></p><p>Station's Check inventory jumper displays the carried power-cell count. This query only reads state and returns to Station. It does not collect a cell, change event inputs, or advance the quest.</p>"
+            "content": "<p><strong>OPTIONAL INVENTORY<\/strong><\/p><p>Station's Check inventory jumper displays the carried power-cell count. This query only reads state and returns to Station. It does not collect a cell, change event inputs, or advance the quest.<\/p>"
         }
     },
     "elements": {
@@ -162,16 +162,16 @@
                 "dc6b5643-1c9b-44c7-8821-00cc1807a6db"
             ],
             "components": [],
-            "content": "<pre><code>show(\"The generator needs \", quest.required_power_cells, \" power cells. You have \", player.power_cells, \". Collect the missing cells, then try again.\")</code></pre>",
-            "title": "<p>Generator · missing cells</p>"
+            "content": "<pre><code>show(\"The generator needs \", quest.required_power_cells, \" power cells. You have \", player.power_cells, \". Collect the missing cells, then try again.\")<\/code><\/pre>",
+            "title": "<p>Generator \u00b7 missing cells<\/p>"
         },
         "903c2f59-6079-49a6-b099-83a9ab0e8091": {
             "theme": "orange",
             "outputs": [
                 "ce30ad8d-5408-45c4-943a-4262e397177a"
             ],
-            "content": "<pre><code>show(\"Collect power cells (\", player.power_cells, \"/\", quest.required_power_cells, \"), then use the generator.\")</code></pre>",
-            "title": "<p>Display · collecting</p>"
+            "content": "<pre><code>show(\"Collect power cells (\", player.power_cells, \"\/\", quest.required_power_cells, \"), then use the generator.\")<\/code><\/pre>",
+            "title": "<p>Display \u00b7 collecting<\/p>"
         },
         "bfc100c0-7b99-4404-a71c-c1b42b102c02": {
             "theme": "green",
@@ -181,8 +181,8 @@
             "components": [
                 "80c7c42c-bb19-4065-8afa-7cd5b54776fc"
             ],
-            "content": "<pre><code>quest.power_restored = true</code></pre><p><strong>Power restored.</strong> The lights come on and the exit gate opens. Reach the illuminated exit to complete your escape.</p>",
-            "title": "<p>Generator · restore power</p>"
+            "content": "<pre><code>quest.power_restored = true<\/code><\/pre><p><strong>Power restored.<\/strong> The lights come on and the exit gate opens. Reach the illuminated exit to complete your escape.<\/p>",
+            "title": "<p>Generator \u00b7 restore power<\/p>"
         },
         "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7": {
             "theme": "cyan",
@@ -190,16 +190,16 @@
                 "7ae2eea9-275c-4739-a233-3b497f456910"
             ],
             "components": [],
-            "content": "<pre><code>quest.started = true</code></pre><pre><code>show(\"The outpost is dark. Collect \", quest.required_power_cells, \" power cells, then use the generator to restore the lights and open the exit gate.\")</code></pre><p>You can try the generator before collecting all required cells.</p>",
-            "title": "<p>Terminal · accept task</p>"
+            "content": "<pre><code>quest.started = true<\/code><\/pre><pre><code>show(\"The outpost is dark. Collect \", quest.required_power_cells, \" power cells, then use the generator to restore the lights and open the exit gate.\")<\/code><\/pre><p>You can try the generator before collecting all required cells.<\/p>",
+            "title": "<p>Terminal \u00b7 accept task<\/p>"
         },
         "05d919db-a991-45b7-b20f-db02dbd6f307": {
             "theme": "purple",
             "outputs": [
                 "626372c7-1302-4658-a5df-a5630fdf1583"
             ],
-            "content": "<p>Use the terminal to accept the task first.</p><p>The generator is waiting for authorization. Return here after accepting the restore-power task.</p>",
-            "title": "<p>Generator · terminal required</p>"
+            "content": "<p>Use the terminal to accept the task first.<\/p><p>The generator is waiting for authorization. Return here after accepting the restore-power task.<\/p>",
+            "title": "<p>Generator \u00b7 terminal required<\/p>"
         },
         "76724a0b-9935-4c27-9941-90c63f3a795c": {
             "theme": "cyan",
@@ -212,38 +212,38 @@
                 "d6bcdedf-3dd0-4d3e-bdfe-ece309441e0b",
                 "41245d97-81d4-4857-849c-02895783844a"
             ],
-            "content": "<pre><code>show(hud.station_name)</code></pre><p>Explore the station and restore power to open the exit. Check your inventory or current objective whenever you need, or choose an interaction.</p>",
-            "title": "<p>Station · choose an interaction</p>"
+            "content": "<pre><code>show(hud.station_name)<\/code><\/pre><p>Explore the station and restore power to open the exit. Check your inventory or current objective whenever you need, or choose an interaction.<\/p>",
+            "title": "<p>Station \u00b7 choose an interaction<\/p>"
         },
         "3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0": {
             "theme": "green",
             "outputs": [
                 "3cfa09a5-67c6-4f71-9b90-198dba4032cd"
             ],
-            "content": "<p>Power restored. Walk through the open gate.</p>",
-            "title": "<p>Display · powered</p>"
+            "content": "<p>Power restored. Walk through the open gate.<\/p>",
+            "title": "<p>Display \u00b7 powered<\/p>"
         },
         "961efa28-f033-44aa-ae8f-25bcb9a8e3e1": {
             "theme": "green",
             "outputs": [],
-            "content": "<p>You have already reached the exit. The task is complete.</p>",
-            "title": "<p>Exit · already complete</p>"
+            "content": "<p>You have already reached the exit. The task is complete.<\/p>",
+            "title": "<p>Exit \u00b7 already complete<\/p>"
         },
         "35f2414d-8156-474e-98d3-eaf74211d45b": {
             "theme": "orange",
             "outputs": [
                 "8a2a9df2-b367-4178-8c1d-84f2ad3f6c04"
             ],
-            "content": "<p>This power cell has already been collected.</p>",
-            "title": "<p>Pickup denied · already collected</p>"
+            "content": "<p>This power cell has already been collected.<\/p>",
+            "title": "<p>Pickup denied \u00b7 already collected<\/p>"
         },
         "2562dfc6-156c-425d-a9d3-3ae7796d594b": {
             "theme": "purple",
             "outputs": [
                 "978971a0-7003-489d-ac39-07aef2601576"
             ],
-            "content": "<pre><code>quest_ui.terminal_prompt = \"Read station terminal\"</code></pre><pre><code>quest_ui.cell_prompt = \"Read the station terminal first\"</code></pre><p>Use the terminal to begin.</p>",
-            "title": "<p>Display · unaccepted</p>"
+            "content": "<pre><code>quest_ui.terminal_prompt = \"Read station terminal\"<\/code><\/pre><pre><code>quest_ui.cell_prompt = \"Read the station terminal first\"<\/code><\/pre><p>Use the terminal to begin.<\/p>",
+            "title": "<p>Display \u00b7 unaccepted<\/p>"
         },
         "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f": {
             "theme": "cyan",
@@ -253,70 +253,70 @@
             "outputs": [
                 "d5ffccab-0083-495e-b69a-124298a1d100"
             ],
-            "content": "<pre><code>reset(quest_ui.mission_heading)</code></pre><pre><code>reset(quest_ui.grid_status)</code></pre><pre><code>reset(quest_ui.terminal_prompt)</code></pre><pre><code>reset(quest_ui.cell_prompt)</code></pre><pre><code>reset(quest_ui.generator_prompt)</code></pre><pre><code>reset(quest_ui.generator_label)</code></pre><pre><code>reset(quest_ui.gate_label)</code></pre><pre><code>if quest.completed || quest.power_restored</code></pre><pre><code>quest_ui.grid_status = \"GRID ONLINE\"</code></pre><pre><code>quest_ui.generator_prompt = \"Review running generator\"</code></pre><pre><code>quest_ui.generator_label = \"GENERATOR / ONLINE\"</code></pre><pre><code>quest_ui.gate_label = \"GATE 01 / ACCESS GRANTED\"</code></pre><pre><code>endif</code></pre><pre><code>show(quest_ui.mission_heading)</code></pre>",
-            "title": "<p>Objectives · current task</p>"
+            "content": "<pre><code>reset(quest_ui.mission_heading)<\/code><\/pre><pre><code>reset(quest_ui.grid_status)<\/code><\/pre><pre><code>reset(quest_ui.terminal_prompt)<\/code><\/pre><pre><code>reset(quest_ui.cell_prompt)<\/code><\/pre><pre><code>reset(quest_ui.generator_prompt)<\/code><\/pre><pre><code>reset(quest_ui.generator_label)<\/code><\/pre><pre><code>reset(quest_ui.gate_label)<\/code><\/pre><pre><code>if quest.completed || quest.power_restored<\/code><\/pre><pre><code>quest_ui.grid_status = \"GRID ONLINE\"<\/code><\/pre><pre><code>quest_ui.generator_prompt = \"Review running generator\"<\/code><\/pre><pre><code>quest_ui.generator_label = \"GENERATOR \/ ONLINE\"<\/code><\/pre><pre><code>quest_ui.gate_label = \"GATE 01 \/ ACCESS GRANTED\"<\/code><\/pre><pre><code>endif<\/code><\/pre><pre><code>show(quest_ui.mission_heading)<\/code><\/pre>",
+            "title": "<p>Objectives \u00b7 current task<\/p>"
         },
         "a3cd505b-7878-42cf-9523-063ffb62eb58": {
             "theme": "gold",
             "outputs": [
                 "e84d28c5-e54b-47ea-a415-88aecc7858e7"
             ],
-            "content": "<pre><code>quest_ui.generator_prompt = \"Install cells and restore power\"</code></pre><p>Return to the generator and restore power.</p>",
-            "title": "<p>Display · ready</p>"
+            "content": "<pre><code>quest_ui.generator_prompt = \"Install cells and restore power\"<\/code><\/pre><p>Return to the generator and restore power.<\/p>",
+            "title": "<p>Display \u00b7 ready<\/p>"
         },
         "82aad47c-b3de-45af-93b7-f83c76cf7344": {
             "theme": "green",
             "outputs": [
                 "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16"
             ],
-            "content": "<pre><code>quest_ui.mission_heading = \"MISSION COMPLETE\"</code></pre><p>Task complete. You reached the exit.</p>",
-            "title": "<p>Display · completed</p>"
+            "content": "<pre><code>quest_ui.mission_heading = \"MISSION COMPLETE\"<\/code><\/pre><p>Task complete. You reached the exit.<\/p>",
+            "title": "<p>Display \u00b7 completed<\/p>"
         },
         "f2d75b83-f348-4b58-8190-b68d119db86d": {
             "theme": "green",
             "outputs": [],
-            "content": "<pre><code>quest.completed = true</code></pre><p>You reached the exit. Task complete.</p>",
-            "title": "<p>Exit reached · task complete</p>"
+            "content": "<pre><code>quest.completed = true<\/code><\/pre><p>You reached the exit. Task complete.<\/p>",
+            "title": "<p>Exit reached \u00b7 task complete<\/p>"
         },
         "2689f5bc-f257-4b93-8d03-16760617ef62": {
             "theme": "cyan",
             "outputs": [
                 "62967cbe-88a2-4bd7-958a-6689ad10fbe7"
             ],
-            "content": "<p>The terminal's task has already been accepted. Continue restoring power to the station.</p>",
-            "title": "<p>Terminal · task already accepted</p>"
+            "content": "<p>The terminal's task has already been accepted. Continue restoring power to the station.<\/p>",
+            "title": "<p>Terminal \u00b7 task already accepted<\/p>"
         },
         "41df4d86-d079-4785-a22a-013597633640": {
             "theme": "green",
             "outputs": [
                 "1c9e907a-0cbb-434e-9878-54dfe87ed293"
             ],
-            "content": "<p>Power is restored and the gate is open. Walk through the exit to complete the task.</p>",
-            "title": "<p>Terminal · exit is ready</p>"
+            "content": "<p>Power is restored and the gate is open. Walk through the exit to complete the task.<\/p>",
+            "title": "<p>Terminal \u00b7 exit is ready<\/p>"
         },
         "c80115f9-8323-42c8-b514-6d7895ad6852": {
             "theme": "green",
             "outputs": [
                 "31a718c4-aa21-4b8a-a29f-423f4c22ebce"
             ],
-            "content": "<p>The terminal confirms the task is complete.</p>",
-            "title": "<p>Terminal · task already complete</p>"
+            "content": "<p>The terminal confirms the task is complete.<\/p>",
+            "title": "<p>Terminal \u00b7 task already complete<\/p>"
         },
         "f0fd0f64-ef53-446f-a43b-63746394bba0": {
             "theme": "green",
             "outputs": [
                 "b986e560-4139-4ea2-80ac-93795a81ec3a"
             ],
-            "content": "<p>The generator is already running and the gate is open.</p>",
-            "title": "<p>Generator · already online</p>"
+            "content": "<p>The generator is already running and the gate is open.<\/p>",
+            "title": "<p>Generator \u00b7 already online<\/p>"
         },
         "469d524b-9a3e-41b4-9f94-67a17246b608": {
             "theme": "purple",
             "outputs": [
                 "3b7e83e5-707e-4124-87ef-be501f7bd93f"
             ],
-            "content": "<p>Use the terminal to accept the task first.</p>",
-            "title": "<p>Pickup denied · accept the task</p>"
+            "content": "<p>Use the terminal to accept the task first.<\/p>",
+            "title": "<p>Pickup denied \u00b7 accept the task<\/p>"
         },
         "988b8226-23eb-4990-b481-19cd7cd3145c": {
             "theme": "gold",
@@ -326,16 +326,16 @@
             "outputs": [
                 "cf1cba2c-37e7-445e-be8d-8074e4ee251a"
             ],
-            "content": "<pre><code>if game_event.cell_id == \"cell_a\"</code></pre><pre><code>cell_a.collected = true</code></pre><pre><code>else</code></pre><pre><code>cell_b.collected = true</code></pre><pre><code>endif</code></pre><pre><code>player.power_cells += 1</code></pre><pre><code>show(\"Collected a power cell (\", player.power_cells, \"/\", quest.required_power_cells, \").\")</code></pre>",
-            "title": "<p>Pickup accepted · collect the cell</p>"
+            "content": "<pre><code>if game_event.cell_id == \"cell_a\"<\/code><\/pre><pre><code>cell_a.collected = true<\/code><\/pre><pre><code>else<\/code><\/pre><pre><code>cell_b.collected = true<\/code><\/pre><pre><code>endif<\/code><\/pre><pre><code>player.power_cells += 1<\/code><\/pre><pre><code>show(\"Collected a power cell (\", player.power_cells, \"\/\", quest.required_power_cells, \").\")<\/code><\/pre>",
+            "title": "<p>Pickup accepted \u00b7 collect the cell<\/p>"
         },
         "12c92fd1-be9a-40c9-9bc3-1d6f5573ee9a": {
             "theme": "orange",
             "outputs": [
                 "9babcdd5-8018-44a0-a11b-e776ec3119b9"
             ],
-            "content": "<p>The exit has no power. Restore power at the generator first.</p>",
-            "title": "<p>Exit denied · restore power</p>"
+            "content": "<p>The exit has no power. Restore power at the generator first.<\/p>",
+            "title": "<p>Exit denied \u00b7 restore power<\/p>"
         },
         "660c9cc9-512d-4248-b565-26eb1216177d": {
             "theme": "cyan",
@@ -345,8 +345,8 @@
             "outputs": [
                 "dbb25391-1885-4453-afe5-8d36f974b5c4"
             ],
-            "content": "<pre><code>show(hud.cells_label, \": \", player.power_cells)</code></pre>",
-            "title": "<p>Inventory · carried items</p>"
+            "content": "<pre><code>show(hud.cells_label, \": \", player.power_cells)<\/code><\/pre>",
+            "title": "<p>Inventory \u00b7 carried items<\/p>"
         }
     },
     "jumpers": {
@@ -579,7 +579,7 @@
             "theme": "green",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "001db9e3-0994-414e-aa9d-f0d8df03efd1": {
             "sourceType": "conditions",
@@ -640,7 +640,7 @@
             "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "3cfa09a5-67c6-4f71-9b90-198dba4032cd": {
             "sourceType": "elements",
@@ -652,7 +652,7 @@
             "type": "Bezier",
             "theme": "default",
             "targetType": "jumpers",
-            "label": "<p>Back to station</p>"
+            "label": "<p>Back to station<\/p>"
         },
         "9babcdd5-8018-44a0-a11b-e776ec3119b9": {
             "sourceType": "elements",
@@ -665,7 +665,7 @@
             "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "f5e66850-01c1-403f-afe2-8cb7c9a437e2": {
             "sourceType": "elements",
@@ -678,7 +678,7 @@
             "labelWidth": 240,
             "theme": "default",
             "targetType": "jumpers",
-            "label": "<p>Check current objective</p>"
+            "label": "<p>Check current objective<\/p>"
         },
         "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16": {
             "sourceType": "elements",
@@ -690,7 +690,7 @@
             "type": "Bezier",
             "theme": "default",
             "targetType": "jumpers",
-            "label": "<p>Back to station</p>"
+            "label": "<p>Back to station<\/p>"
         },
         "978971a0-7003-489d-ac39-07aef2601576": {
             "sourceType": "elements",
@@ -702,7 +702,7 @@
             "type": "Bezier",
             "theme": "default",
             "targetType": "jumpers",
-            "label": "<p>Back to station</p>"
+            "label": "<p>Back to station<\/p>"
         },
         "ce30ad8d-5408-45c4-943a-4262e397177a": {
             "sourceType": "elements",
@@ -714,7 +714,7 @@
             "type": "Bezier",
             "theme": "default",
             "targetType": "jumpers",
-            "label": "<p>Back to station</p>"
+            "label": "<p>Back to station<\/p>"
         },
         "e84d28c5-e54b-47ea-a415-88aecc7858e7": {
             "sourceType": "elements",
@@ -726,7 +726,7 @@
             "type": "Bezier",
             "theme": "default",
             "targetType": "jumpers",
-            "label": "<p>Back to station</p>"
+            "label": "<p>Back to station<\/p>"
         },
         "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9": {
             "sourceType": "elements",
@@ -738,7 +738,7 @@
             "type": "Bezier",
             "theme": "default",
             "targetType": "branches",
-            "label": "<pre><code>game_event.type = \"use_terminal\"</code></pre><pre><code>game_event.cell_id = \"\"</code></pre><p>Use the terminal</p>"
+            "label": "<pre><code>game_event.type = \"use_terminal\"<\/code><\/pre><pre><code>game_event.cell_id = \"\"<\/code><\/pre><p>Use the terminal<\/p>"
         },
         "3b7e9da7-09f5-4541-a0b0-e1f6484403be": {
             "sourceType": "conditions",
@@ -810,7 +810,7 @@
             "type": "Bezier",
             "theme": "default",
             "targetType": "branches",
-            "label": "<p>See current objective</p>"
+            "label": "<p>See current objective<\/p>"
         },
         "b986e560-4139-4ea2-80ac-93795a81ec3a": {
             "sourceType": "elements",
@@ -823,7 +823,7 @@
             "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "31a718c4-aa21-4b8a-a29f-423f4c22ebce": {
             "sourceType": "elements",
@@ -836,7 +836,7 @@
             "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "1c9e907a-0cbb-434e-9878-54dfe87ed293": {
             "sourceType": "elements",
@@ -849,7 +849,7 @@
             "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "79dfcf7f-d765-4c35-a091-e2c4fce94e95": {
             "sourceType": "elements",
@@ -861,7 +861,7 @@
             "targetFace": "left",
             "targetType": "branches",
             "theme": "default",
-            "label": "<pre><code>game_event.type = \"collect_cell\"</code></pre><pre><code>game_event.cell_id = \"cell_a\"</code></pre><p>Collect cell A</p>"
+            "label": "<pre><code>game_event.type = \"collect_cell\"<\/code><\/pre><pre><code>game_event.cell_id = \"cell_a\"<\/code><\/pre><p>Collect cell A<\/p>"
         },
         "27a3b224-c7fd-47d7-a4de-e9e26ff0c149": {
             "sourceType": "elements",
@@ -873,7 +873,7 @@
             "targetFace": "left",
             "targetType": "branches",
             "theme": "default",
-            "label": "<pre><code>game_event.type = \"collect_cell\"</code></pre><pre><code>game_event.cell_id = \"cell_b\"</code></pre><p>Collect cell B</p>"
+            "label": "<pre><code>game_event.type = \"collect_cell\"<\/code><\/pre><pre><code>game_event.cell_id = \"cell_b\"<\/code><\/pre><p>Collect cell B<\/p>"
         },
         "d6bcdedf-3dd0-4d3e-bdfe-ece309441e0b": {
             "sourceType": "elements",
@@ -885,7 +885,7 @@
             "targetFace": "left",
             "targetType": "branches",
             "theme": "default",
-            "label": "<pre><code>game_event.type = \"check_generator\"</code></pre><pre><code>game_event.cell_id = \"\"</code></pre><p>Check the generator</p>"
+            "label": "<pre><code>game_event.type = \"check_generator\"<\/code><\/pre><pre><code>game_event.cell_id = \"\"<\/code><\/pre><p>Check the generator<\/p>"
         },
         "41245d97-81d4-4857-849c-02895783844a": {
             "sourceType": "elements",
@@ -897,7 +897,7 @@
             "targetFace": "bottom",
             "targetType": "branches",
             "theme": "default",
-            "label": "<pre><code>game_event.type = \"enter_exit\"</code></pre><pre><code>game_event.cell_id = \"\"</code></pre><p>Enter the exit</p>"
+            "label": "<pre><code>game_event.type = \"enter_exit\"<\/code><\/pre><pre><code>game_event.cell_id = \"\"<\/code><\/pre><p>Enter the exit<\/p>"
         },
         "7ae2eea9-275c-4739-a233-3b497f456910": {
             "sourceType": "elements",
@@ -910,7 +910,7 @@
             "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "1f8c9ff9-21aa-4880-924b-76abdb696ef5": {
             "sourceType": "elements",
@@ -923,7 +923,7 @@
             "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "dc6b5643-1c9b-44c7-8821-00cc1807a6db": {
             "sourceType": "elements",
@@ -936,7 +936,7 @@
             "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "626372c7-1302-4658-a5df-a5630fdf1583": {
             "sourceType": "elements",
@@ -949,7 +949,7 @@
             "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "8a2a9df2-b367-4178-8c1d-84f2ad3f6c04": {
             "sourceType": "elements",
@@ -962,7 +962,7 @@
             "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "55d0bee6-ac69-4107-aee3-7eb3bb836878": {
             "sourceType": "conditions",
@@ -987,7 +987,7 @@
             "labelWidth": 240,
             "theme": "default",
             "targetType": "jumpers",
-            "label": "<p>Check inventory</p>"
+            "label": "<p>Check inventory<\/p>"
         },
         "62967cbe-88a2-4bd7-958a-6689ad10fbe7": {
             "sourceType": "elements",
@@ -1000,7 +1000,7 @@
             "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
-            "label": "<p>Choose another interaction</p>"
+            "label": "<p>Choose another interaction<\/p>"
         },
         "dbb25391-1885-4453-afe5-8d36f974b5c4": {
             "sourceType": "elements",
@@ -1013,7 +1013,7 @@
             "labelWidth": 240,
             "theme": "default",
             "targetType": "jumpers",
-            "label": "<p>Back to station</p>"
+            "label": "<p>Back to station<\/p>"
         }
     },
     "branches": {
@@ -1100,7 +1100,7 @@
             "assets": {
                 "cover": {
                     "type": "icon",
-                    "file": "delapouite/open-gate"
+                    "file": "delapouite\/open-gate"
                 }
             },
             "name": "Open gate"
@@ -1121,7 +1121,7 @@
             "assets": {
                 "cover": {
                     "type": "icon",
-                    "file": "sbed/battery-pack"
+                    "file": "sbed\/battery-pack"
                 }
             },
             "name": "Collect cell"
@@ -1155,7 +1155,8 @@
                 "e6ac9db8-c930-4afa-922b-8a1845943087",
                 "e66b31f1-bc87-4fbe-a337-91fb917d9b2c",
                 "50b5319f-3ab3-4e05-8f3e-bac9292306a1",
-                "f1dcf530-d53a-4a1a-8d08-f1757a1be9a3"
+                "f1dcf530-d53a-4a1a-8d08-f1757a1be9a3",
+                "aaa35a32-93ac-43fb-94a4-55e4f21ca8a3"
             ],
             "name": "HUD text"
         },
@@ -1276,7 +1277,7 @@
             "value": {
                 "plain": true,
                 "type": "string",
-                "data": "RELAY / 07"
+                "data": "RELAY \/ 07"
             },
             "customId": "sign_station",
             "cType": "components",
@@ -1287,7 +1288,7 @@
             "value": {
                 "plain": true,
                 "type": "string",
-                "data": "CELL B / READY"
+                "data": "CELL B \/ READY"
             },
             "customId": "cell_b_label",
             "cType": "components",
@@ -1298,7 +1299,7 @@
             "value": {
                 "plain": true,
                 "type": "string",
-                "data": "CELL A / READY"
+                "data": "CELL A \/ READY"
             },
             "customId": "cell_a_label",
             "cType": "components",
@@ -1320,7 +1321,7 @@
             "value": {
                 "plain": true,
                 "type": "string",
-                "data": "STATION 07   /   MAINTENANCE ACCESS"
+                "data": "STATION 07   \/   MAINTENANCE ACCESS"
             },
             "customId": "station_footer",
             "cType": "components",
@@ -1364,7 +1365,7 @@
             "value": {
                 "plain": true,
                 "type": "string",
-                "data": "ARCWEAVE  /  FIELD OPERATIONS"
+                "data": "ARCWEAVE  \/  FIELD OPERATIONS"
             },
             "customId": "brand",
             "cType": "components",
@@ -1375,7 +1376,7 @@
             "value": {
                 "plain": true,
                 "type": "string",
-                "data": "GATE 01 / NO POWER"
+                "data": "GATE 01 \/ NO POWER"
             },
             "customId": "gate_label",
             "cType": "components",
@@ -1386,7 +1387,7 @@
             "value": {
                 "plain": true,
                 "type": "string",
-                "data": "GENERATOR / OFFLINE"
+                "data": "GENERATOR \/ OFFLINE"
             },
             "customId": "generator_label",
             "cType": "components",
@@ -1635,6 +1636,17 @@
             "customId": "incompatible_save",
             "cType": "components",
             "cId": "1c5f80be-f89b-453e-af02-73047e80a587"
+        },
+        "aaa35a32-93ac-43fb-94a4-55e4f21ca8a3": {
+            "name": "controls",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "WASD  MOVE     MOUSE  LOOK     E  INTERACT     R  RESTART"
+            },
+            "customId": "controls",
+            "cType": "components",
+            "cId": "06e4e920-e844-4509-9891-18e05d39f48b"
         }
     },
     "assets": {
@@ -1743,6 +1755,6 @@
             "output": "8af468c1-2caa-4337-a820-c3473a67368e"
         }
     },
-    "name": "Restore Power — Unreal C++ Quest Sample",
+    "name": "Restore Power \u2014 Unreal C++ Quest Sample",
     "cover": null
 }

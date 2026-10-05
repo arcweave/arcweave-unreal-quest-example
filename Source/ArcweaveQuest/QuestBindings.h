@@ -4,7 +4,7 @@
 namespace QuestBindings
 {
     inline constexpr const TCHAR* Board = TEXT("b031a811-813e-45a6-8d7f-30c0e4e46eac");
-    inline constexpr const TCHAR* StartElement = TEXT("e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7");
+    inline constexpr const TCHAR* TerminalAcceptElement = TEXT("e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7");
     inline constexpr const TCHAR* SuccessElement = TEXT("bfc100c0-7b99-4404-a71c-c1b42b102c02");
     inline constexpr const TCHAR* MissingCellsElement = TEXT("10be7825-974e-4306-b8e4-d2bbc63486dd");
     inline constexpr const TCHAR* OpenGateComponent = TEXT("80c7c42c-bb19-4065-8afa-7cd5b54776fc");

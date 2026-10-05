@@ -101,7 +101,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TArray<const TCHAR*> Responses;
     };
     const FEventLane Lanes[] = {
-        {TEXT("use_terminal"), {QuestBindings::StartElement, QuestBindings::TerminalAcceptedElement,
+        {TEXT("use_terminal"), {QuestBindings::TerminalAcceptElement, QuestBindings::TerminalAcceptedElement,
             QuestBindings::TerminalPoweredElement, QuestBindings::TerminalCompletedElement}},
         {TEXT("collect_cell"), {QuestBindings::DuplicatePickupElement, QuestBindings::PickupTerminalRequiredElement,
             QuestBindings::PickupActionElement}},
@@ -144,7 +144,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
 
     const TSet<FName> RequiredUIFields = {
         TEXT("hud.brand"), TEXT("hud.station_name"), TEXT("hud.mission_tagline"), TEXT("hud.cells_label"),
-        TEXT("hud.station_footer"), TEXT("world_text.terminal_label"), TEXT("world_text.cell_a_label"),
+        TEXT("hud.station_footer"), TEXT("hud.controls"), TEXT("world_text.terminal_label"), TEXT("world_text.cell_a_label"),
         TEXT("world_text.cell_b_label"), TEXT("world_text.sign_station"), TEXT("world_text.sign_distribution"),
         TEXT("world_text.sign_gate"), TEXT("world_text.sign_exit"), TEXT("quest_ui.mission_heading"),
         TEXT("quest_ui.grid_status"), TEXT("quest_ui.terminal_prompt"), TEXT("quest_ui.cell_prompt"),
@@ -159,7 +159,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         int32 Fields;
     };
     const FUIComponentScope UIComponents[] = {
-        {QuestBindings::HUDTextComponent, TEXT("hud"), 5},
+        {QuestBindings::HUDTextComponent, TEXT("hud"), 6},
         {QuestBindings::WorldTextComponent, TEXT("world_text"), 7},
         {QuestBindings::QuestUIComponent, TEXT("quest_ui"), 7},
         {QuestBindings::SaveUIComponent, TEXT("save_ui"), 7}
@@ -628,7 +628,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         return true;
     };
 
-    TestEqual(TEXT("Seven state values, twenty-six UI strings, and two event inputs are imported"), InitialState.CurrentVars.Num(), 35);
+    TestEqual(TEXT("Seven state values, twenty-seven UI strings, and two event inputs are imported"), InitialState.CurrentVars.Num(), 36);
     TestFalse(TEXT("Initialization does not accept the task"), Director->IsQuestStarted());
     TestFalse(TEXT("Initialization does not complete the task"), Director->IsQuestCompleted());
     TestEqual(TEXT("Initial required cell count comes from the export"), Director->GetRequiredPowerCellCount(), 2);
@@ -672,12 +672,12 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
 
     TestTrue(TEXT("Terminal traverses the acceptance graph"), StartQuest());
     TestTrue(TEXT("Acceptance script changes quest.started"), Director->IsQuestStarted());
-    TestEqual(TEXT("Accepting the task ends at Start"), Director->GetCurrentElementId(), FString(QuestBindings::StartElement));
+    TestEqual(TEXT("Accepting the task ends at the terminal acceptance element"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalAcceptElement));
     TestEqual(TEXT("Acceptance does not repeat the generator guidance"), Visits(QuestBindings::TerminalRequiredElement), 2);
     TestEqual(TEXT("Collecting objective renders current and required counts"), Director->GetObjective(), FString(TEXT("Collect power cells (0/2), then use the generator.")));
     TestTrue(TEXT("Repeated terminal interaction follows an authored response"), StartQuest());
     TestEqual(TEXT("Repeat acceptance reaches its own response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalAcceptedElement));
-    TestEqual(TEXT("Repeat acceptance does not replay Start"), Visits(QuestBindings::StartElement), 1);
+    TestEqual(TEXT("Repeat acceptance does not replay terminal acceptance"), Visits(QuestBindings::TerminalAcceptElement), 1);
 
     TestTrue(TEXT("Zero-cell generator attempt executes the missing-cell response"), AttemptGenerator());
     TestEqual(TEXT("Zero cells select MissingCells"), Director->GetCurrentElementId(), FString(QuestBindings::MissingCellsElement));
