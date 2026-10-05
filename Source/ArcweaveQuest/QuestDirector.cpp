@@ -195,10 +195,9 @@ bool UQuestDirector::RunGraph(const FString& EntryElementId, bool bDispatchComma
     FArcweaveElementData& LastElement, FString& Error)
 {
     FString ElementId = EntryElementId;
-    // The complete Play Mode graph loops through events, objectives, and the menu.
-    // Each native call executes only one acyclic section, stopping before its boundary.
-    const FString StopElementId = bDispatchCommands ? PresentationEntryId
-        : Arcweave->GetArcweaveProjectData().StartingElementId;
+    // Each interaction or optional query returns to Station. Native execution stops
+    // before the menu; RunEvent refreshes the HUD independently after every event.
+    const FString StopElementId = Arcweave->GetArcweaveProjectData().StartingElementId;
     while (true)
     {
         bool bSuccess = false;
@@ -234,9 +233,22 @@ bool UQuestDirector::RunGraph(const FString& EntryElementId, bool bDispatchComma
         FArcweaveElementData Source;
         FArcweaveBoardData* Board = nullptr;
         Arcweave->GetBoardForObject(LastElement.Id, Source, Board);
-        // All starting-menu choices share this destination. Their label assignments
-        // are Play Mode inputs; Unreal supplies the event itself and never executes them.
-        FArcweaveConnectionsData Connection = LastElement.Outputs[0];
+        const FArcweaveConnectionsData* Output = &LastElement.Outputs[0];
+        if (LastElement.Id == StopElementId)
+        {
+            // Gameplay choices share one branch destination. The inventory/objective
+            // choices use jumpers and must not intercept a physical Unreal event.
+            Output = LastElement.Outputs.FindByPredicate([](const FArcweaveConnectionsData& Candidate)
+            {
+                return Candidate.TargetType == TEXT("branches");
+            });
+            if (!Output)
+            {
+                return RejectInteraction(TEXT("The station menu is missing its gameplay route."), Error);
+            }
+        }
+        // Menu label assignments are Play Mode inputs; Unreal has already supplied them.
+        FArcweaveConnectionsData Connection = *Output;
         FGetIsTargetBranchOutput Branch = Arcweave->GetIsTargetBranch(*Board, Connection);
         while (Branch.IsBranch)
         {

@@ -2,13 +2,24 @@
 
 Open [Restore Power — Unreal C++ Quest Sample](https://arcweave.com/app/project/MWEZgMb62g) in [workspace Z7gAR6XY](https://arcweave.com/app/workspace/Z7gAR6XY/projects). Access requires permission to the workspace or project. The bundled export runs locally without an API key.
 
-Arcweave owns quest progression, feedback, objectives, interaction prompts, and station labels. Unreal supplies physical events and implements two authored world commands. The single **Restore power · playable quest** board contains the station interaction menu, event router, four interaction lanes, and objectives/UI path. The complete mission is playable in Arcweave Play Mode and drives the Unreal level from the same conditions and state changes. Four component folders separate **State**, interaction **Inputs**, engine **Actions**, and **UI** strings.
+Arcweave owns quest progression, feedback, objectives, interaction prompts, and station labels. Unreal supplies physical events and implements two authored world commands. The single **Restore power · playable quest** board contains the station menu, event router, four interaction lanes, inventory query, and objectives/UI path. The complete mission is playable in Arcweave Play Mode and drives the Unreal level from the same conditions and state changes. Four component folders separate **State**, interaction **Inputs**, engine **Actions**, and **UI** strings.
 
 ## Play Mode and Unreal
 
-Open [Play Mode](https://arcweave.com/app/project/MWEZgMb62g/play) and choose **Use the terminal**, **Collect cell A**, **Collect cell B**, **Check the generator**, or **Enter the exit** from **Station · choose an interaction**. Each choice supplies event inputs and follows the shared quest logic. Continue through its feedback and current objective to return to the menu. Try denied interactions before accepting the task, repeat a pickup, restore power, and complete the escape in the same playthrough. Play Mode's restart control, available on response and objective screens, restores authored defaults; no Debugger setup is needed.
+Open [Play Mode](https://arcweave.com/app/project/MWEZgMb62g/play) at **Station · choose an interaction**. The menu offers seven choices:
 
-The station menu is the project starting element. Each of its five connection labels has visible choice text and Arcscript assignments for `game_event.type` and `game_event.cell_id`. All five connections target the same event router. For example, the cell A label sets these inputs in separate code blocks:
+| Choice | Path |
+| --- | --- |
+| **Check inventory** | Jumper to the current inventory, then return to Station. |
+| **Check current objective** | Jumper to the objectives/UI path, then return to Station. |
+| **Use the terminal** | Terminal response, then return to Station. |
+| **Collect cell A** / **Collect cell B** | Pickup response, then return to Station. |
+| **Check the generator** | Generator response, then return to Station. |
+| **Enter the exit** | Denied: return to Station. Completed: end the playthrough. |
+
+Inventory and objective checks are optional: they read current progress without advancing the quest or changing the latest event inputs. Try denied interactions before accepting the task, repeat a pickup, restore power, and complete the escape in the same playthrough. Play Mode's restart control restores authored defaults; no Debugger setup is needed.
+
+The station menu is the project starting element. Its first two connections are query choices with visible labels and no Arcscript assignments; each targets a jumper. The other five labels supply `game_event.type` and `game_event.cell_id` before targeting the same event router. For example, the cell A label sets these inputs in separate code blocks:
 
 ```arcscript
 game_event.type = "collect_cell"
@@ -18,34 +29,43 @@ game_event.type = "collect_cell"
 game_event.cell_id = "cell_a"
 ```
 
-Play Mode uses the selected label's values to evaluate the destination branch and commits those changes when the choice is selected. Unreal already knows which physical interaction occurred: it writes the same inputs and follows the menu's common router destination without executing its labels. The menu is the only element with multiple outgoing connections; every branch condition still has one output.
+Play Mode uses the selected interaction label's values to evaluate the destination branch and commits those changes when the choice is selected. Unreal already knows which physical interaction occurred: it writes the same inputs and finds the menu's common branch destination, skipping the query jumpers and executing no menu labels. The menu is the only element with multiple outgoing connections; every branch condition still has one output.
 
 ```mermaid
 flowchart LR
-    Menu[Station interaction menu] -->|Five labels set event inputs| Router{Event router}
-    Router --> Flows[Terminal / pickup / generator / exit]
-    Flows --> Feedback[Outcome feedback]
-    Feedback --> Objectives([Local objectives jumper])
-    Objectives -.-> UI[Refresh objectives and UI]
+    Menu[Station interaction menu] -->|Check inventory| InventoryJump([Inventory jumper])
+    InventoryJump -.-> Inventory[Show current inventory]
+    Inventory --> InventoryReturn([Return jumper])
+    InventoryReturn -.-> Menu
+    Menu -->|Check current objective| ObjectiveJump([Objectives jumper])
+    ObjectiveJump -.-> UI[Refresh objectives and UI]
     UI --> Objective[Current objective]
-    Objective --> Return([Nearby return jumper])
+    Objective --> ObjectiveReturn([Return jumper])
+    ObjectiveReturn -.-> Menu
+    Menu -->|Five labels set event inputs| Router{Event router}
+    Router --> Flows[Terminal / pickup / generator / exit]
+    Flows --> Feedback[Ordinary or denied outcome]
+    Feedback --> Return([Local return jumper])
     Return -.-> Menu
+    Flows --> Completed[Successful exit: end]
 ```
 
-The entire authored experience loops on one board. Four local objectives jumpers serve the terminal, pickup, generator, and exit groups; each group's outcomes share its jumper, targeting the objectives/UI entry. Each of the five objective outcomes has its own nearby jumper targeting the station menu. These nine jumpers keep the connections close to their interaction groups. Native execution has two boundaries: the world-event runner resolves the objectives jumper and stops **before** the UI entry, then calls `RefreshPresentation()` once; presentation resolves the return jumper's target and stops **before** executing the station menu. This lets Play Mode continue to another choice while Unreal waits for another physical interaction. Individual automatic paths remain acyclic between these boundaries.
+All paths share one board. Four local return jumpers serve the terminal, pickup, generator, and denied-exit outcomes. The successful and already-completed exit elements have no outgoing connections. Inventory has one return jumper, and each of the five objective outcomes has its own nearby return jumper. With the menu's two query jumpers, the board has twelve jumpers. Every return targets the current station menu.
+
+The native world-event runner resolves its return jumper and stops **before** executing the station menu, or ends at a completed-exit element. `RunEvent` then calls `RefreshPresentation()` once in either case. Presentation also stops before executing the menu. Unreal's HUD therefore updates automatically after every interaction; it never requires selecting **Check inventory** or **Check current objective**. Play Mode returns control to the menu so the player can choose whether to check progress or interact again. Individual automatic paths remain acyclic up to the menu boundary.
 
 Collection progress is authored state, so Play Mode needs no replacement C++ handler: an accepted pickup marks its cell and increments the inventory in Arcscript. Engine action references handle physical collection and the gate when run in Unreal; Play Mode shows the authored outcomes without rendering those physical effects. There is no simulation flag, additional board, or separate preview copy of the quest state.
 
 ## World events
 
-Unreal writes the two current interaction inputs on **Inputs → Game event**, then uses `GetArcweaveProjectData().StartingElementId` to find the station menu and its common `EventRouterBranch` destination. There is no fixed C++ binding for this entry. Each of the router's four conditions connects directly to that interaction's condition branch. The router has no else condition: an empty or unsupported event type supplied by Unreal reaches the existing integration error path without running a gameplay branch. In Play Mode, the selected menu label supplies a supported event before the router is evaluated. Each response reaches the objectives/UI entry through its interaction group's local jumper on the same board.
+Unreal writes the two current interaction inputs on **Inputs → Game event**, then uses `GetArcweaveProjectData().StartingElementId` to find the station menu and its common `EventRouterBranch` destination among the five interaction connections. The two query connections target jumpers and are skipped. There is no fixed C++ binding for the station entry. Each of the router's four conditions connects directly to that interaction's condition branch. The router has no else condition: an empty or unsupported event type supplied by Unreal reaches the existing integration error path without running a gameplay branch. In Play Mode, the selected interaction label supplies a supported event before the router is evaluated. Responses return to Station through their group's local jumper; completed-exit responses end the playthrough.
 
 | Event router condition | Destination | Authored behavior |
 | --- | --- | --- |
 | **IF** `game_event.type == "use_terminal"` | `TerminalBranch` | Checks completed, powered, and accepted states in order. Otherwise, **Terminal · accept task** (`StartElement`) sets `quest.started = true`. Repeated interactions have their own feedback. |
 | **ELSE IF** `game_event.type == "collect_cell"` | `PickupBranch` | Checks the selected cell's shared collected state, then task acceptance. One accepted-pickup element marks that cell, increments `player.power_cells`, renders the updated count, and requests `collect_cell`. |
 | **ELSE IF** `game_event.type == "check_generator"` | `GeneratorBranch` | Checks already powered, task not accepted, and sufficient cells in order. **Generator · restore power** (`SuccessElement`) sets `quest.power_restored = true` and requests `open_gate`. Unreal reflects that state in the station lighting. Other outcomes give guidance. |
-| **ELSE IF** `game_event.type == "enter_exit"` | `ExitBranch` | Gives repeat feedback if completed; sets `quest.completed = true` only when power is restored; otherwise denies exit. |
+| **ELSE IF** `game_event.type == "enter_exit"` | `ExitBranch` | Gives repeat feedback if completed; sets `quest.completed = true` only when power is restored; otherwise denies exit. Successful and already-completed responses end Play Mode; a denied exit returns to Station. |
 
 ```mermaid
 flowchart LR
@@ -77,9 +97,9 @@ The **Inputs** folder contains the **Game event** component, with custom ID `gam
 | `type` | Plain string / empty | The interaction being handled: `use_terminal`, `collect_cell`, `check_generator`, or `enter_exit`. |
 | `cell_id` | Plain string / empty | The selected pickup: `cell_a` or `cell_b`; empty for other interactions. |
 
-`UQuestDirector::RunEvent` replaces **both** inputs before following the shared router. Non-pickup events clear `cell_id`; pickup requests supply the physical cell's matching ID. Play Mode's menu labels replace both fields in the same way. The inputs retain the latest request until the next interaction and reset with a new game. An empty `type` means no request has been supplied. If the router is directly executed with an empty or unknown value, no condition matches. Unreal reports “The authored branch has no destination.” without changing quest progress or running world commands. Arcweave exports empty plain strings as JSON `null`, which the bundled Unreal plugin imports as empty strings.
+`UQuestDirector::RunEvent` replaces **both** inputs before following the shared router. Non-pickup events clear `cell_id`; pickup requests supply the physical cell's matching ID. Play Mode's five interaction labels replace both fields in the same way. Its two query labels leave them unchanged. The inputs retain the latest request until the next interaction and reset with a new game. An empty `type` means no request has been supplied. If the router is directly executed with an empty or unknown value, no condition matches. Unreal reports “The authored branch has no destination.” without changing quest progress or running world commands. Arcweave exports empty plain strings as JSON `null`, which the bundled Unreal plugin imports as empty strings.
 
-Keep the station menu selected as the project starting element in Arcweave. The sync validator checks its five menu outputs, supported input assignments, and common event-router target. Its UUID may change without changing C++ bindings. The objectives/UI entry is identified by element metadata on the same board, as described below.
+Keep the station menu selected as the project starting element in Arcweave. The sync validator checks its seven menu outputs: two query jumpers and five supported input assignments sharing the event-router target. Its UUID may change without changing C++ bindings. Inventory and objectives/UI entries are identified by element metadata on the same board, as described below.
 
 ## Runtime execution
 
@@ -91,7 +111,7 @@ The generator condition is `player.power_cells >= quest.required_power_cells`. B
 show("Collected a power cell (", player.power_cells, "/", quest.required_power_cells, ").")
 ```
 
-Every executed element has nonempty content because the bundled plugin cannot parse empty elements. Action elements contain their player-facing feedback alongside their Arcscript. In Play Mode, the accepted pickup shows the count immediately, then continues through the pickup group's objectives jumper. Presentation uses the authored **See current objective** continuation to choose the objective. Branch-condition connections have no labels, preserving the menu choice's label as Play Mode follows the branch chain. The native runner does not replace event feedback with the menu or objective text when it reaches a boundary; the objective is published separately after presentation refresh.
+Every executed element has nonempty content because the bundled plugin cannot parse empty elements. Action elements contain their player-facing feedback alongside their Arcscript. In Play Mode, the accepted pickup shows the count immediately, then returns through the pickup group's station jumper. Choosing **Check current objective** enters presentation, whose authored **See current objective** continuation selects the objective. Branch-condition connections have no labels, preserving the menu choice's label as Play Mode follows the branch chain. The native runner does not replace event feedback with the menu or objective text when it reaches a boundary; the objective is published separately after its automatic presentation refresh.
 
 Command names are component **custom IDs** understood by this sample's C++ registry. They are not built-in Arcscript functions or Unreal Gameplay Tags. `collect_cell` belongs only on `PickupActionElement`, where Unreal has supplied a pending pickup identity. `open_gate` belongs only on `SuccessElement`. These two action components live in the **Actions** folder. Referencing one requests an engine operation; it does not prove the operation completed. Data components are not attached as commands.
 
@@ -151,11 +171,21 @@ Arcscript uses names such as `hud.station_name`, `world_text.terminal_label`, an
 
 For example, an event may assign `hud.station_name = "RELAY 08"`. That value appears when the director runs its internal `RefreshPresentation()` after an event, and persists through later presentation refreshes. Restarting restores all authored defaults. Presentation owns `quest_ui.*`, so those seven fields are reset and recomputed on each refresh.
 
+## Inventory query
+
+The inventory element is identified by a plain-string element attribute **named** `entry_point`, with value `inventory`. **Check inventory** targets a jumper to this element, which displays the authored label and current collected count:
+
+```arcscript
+show(hud.cells_label, ": ", player.power_cells)
+```
+
+For example, after collecting one cell it shows **POWER CELLS: 1**. The quest's required count belongs in the objective. This element only reads variables; it does not change event inputs or gameplay state, update UI fields, or dispatch action components. Its single continuation reaches a local jumper back to Station. The metadata and jumper target identify it without a C++ UUID binding. Unreal already shows the current inventory in its HUD, so it does not need to execute this optional Play Mode query after an interaction.
+
 ## Objectives and interface
 
-The same board as the station menu has exactly one objectives/UI entry element with an attribute **named** `entry_point`, whose value is the plain string `objectives_ui`. Element attributes currently have no custom IDs, so keep this attribute name and value stable. The director resolves its element ID once when importing or restarting the project, then caches it. The element and marker UUIDs can change without updating C++ bindings. This attribute identifies the presentation boundary; it does not create a runtime variable or hold display text. There is no separate presentation board or `PresentationBoard` binding.
+The same board as the station menu has exactly one objectives/UI entry element with an attribute **named** `entry_point`, whose value is the plain string `objectives_ui`. Element attributes currently have no custom IDs, so keep this attribute name and value stable. The director resolves its element ID once when importing or restarting the project, then caches it. The element and marker UUIDs can change without updating C++ bindings. This attribute identifies the presentation entry; it does not create a runtime variable or hold display text. There is no separate presentation board or `PresentationBoard` binding.
 
-Every world-event outcome connects to its interaction group's local objectives jumper, and all four of those jumpers target this entry. Play Mode follows the target; C++ resolves it, stops before the entry, and calls `RefreshPresentation()` so it runs exactly once. Startup and restart also enter it directly. It first restores the seven Quest display attributes to their authored defaults. Each call occupies its own Arcscript code block:
+**Check current objective** connects to a jumper targeting this entry. Play Mode follows that choice only when the player requests it. Unreal calls `RefreshPresentation()` directly once after every interaction, including a successful exit, and on startup or restart. This refresh is a separate native call after the event flow finishes. The entry first restores the seven Quest display attributes to their authored defaults. Each call occupies its own Arcscript code block:
 
 - `reset(quest_ui.mission_heading)`
 - `reset(quest_ui.grid_status)`
@@ -165,7 +195,7 @@ Every world-event outcome connects to its interaction group's local objectives j
 - `reset(quest_ui.generator_label)`
 - `reset(quest_ui.gate_label)`
 
-These unconditional defaults describe the collecting state. The same entry then checks `if quest.completed || quest.power_restored` and applies four shared powered-state fields: online grid status, review-generator prompt, online generator label, and open-gate label. After `endif`, it displays the current cell count. The `if`, each assignment, `endif`, and `show()` occupy separate code blocks. This keeps the shared powered fields in one place while a single board branch selects the current objective.
+These unconditional defaults describe the collecting state. The same entry then checks `if quest.completed || quest.power_restored` and applies four shared powered-state fields: online grid status, review-generator prompt, online generator label, and open-gate label. Its visible summary uses the authored mission heading; the inventory query handles the separate inventory display. The `if`, each assignment, `endif`, and `show()` occupy separate code blocks. This keeps the shared powered fields in one place while a single board branch selects the current objective.
 
 That branch connects directly to the completed, powered, unaccepted, collecting, and ready leaves. Each leaf connects to its own nearby jumper whose target is the station menu. Play Mode follows that target; the native presentation runner resolves it and stops before executing the menu. These jumpers are local to the same board. Only `quest_ui.*` is reset; quest progress, collected-cell state, event inputs, and HUD/world text overrides survive the refresh.
 
@@ -195,13 +225,13 @@ Presentation may read known state, event, and UI variables, show text, and assig
 
 ## Files and editing
 
-- `Narrative/bindings.json` and `Source/ArcweaveQuest/QuestBindings.h` identify the event-routing branch, interaction lanes, pickup branch, feedback/display leaves, four State components and their seven attributes, three UI components, Game event component and its two input attributes, and two command components used by C++ or its tests. The station menu comes from the export's `startingElement` field; the objectives/UI entry comes from its `entry_point` metadata on the same board. Neither entry has a fixed binding, and no presentation-board binding is needed. Other conditions, connections, notes, and attributes retain their IDs in the graph without becoming C++ bindings.
+- `Narrative/bindings.json` and `Source/ArcweaveQuest/QuestBindings.h` identify the event-routing branch, interaction lanes, pickup branch, feedback/display leaves, four State components and their seven attributes, three UI components, Game event component and its two input attributes, and two command components used by C++ or its tests. The station menu comes from the export's `startingElement` field; the objectives/UI and inventory entries are marked by their `entry_point` metadata on the same board. None of these entries has a fixed binding, and no presentation-board binding is needed. Other conditions, connections, notes, and attributes retain their IDs in the graph without becoming C++ bindings.
 - `Narrative/project.json` records the online project/workspace, export URLs, export time, and SHA-256 checksums. It contains no credential.
 - `Narrative/import.json` reproduces this graph and its board layout using the all-locales authoring export plus coordinates from the Unreal export. Importing its `project` creates a separate project; it does not update the linked one.
 - `Narrative/authoring.json` is the actual Arcweave JSON API export. That endpoint omits coordinates.
 - `Content/ArcweaveExport/quest.json` is the actual Unreal API response, including its `project` envelope and layout. It is the only JSON file in that import directory.
 
-Keep the bound IDs, command and data-component custom IDs, event names, variable meanings, and objectives/UI entry marker when editing. Text, attribute defaults, conditions, notes, node positions, and internal automatic paths can change without adding C++ bindings. Keep the complete experience on one board. The four event-group jumpers target the objectives/UI entry; the five objective-return jumpers target the current project starting element. The only intended loop goes from menu through an event and presentation back to the menu; automatic paths within each native execution boundary must remain acyclic. Only the starting menu has multiple outputs, all targeting the same router; other elements have one continuation, and each condition row has exactly one outgoing connection. Menu label code only supplies the two event inputs. Leave branch-condition connection labels empty so they do not replace the selected interaction's text in Play Mode. Changing the event interface, supported commands, or presentation contract requires corresponding C++ changes.
+Keep the bound IDs, command and data-component custom IDs, event names, variable meanings, and two query entry markers when editing. Text, attribute defaults, conditions, notes, node positions, and internal automatic paths can change without adding C++ bindings. Keep the complete experience on one board. The menu's two query jumpers target the inventory and objectives/UI entries. Four event-group returns, one inventory return, and five objective returns target the current project starting element. Intended loops return from a single interaction or query to the menu; automatic paths before that boundary must remain acyclic. Only the starting menu has multiple outputs: two query jumpers followed by five interactions sharing a router. Other elements have one continuation, except the successful and already-completed exit elements, which end the playthrough. Each condition row has exactly one outgoing connection. Only the five interaction labels assign the two event inputs; query labels do not write variables. Leave branch-condition connection labels empty so they do not replace the selected interaction's text in Play Mode. Changing the event interface, supported commands, or query contracts requires corresponding C++ or validator changes.
 
 ## Refresh the bundled narrative
 
@@ -211,7 +241,7 @@ Use Python 3.9 or later and an API key with **Read projects** access to the samp
 python Scripts/sync-narrative.py --token-file "/path/outside/repository/arcweave-token.txt"
 ```
 
-The script downloads both exports from `https://arcweave.com` and validates them before replacing either file. It checks required bindings, the four State components and their seven typed attributes and new-game defaults, absence of global variables, the three UI components and their nineteen strings, the Game event component and its two typed inputs, and the single-board graph contract. Menu checks cover the authored starting element, five labeled input assignments, and common router target. The four router conditions must lead directly to their branches without an else route. World checks cover pickup check order, nonempty executable content, one statement per code block, command placement, and outcome paths reaching presentation through their four local group jumpers. Presentation checks require the unique plain-string `entry_point = objectives_ui` marker on the starting board, the seven unconditional entry resets, the shared conditional powered fields, five direct objective routes, read-only conditions, writes restricted to known `quest_ui.*` fields, and objective returns through the five local menu jumpers. Cycle checks respect the menu and presentation boundaries while rejecting loops within an automatic path. New designer notes and internal graph objects do not require bindings. The script updates export checksums, does not edit online projects, and never stores or prints the key. Two requests count against the workspace's import/export rate limit; on HTTP 429, wait for the reported interval and rerun. The layout-preserving `import.json` is maintained separately as a reproducible snapshot.
+The script downloads both exports from `https://arcweave.com` and validates them before replacing either file. It checks required bindings, the four State components and their seven typed attributes and new-game defaults, absence of global variables, the three UI components and their nineteen strings, the Game event component and its two typed inputs, and the single-board graph contract. Menu checks cover the authored starting element, two query jumpers without input assignments, and five labeled interaction assignments sharing the router target. The four router conditions must lead directly to their branches without an else route. World checks cover pickup check order, nonempty executable content, one statement per code block, command placement, ordinary outcomes returning through four local group jumpers, and completed-exit outcomes ending the path. Inventory checks require the unique plain-string `entry_point = inventory` marker, read-only content, and its return jumper. Presentation checks require the unique plain-string `entry_point = objectives_ui` marker on the starting board, the seven unconditional entry resets, the shared conditional powered fields, five direct objective routes, read-only conditions, writes restricted to known `quest_ui.*` fields, and objective returns through five local menu jumpers. Cycle checks respect the station menu boundary while rejecting loops within an automatic path. New designer notes and internal graph objects do not require bindings. The script updates export checksums, does not edit online projects, and never stores or prints the key. Two requests count against the workspace's import/export rate limit; on HTTP 429, wait for the reported interval and rerun. The layout-preserving `import.json` is maintained separately as a reproducible snapshot.
 
 Run `python Scripts/test-sync-narrative.py` to check the bundled exports and validator regressions offline, without an API key.
 

@@ -19,7 +19,8 @@
           "63297b78-e94e-4676-9e36-7dbdb9b02061",
           "567ce162-983d-43ba-b0d6-409dce845e18",
           "8a1702ae-b5fe-44cb-bacd-97868065a17c",
-          "c2b03497-1971-4bd0-815e-1025fae44a13"
+          "c2b03497-1971-4bd0-815e-1025fae44a13",
+          "8bea571f-426b-463c-81a7-d54c50c3855f"
         ],
         "jumpers": [
           "07cfcf34-77e3-4f10-bd89-089c7d781baa",
@@ -30,7 +31,10 @@
           "d60ee1ae-646c-4cef-8a4c-1b2fa4869430",
           "7841550a-3630-4291-a28d-64748f6301a9",
           "cfce673f-9067-41b2-932c-e11cbbba5a29",
-          "f65d0040-815d-4df2-8fb8-073e2d6619b2"
+          "f65d0040-815d-4df2-8fb8-073e2d6619b2",
+          "caee8569-9df3-43ec-a438-92da918de1ec",
+          "3c170fe1-dc83-4d4a-87e5-32dfc02643df",
+          "3aabf650-0f2a-4f48-80f5-ef93e16cecd2"
         ],
         "branches": [
           "e110b153-2cfa-4294-adcc-e4b14cd0aef3",
@@ -62,7 +66,8 @@
           "3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0",
           "2562dfc6-156c-425d-a9d3-3ae7796d594b",
           "903c2f59-6079-49a6-b099-83a9ab0e8091",
-          "a3cd505b-7878-42cf-9523-063ffb62eb58"
+          "a3cd505b-7878-42cf-9523-063ffb62eb58",
+          "660c9cc9-512d-4248-b565-26eb1216177d"
         ],
         "attributes": null,
         "connections": [
@@ -100,27 +105,28 @@
           "dc6b5643-1c9b-44c7-8821-00cc1807a6db",
           "626372c7-1302-4658-a5df-a5630fdf1583",
           "8a2a9df2-b367-4178-8c1d-84f2ad3f6c04",
-          "d5d12e68-a95e-4197-88c0-e003e746d7b5",
           "62967cbe-88a2-4bd7-958a-6689ad10fbe7",
           "1c9e907a-0cbb-434e-9878-54dfe87ed293",
           "31a718c4-aa21-4b8a-a29f-423f4c22ebce",
           "b986e560-4139-4ea2-80ac-93795a81ec3a",
           "3b7e83e5-707e-4124-87ef-be501f7bd93f",
           "9babcdd5-8018-44a0-a11b-e776ec3119b9",
-          "7b6875d8-4af2-4292-9a3e-04b9403dd096",
           "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16",
           "3cfa09a5-67c6-4f71-9b90-198dba4032cd",
           "978971a0-7003-489d-ac39-07aef2601576",
           "ce30ad8d-5408-45c4-943a-4262e397177a",
           "e84d28c5-e54b-47ea-a415-88aecc7858e7",
-          "55d0bee6-ac69-4107-aee3-7eb3bb836878"
+          "55d0bee6-ac69-4107-aee3-7eb3bb836878",
+          "dbb25391-1885-4453-afe5-8d36f974b5c4",
+          "36cb5374-8ee0-4a33-8401-87eb9dc41143",
+          "f5e66850-01c1-403f-afe2-8cb7c9a437e2"
         ]
       }
     },
     "notes": {
       "6c069694-7fea-4980-b59d-d9dc2c857cc4": {
         "theme": "purple",
-        "content": "<p><strong>RESTORE POWER · ONE PLAYABLE QUEST</strong></p><p>Start at Station. Choose an interaction, follow its outcome, view the objective, then return to the menu. Unreal supplies the same event inputs from physical interactions and waits at the menu boundary. Keep one output per condition.</p>",
+        "content": "<p><strong>RESTORE POWER · ONE PLAYABLE QUEST</strong></p><p>Start at Station. Check inventory or objectives through the two query jumpers, or choose a physical interaction. Ordinary responses return directly to Station. The powered exit ends the playthrough. All condition rows have one output.</p>",
         "x": 6800,
         "y": 7500,
         "width": 11500,
@@ -129,10 +135,10 @@
       },
       "e1d06b05-73ac-4040-97d1-04a6f8091204": {
         "theme": "purple",
-        "content": "<p><strong>START HERE · PLAY MODE AND UNREAL</strong></p><p>The five labels set game_event.type and game_event.cell_id. All feed the same router. Unreal supplies these inputs itself and skips the menu labels. There is no separate simulation mode.</p>",
-        "x": 6800,
-        "y": 9250,
-        "width": 700,
+        "content": "<p><strong>START HERE · PLAY MODE AND UNREAL</strong></p><p>Two query choices use jumpers and leave game_event unchanged. Five gameplay labels set type and cell_id, then share the event router. Unreal injects these inputs, selects the branch connection, and refreshes its HUD after each event.</p>",
+        "x": 8720,
+        "y": 9200,
+        "width": 720,
         "height": 184,
         "autoHeight": true
       },
@@ -165,7 +171,7 @@
       },
       "c2b03497-1971-4bd0-815e-1025fae44a13": {
         "theme": "purple",
-        "content": "<p><strong>OBJECTIVES AND INTERFACE · SAME PLAYTHROUGH</strong></p><p>Each interaction group uses a local jumper to this section. Reset quest_ui defaults, apply shared powered overrides when completed or powered, then select one of five objectives. Each objective returns to Station through its own jumper.</p><p>Unreal stops before this entry, refreshes it once, and stops before the menu. State lives in Player, Quest, Cell A, and Cell B; text remains in UI components. Use one Arcscript statement per code block.</p>",
+        "content": "<p><strong>OPTIONAL OBJECTIVES · AUTOMATIC UNREAL HUD</strong></p><p>Station's Check current objective jumper enters this section. Reset quest_ui, apply shared powered overrides, then select the current objective and return to Station. Quest progress and event inputs are unchanged.</p><p>Unreal refreshes this same section automatically after every interaction, including the final exit. Use one Arcscript statement per code block.</p>",
         "x": 14650,
         "y": 8500,
         "width": 2950,
@@ -179,6 +185,15 @@
         "y": 12600,
         "width": 530,
         "height": 106,
+        "autoHeight": true
+      },
+      "8bea571f-426b-463c-81a7-d54c50c3855f": {
+        "theme": "purple",
+        "content": "<p><strong>OPTIONAL INVENTORY</strong></p><p>Station's Check inventory jumper displays the carried power-cell count. This query only reads state and returns to Station. It does not collect a cell, change event inputs, or advance the quest.</p>",
+        "x": 14650,
+        "y": 11450,
+        "width": 1100,
+        "height": 160,
         "autoHeight": true
       }
     },
@@ -246,16 +261,18 @@
       "76724a0b-9935-4c27-9941-90c63f3a795c": {
         "theme": "cyan",
         "outputs": [
+          "36cb5374-8ee0-4a33-8401-87eb9dc41143",
+          "f5e66850-01c1-403f-afe2-8cb7c9a437e2",
           "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9",
           "79dfcf7f-d765-4c35-a091-e2c4fce94e95",
           "27a3b224-c7fd-47d7-a4de-e9e26ff0c149",
           "d6bcdedf-3dd0-4d3e-bdfe-ece309441e0b",
           "41245d97-81d4-4857-849c-02895783844a"
         ],
-        "x": 8640,
-        "y": 10000,
+        "x": 8660,
+        "y": 9860,
         "width": 470,
-        "height": 441,
+        "height": 721,
         "autoHeight": false
       },
       "3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0": {
@@ -271,9 +288,7 @@
       },
       "961efa28-f033-44aa-ae8f-25bcb9a8e3e1": {
         "theme": "green",
-        "outputs": [
-          "7b6875d8-4af2-4292-9a3e-04b9403dd096"
-        ],
+        "outputs": [],
         "x": 12500,
         "y": 12680,
         "width": 370,
@@ -340,9 +355,7 @@
       },
       "f2d75b83-f348-4b58-8190-b68d119db86d": {
         "theme": "green",
-        "outputs": [
-          "d5d12e68-a95e-4197-88c0-e003e746d7b5"
-        ],
+        "outputs": [],
         "x": 12500,
         "y": 13000,
         "width": 370,
@@ -428,6 +441,20 @@
         "width": 370,
         "height": 150,
         "autoHeight": true
+      },
+      "660c9cc9-512d-4248-b565-26eb1216177d": {
+        "theme": "cyan",
+        "attributes": [
+          "f2ac60e8-6174-4258-8202-27fa0133f6e9"
+        ],
+        "outputs": [
+          "dbb25391-1885-4453-afe5-8d36f974b5c4"
+        ],
+        "x": 14700,
+        "y": 11800,
+        "width": 470,
+        "height": 180,
+        "autoHeight": true
       }
     },
     "jumpers": {
@@ -467,32 +494,53 @@
         "y": 11140
       },
       "d60ee1ae-646c-4cef-8a4c-1b2fa4869430": {
-        "elementId": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "height": 90,
         "width": 290,
         "x": 13400,
         "y": 9030
       },
       "7841550a-3630-4291-a28d-64748f6301a9": {
-        "elementId": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "height": 90,
         "width": 290,
         "x": 13400,
         "y": 10290
       },
       "cfce673f-9067-41b2-932c-e11cbbba5a29": {
-        "elementId": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "height": 90,
         "width": 290,
         "x": 13400,
         "y": 11600
       },
       "f65d0040-815d-4df2-8fb8-073e2d6619b2": {
-        "elementId": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "height": 90,
         "width": 290,
         "x": 13400,
         "y": 12980
+      },
+      "caee8569-9df3-43ec-a438-92da918de1ec": {
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "height": 90,
+        "width": 240,
+        "x": 15500,
+        "y": 11840
+      },
+      "3c170fe1-dc83-4d4a-87e5-32dfc02643df": {
+        "elementId": "660c9cc9-512d-4248-b565-26eb1216177d",
+        "height": 90,
+        "width": 310,
+        "x": 7500,
+        "y": 9950
+      },
+      "3aabf650-0f2a-4f48-80f5-ef93e16cecd2": {
+        "elementId": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "height": 90,
+        "width": 310,
+        "x": 7500,
+        "y": 10400
       }
     },
     "connections": {
@@ -730,17 +778,17 @@
         "targetType": "jumpers",
         "labelWidth": 230
       },
-      "7b6875d8-4af2-4292-9a3e-04b9403dd096": {
+      "f5e66850-01c1-403f-afe2-8cb7c9a437e2": {
         "sourceType": "elements",
-        "labelLocation": 0.3,
-        "sourceid": "961efa28-f033-44aa-ae8f-25bcb9a8e3e1",
-        "targetid": "f65d0040-815d-4df2-8fb8-073e2d6619b2",
-        "sourceFace": "right",
-        "targetFace": "left",
+        "labelLocation": 0.5,
+        "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "targetid": "3aabf650-0f2a-4f48-80f5-ef93e16cecd2",
         "type": "Bezier",
+        "sourceFace": "left",
+        "targetFace": "right",
+        "labelWidth": 240,
         "theme": "default",
-        "targetType": "jumpers",
-        "labelWidth": 230
+        "targetType": "jumpers"
       },
       "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16": {
         "sourceType": "elements",
@@ -788,15 +836,14 @@
       },
       "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9": {
         "sourceType": "elements",
-        "labelLocation": 0.75502028416704,
+        "labelLocation": 0.64714954400312,
         "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
-        "sourceFace": "right",
+        "sourceFace": "top",
         "targetFace": "top",
         "type": "Bezier",
-        "theme": "cyan",
-        "targetType": "branches",
-        "labelWidth": 380
+        "theme": "default",
+        "targetType": "branches"
       },
       "3b7e9da7-09f5-4541-a0b0-e1f6484403be": {
         "sourceType": "conditions",
@@ -902,51 +949,47 @@
       },
       "79dfcf7f-d765-4c35-a091-e2c4fce94e95": {
         "sourceType": "elements",
-        "labelLocation": 0.21956197970349,
+        "labelLocation": 0.28272611147537,
         "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
         "type": "Bezier",
         "sourceFace": "right",
         "targetFace": "left",
-        "labelWidth": 380,
-        "theme": "default",
-        "targetType": "branches"
+        "targetType": "branches",
+        "theme": "default"
       },
       "27a3b224-c7fd-47d7-a4de-e9e26ff0c149": {
         "sourceType": "elements",
-        "labelLocation": 0.49759524582094,
+        "labelLocation": 0.29013689303239,
         "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
         "type": "Bezier",
         "sourceFace": "right",
         "targetFace": "left",
-        "labelWidth": 380,
-        "theme": "default",
-        "targetType": "branches"
+        "targetType": "branches",
+        "theme": "default"
       },
       "d6bcdedf-3dd0-4d3e-bdfe-ece309441e0b": {
         "sourceType": "elements",
-        "labelLocation": 0.81202763168683,
+        "labelLocation": 0.28539559695107,
         "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
         "type": "Bezier",
         "sourceFace": "right",
         "targetFace": "left",
-        "labelWidth": 380,
-        "theme": "default",
-        "targetType": "branches"
+        "targetType": "branches",
+        "theme": "default"
       },
       "41245d97-81d4-4857-849c-02895783844a": {
         "sourceType": "elements",
-        "labelLocation": 0.78032139334631,
+        "labelLocation": 0.63079773094679,
         "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
         "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
         "type": "Bezier",
-        "sourceFace": "right",
+        "sourceFace": "bottom",
         "targetFace": "bottom",
-        "labelWidth": 380,
-        "theme": "default",
-        "targetType": "branches"
+        "targetType": "branches",
+        "theme": "default"
       },
       "7ae2eea9-275c-4739-a233-3b497f456910": {
         "sourceType": "elements",
@@ -1019,17 +1062,17 @@
         "theme": "default",
         "targetType": "elements"
       },
-      "d5d12e68-a95e-4197-88c0-e003e746d7b5": {
+      "36cb5374-8ee0-4a33-8401-87eb9dc41143": {
         "sourceType": "elements",
-        "labelLocation": 0.3,
-        "sourceid": "f2d75b83-f348-4b58-8190-b68d119db86d",
-        "targetid": "f65d0040-815d-4df2-8fb8-073e2d6619b2",
-        "sourceFace": "right",
-        "targetFace": "left",
+        "labelLocation": 0.5,
+        "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "targetid": "3c170fe1-dc83-4d4a-87e5-32dfc02643df",
         "type": "Bezier",
+        "sourceFace": "left",
+        "targetFace": "right",
+        "labelWidth": 240,
         "theme": "default",
-        "targetType": "jumpers",
-        "labelWidth": 230
+        "targetType": "jumpers"
       },
       "62967cbe-88a2-4bd7-958a-6689ad10fbe7": {
         "sourceType": "elements",
@@ -1042,6 +1085,18 @@
         "theme": "default",
         "targetType": "jumpers",
         "labelWidth": 230
+      },
+      "dbb25391-1885-4453-afe5-8d36f974b5c4": {
+        "sourceType": "elements",
+        "labelLocation": 0.5,
+        "sourceid": "660c9cc9-512d-4248-b565-26eb1216177d",
+        "targetid": "caee8569-9df3-43ec-a438-92da918de1ec",
+        "type": "Bezier",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "labelWidth": 240,
+        "theme": "default",
+        "targetType": "jumpers"
       }
     },
     "branches": {
@@ -1080,8 +1135,8 @@
           ]
         },
         "theme": "gold",
-        "x": 11400,
-        "y": 10200
+        "x": 11200,
+        "y": 10100
       },
       "5a5c96ae-ef6f-421e-b2da-efca55bc5bc3": {
         "conditions": {
@@ -1148,7 +1203,7 @@
       "31a718c4-aa21-4b8a-a29f-423f4c22ebce": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1256,7 +1311,7 @@
         },
         "content": {
           "en": {
-            "text": "<pre data-id=\"a8edc817-519e-4a27-9b2d-d61df807f7b1\" spellcheck=\"false\"><code class=\"language-arcscript\">show(hud.station_name)</code></pre><p>Explore the station and restore power to open the exit. What would you like to interact with?</p>"
+            "text": "<pre data-id=\"2833baa2-ee20-4715-846a-488033bdd4fb\" spellcheck=\"false\"><code class=\"language-arcscript\">show(hud.station_name)</code></pre><p>Explore the station and restore power to open the exit. Check your inventory or current objective whenever you need, or choose an interaction.</p>"
           }
         },
         "_status": {}
@@ -1301,7 +1356,7 @@
       "8a2a9df2-b367-4178-8c1d-84f2ad3f6c04": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1317,7 +1372,7 @@
       "626372c7-1302-4658-a5df-a5630fdf1583": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1447,10 +1502,10 @@
         },
         "_status": {}
       },
-      "d5d12e68-a95e-4197-88c0-e003e746d7b5": {
+      "36cb5374-8ee0-4a33-8401-87eb9dc41143": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Check inventory</p>"
           }
         },
         "_status": {}
@@ -1458,7 +1513,7 @@
       "62967cbe-88a2-4bd7-958a-6689ad10fbe7": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1466,7 +1521,7 @@
       "1c9e907a-0cbb-434e-9878-54dfe87ed293": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1546,7 +1601,7 @@
       "cf1cba2c-37e7-445e-be8d-8074e4ee251a": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1586,7 +1641,7 @@
       "3b7e83e5-707e-4124-87ef-be501f7bd93f": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1594,7 +1649,7 @@
       "b986e560-4139-4ea2-80ac-93795a81ec3a": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1602,15 +1657,15 @@
       "9babcdd5-8018-44a0-a11b-e776ec3119b9": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
       },
-      "7b6875d8-4af2-4292-9a3e-04b9403dd096": {
+      "f5e66850-01c1-403f-afe2-8cb7c9a437e2": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Check current objective</p>"
           }
         },
         "_status": {}
@@ -1718,12 +1773,12 @@
       "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f": {
         "title": {
           "en": {
-            "text": "<p>Station status · current objective</p>"
+            "text": "<p>Objectives · current task</p>"
           }
         },
         "content": {
           "en": {
-            "text": "<pre data-id=\"4e19ba53-0aae-4495-a89b-ec41a1fb3c78\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.mission_heading)</code></pre><pre data-id=\"f4804461-412f-407f-83e7-1b3ad25ff049\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.grid_status)</code></pre><pre data-id=\"792ac0bb-531a-4c7d-a809-f31cc21da6a9\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.terminal_prompt)</code></pre><pre data-id=\"ab8b4e64-16a7-4a47-957b-c28ab3add5e2\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.cell_prompt)</code></pre><pre data-id=\"b41a7ead-9293-4e0f-8634-c53244a080f5\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_prompt)</code></pre><pre data-id=\"ac839f8b-d238-48db-b719-d86699e1dede\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_label)</code></pre><pre data-id=\"6a630679-c8c0-497f-99eb-c8b1b13b3020\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.gate_label)</code></pre><pre data-id=\"0aba6238-e7ef-447a-83a9-76551d279938\" spellcheck=\"false\"><code class=\"language-arcscript\">if quest.completed || quest.power_restored</code></pre><pre data-id=\"87dd10af-8b32-45dc-a126-333e08001e91\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.grid_status = \"GRID ONLINE\"</code></pre><pre data-id=\"82ce16f4-654f-4458-86a1-18e0e6584b93\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_prompt = \"Review running generator\"</code></pre><pre data-id=\"8f9623ee-f2fd-4fe4-a912-e66087d3e882\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_label = \"GENERATOR / ONLINE\"</code></pre><pre data-id=\"47956083-3ef9-4f49-84fe-c1fae53d591f\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.gate_label = \"GATE 01 / ACCESS GRANTED\"</code></pre><pre data-id=\"30d10423-a1a9-4d8a-a7c8-97f3dfae9fdf\" spellcheck=\"false\"><code class=\"language-arcscript\">endif</code></pre><pre data-id=\"268b6dfc-9edb-4b31-85c8-3493696d37bb\" spellcheck=\"false\"><code class=\"language-arcscript\">show(\"Power cells: \", player.power_cells, \"/\", quest.required_power_cells)</code></pre>"
+            "text": "<pre data-id=\"754ce166-353e-454f-8cac-6e1cc41e998d\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.mission_heading)</code></pre><pre data-id=\"facceca0-e9ec-46a6-b160-c56127a6443f\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.grid_status)</code></pre><pre data-id=\"6885a06e-8dfb-4fa4-97c1-e46628653338\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.terminal_prompt)</code></pre><pre data-id=\"612b96ba-0740-45c7-9f79-090108c9f10d\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.cell_prompt)</code></pre><pre data-id=\"67390a08-21b6-421b-aaf0-43d21bc3314c\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_prompt)</code></pre><pre data-id=\"fd256362-ac98-4d7f-b4f0-ad86ba5b3486\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_label)</code></pre><pre data-id=\"842c6a58-d2bf-45da-8ab4-c5d1911708d0\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.gate_label)</code></pre><pre data-id=\"34e1f0b6-0c85-40b2-96bc-f72b54694d43\" spellcheck=\"false\"><code class=\"language-arcscript\">if quest.completed || quest.power_restored</code></pre><pre data-id=\"09a402d4-ed6a-469a-8c24-4136590de272\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.grid_status = \"GRID ONLINE\"</code></pre><pre data-id=\"439a527d-6998-41d2-a87d-e1ac92d66bc8\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_prompt = \"Review running generator\"</code></pre><pre data-id=\"c499092f-e063-4c09-b4d0-e9731efa538a\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_label = \"GENERATOR / ONLINE\"</code></pre><pre data-id=\"cf1050f7-c80e-4a9c-a244-557f5d0df1cc\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.gate_label = \"GATE 01 / ACCESS GRANTED\"</code></pre><pre data-id=\"36f21274-050e-4186-a68f-6e7cdd7a5096\" spellcheck=\"false\"><code class=\"language-arcscript\">endif</code></pre><pre data-id=\"9cdb7a61-5c0a-43b3-b513-ad07de60320d\" spellcheck=\"false\"><code class=\"language-arcscript\">show(quest_ui.mission_heading)</code></pre>"
           }
         },
         "_status": {}
@@ -1796,7 +1851,7 @@
       "1f8c9ff9-21aa-4880-924b-76abdb696ef5": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1844,7 +1899,7 @@
       "dc6b5643-1c9b-44c7-8821-00cc1807a6db": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1852,7 +1907,7 @@
       "7ae2eea9-275c-4739-a233-3b497f456910": {
         "label": {
           "en": {
-            "text": "<p>View current objective</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1885,6 +1940,27 @@
         "label": {
           "en": {
             "text": "<pre data-id=\"1cef964b-66c6-4480-9997-f0f2aac90b04\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.type = \"check_generator\"</code></pre><pre data-id=\"fe14a8e8-85d2-4c9d-bcc8-046d006972ee\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.cell_id = \"\"</code></pre><p>Check the generator</p>"
+          }
+        },
+        "_status": {}
+      },
+      "660c9cc9-512d-4248-b565-26eb1216177d": {
+        "title": {
+          "en": {
+            "text": "<p>Inventory · carried items</p>"
+          }
+        },
+        "content": {
+          "en": {
+            "text": "<pre data-id=\"9b799ba4-8722-4100-a258-7eab28a9d171\" spellcheck=\"false\"><code class=\"language-arcscript\">show(hud.cells_label, \": \", player.power_cells)</code></pre>"
+          }
+        },
+        "_status": {}
+      },
+      "dbb25391-1885-4453-afe5-8d36f974b5c4": {
+        "label": {
+          "en": {
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -2326,6 +2402,16 @@
         "customId": "collected",
         "cType": "components",
         "cId": "a5de1ba7-3d2b-48be-9175-b68c452fd845"
+      },
+      "f2ac60e8-6174-4258-8202-27fa0133f6e9": {
+        "name": "entry_point",
+        "value": {
+          "plain": true,
+          "type": "string",
+          "data": "inventory"
+        },
+        "cType": "elements",
+        "cId": "660c9cc9-512d-4248-b565-26eb1216177d"
       }
     },
     "assets": {

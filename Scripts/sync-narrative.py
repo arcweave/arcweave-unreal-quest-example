@@ -88,6 +88,7 @@ EVENT_LANES = {
 DISPLAY_LEAVES = tuple("Presentation" + state + "Element" for state in (
     "Completed", "Powered", "Unaccepted", "Collecting", "Ready",
 ))
+EXIT_ENDINGS = ("CompletedElement", "ExitAlreadyCompletedElement")
 
 
 class CodeBlocks(HTMLParser):
@@ -354,17 +355,25 @@ def validate_bindings(project, bindings):
         for attribute_id in project["elements"][element_id].get("attributes", []) or []
         if project["attributes"].get(attribute_id, {}).get("name") == "entry_point"
     ]
-    if len(entry_markers) != 1:
-        raise ValueError("The shared board must contain exactly one objectives_ui entry marker.")
-    display_entry, display_marker = entry_markers[0]
-    if display_entry == event_entry:
-        raise ValueError("The objectives_ui entry must be distinct from the interaction menu.")
-    marker = project["attributes"][display_marker]
-    marker_value = marker.get("value", {})
-    if (marker.get("cType") != "elements" or marker.get("cId") != display_entry
-            or marker_value.get("type") != "string" or marker_value.get("plain") is not True
-            or marker_value.get("data") != "objectives_ui"):
-        raise ValueError("The objectives_ui entry marker must be a plain-string element attribute owned by its entry.")
+    query_entries = {}
+    for name in ("objectives_ui", "inventory"):
+        matches = [(element_id, attribute_id) for element_id, attribute_id in entry_markers
+                   if project["attributes"][attribute_id].get("value", {}).get("data") == name]
+        if len(matches) != 1:
+            raise ValueError(f"The shared board must contain exactly one {name} entry marker.")
+        entry, marker_id = matches[0]
+        if entry == event_entry or any(entry == item[0] for item in query_entries.values()):
+            raise ValueError(f"The {name} entry must be distinct from the interaction menu and other queries.")
+        marker = project["attributes"][marker_id]
+        value = marker.get("value", {})
+        if (marker.get("cType") != "elements" or marker.get("cId") != entry
+                or value.get("type") != "string" or value.get("plain") is not True):
+            raise ValueError(f"The {name} entry marker must be a plain-string element attribute owned by its entry.")
+        query_entries[name] = (entry, marker_id)
+    if len(entry_markers) != len(query_entries):
+        raise ValueError("The shared board must contain only its objectives_ui and inventory entry markers.")
+    display_entry, display_marker = query_entries["objectives_ui"]
+    inventory_entry, inventory_marker = query_entries["inventory"]
 
     variable_ids = {key for key, item in project["variables"].items()
                     if not item.get("root") and "children" not in item}
@@ -483,9 +492,12 @@ def validate_bindings(project, bindings):
     used_connections = set()
     used_conditions = set()
     used_jumpers = set()
+    jumper_roles = {}
     return_sources = set()
+    query_destinations = set()
     world_jumper_sources = {}
     display_leaves = {bindings[name] for name in DISPLAY_LEAVES}
+    exit_endings = {bindings[name] for name in EXIT_ENDINGS}
 
     def edge(origin, source_id, source_type, connection_id):
         connection = project["connections"][connection_id]
@@ -497,16 +509,28 @@ def validate_bindings(project, bindings):
             if source_type != "elements":
                 raise ValueError("Only element outcomes may use boundary jumpers.")
             destination = project["jumpers"][target].get("elementId")
-            if origin in display_leaves:
+            if origin == event_entry:
+                if destination not in {display_entry, inventory_entry}:
+                    raise ValueError("Menu query jumpers must target the inventory or objectives_ui entry.")
+                if destination in query_destinations:
+                    raise ValueError("The interaction menu must offer inventory and objectives exactly once through separate jumpers.")
+                query_destinations.add(destination)
+                role = ("query", destination)
+            elif origin in display_leaves or origin == inventory_entry:
                 if destination != event_entry:
                     raise ValueError("Every return jumper must target the interaction menu.")
                 if target in used_jumpers:
-                    raise ValueError("Each return jumper must be used only by its own presentation leaf.")
+                    raise ValueError("Each return jumper must be used only by its own presentation leaf or inventory query.")
                 return_sources.add(origin)
+                role = ("return", origin)
             else:
-                if destination != display_entry:
-                    raise ValueError("World-event jumpers must target the objectives_ui entry.")
+                if destination != event_entry:
+                    raise ValueError("World-event jumpers must target the interaction menu.")
                 world_jumper_sources.setdefault(target, set()).add(origin)
+                role = ("world", None)
+            if target in jumper_roles and jumper_roles[target] != role:
+                raise ValueError("World-event lanes and queries must use separate return jumpers.")
+            jumper_roles[target] = role
             used_jumpers.add(target)
             target = destination
             target_type = "elements"
@@ -556,8 +580,10 @@ def validate_bindings(project, bindings):
             edge(ident, condition_id, "conditions", output)
     if used_connections != set(project["connections"]) or used_conditions != set(project["conditions"]):
         raise ValueError("Every condition and connection must belong to an automatic graph path.")
-    if return_sources != display_leaves:
+    if return_sources.intersection(display_leaves) != display_leaves:
         raise ValueError("Each of the five presentation leaves must use its own return jumper.")
+    if inventory_entry not in return_sources:
+        raise ValueError("The inventory query must use its own return jumper to the interaction menu.")
     if (used_jumpers != set(project["jumpers"])
             or used_jumpers != set(project["boards"][bindings["Board"]].get("jumpers", []) or [])):
         raise ValueError("Every jumper must be owned and used, with no unused jumpers.")
@@ -601,14 +627,33 @@ def validate_bindings(project, bindings):
            for ident, item in project["attributes"].items()):
         raise ValueError("Presentation elements must not retain metadata besides the entry marker; use quest_ui component fields.")
 
+    inventory_ids = reachable({inventory_entry}, event_entry)
+    validate_acyclic(inventory_ids, event_entry)
+    if inventory_ids != {inventory_entry} or edges[inventory_entry] != [event_entry]:
+        raise ValueError("The inventory query must show inventory and return directly to the interaction menu.")
+    if (project["elements"][inventory_entry].get("attributes") or []) != [inventory_marker]:
+        raise ValueError("The inventory query must retain only its inventory entry marker.")
+    validate_feedback_content(element_content(project, inventory_entry), "Inventory query")
+
     event_router = bindings["EventRouterBranch"]
-    if edges[event_entry] != [event_router] * len(MENU_EVENTS):
-        raise ValueError("The shared world-event entry must connect directly to its routing branch with five menu choices.")
     menu_connections = set(project["elements"][event_entry]["outputs"])
+    event_connections = {ident for ident in menu_connections
+                         if project["connections"][ident]["targetType"] == "branches"
+                         and project["connections"][ident]["targetid"] == event_router}
+    if (len(menu_connections) != len(MENU_EVENTS) + 2 or len(event_connections) != len(MENU_EVENTS)
+            or query_destinations != {display_entry, inventory_entry}):
+        raise ValueError("The shared world-event entry must connect directly to its routing branch with five menu choices, plus two query jumpers.")
     menu_events = [validate_menu_label(localized_field(project, "connections", ident, "label"))
-                   for ident in project["elements"][event_entry]["outputs"]]
+                   for ident in event_connections]
     if len(menu_events) != len(MENU_EVENTS) or set(menu_events) != MENU_EVENTS:
         raise ValueError("The interaction menu must offer terminal, both cells, generator, and exit exactly once.")
+    for ident in menu_connections - event_connections:
+        content = localized_field(project, "connections", ident, "label")
+        label = CodeBlocks()
+        label.feed(content or "")
+        if not label.visible_text.strip():
+            raise ValueError("Each query menu label must include visible choice text.")
+        validate_feedback_content(content, "Query menu labels")
     for ident in set(project["connections"]) - menu_connections:
         content = localized_field(project, "connections", ident, "label")
         validate_feedback_content(content, "Automatic connection labels")
@@ -649,13 +694,13 @@ def validate_bindings(project, bindings):
     ):
         raise ValueError("The pickup branch must check duplicate identity first, then task acceptance, before collecting.")
 
-    world_ids = reachable({event_entry}, display_entry)
-    if world_ids.intersection(display_ids):
-        raise ValueError("World events must enter presentation only through its objectives_ui entry boundary.")
-    validate_acyclic(world_ids, display_entry)
-    if any(not edges[ident] for ident in world_ids):
-        raise ValueError("Every world-event outcome must continue to the objectives_ui entry.")
-    lane_ids = {name: reachable({bindings[name]}, display_entry) for name in EVENT_LANES}
+    world_ids = reachable({event_router}, event_entry)
+    if world_ids.intersection(display_ids | inventory_ids):
+        raise ValueError("World events must return to the menu without entering the optional query flows.")
+    validate_acyclic(world_ids, event_entry)
+    if {ident for ident in world_ids if not edges[ident]} != exit_endings:
+        raise ValueError("Only the completed exit outcomes may end a playthrough; all other world outcomes must return to the menu.")
+    lane_ids = {name: reachable({bindings[name]}, event_entry) for name in EVENT_LANES}
     for name, current in lane_ids.items():
         if name != "PickupBranch" and bindings["PickupActionElement"] in current:
             raise ValueError("Only the pickup event supplies the physical identity needed by collect_cell.")
@@ -664,15 +709,16 @@ def validate_bindings(project, bindings):
             raise ValueError("Separate world-event lanes must not execute one another or share automatic paths.")
         if not {bindings[item] for item in EVENT_LANES[name]}.issubset(current):
             raise ValueError("Each world-event lane must retain its bound outcomes and gameplay checks.")
-        boundary_sources = {ident for ident in current if display_entry in edges[ident]}
+        boundary_sources = {ident for ident in current if event_entry in edges[ident]}
         jumpers = {ident: sources for ident, sources in world_jumper_sources.items()
                    if sources.intersection(current)}
         if len(jumpers) != 1 or next(iter(jumpers.values())) != boundary_sources:
-            raise ValueError("Each world-event lane must share its own objectives_ui jumper without mixing lanes or bypassing it.")
+            raise ValueError("Each world-event lane must share its own return jumper without mixing lanes or bypassing it.")
+    world_ids.add(event_entry)
     world_board = project["boards"][bindings["Board"]]
     world_nodes = set(world_board.get("elements", []) or []) | set(world_board.get("branches", []) or [])
-    if world_ids | display_ids != world_nodes:
-        raise ValueError("Every shared-board node must be reachable from the interaction menu or objectives_ui entry.")
+    if world_ids | display_ids | inventory_ids != world_nodes:
+        raise ValueError("Every shared-board node must be reachable from the interaction menu or its two query entries.")
 
     feedback_nodes = {
         event_entry: "The shared event entry",
@@ -680,11 +726,11 @@ def validate_bindings(project, bindings):
         bindings["PickupTerminalRequiredElement"]: "Task-required pickup feedback",
     }
     for ident, label in feedback_nodes.items():
-        if ident != event_entry and edges[ident] != [display_entry]:
-            raise ValueError(f"{label} must continue directly to the objectives_ui entry.")
+        if ident != event_entry and edges[ident] != [event_entry]:
+            raise ValueError(f"{label} must continue directly to the interaction menu.")
         validate_feedback_content(element_content(project, ident), label)
 
-    for ident in world_ids | display_ids:
+    for ident in world_ids | display_ids | inventory_ids:
         if ident in project["elements"]:
             content = element_content(project, ident)
             parsed = CodeBlocks()

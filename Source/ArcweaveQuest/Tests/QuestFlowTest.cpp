@@ -34,12 +34,45 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     const FArcweaveElementData* Menu = QuestBoard.Elements.FindByPredicate(
         [&EventEntryId](const FArcweaveElementData& Element) { return Element.Id == EventEntryId; });
     if (!TestNotNull(TEXT("The starting menu belongs to the shared board"), Menu)) return false;
-    TestEqual(TEXT("The starting menu offers the five physical interactions"), Menu->Outputs.Num(), 5);
+    if (!TestEqual(TEXT("The starting menu offers five physical interactions and two optional queries"), Menu->Outputs.Num(), 7)) return false;
+    const FArcweaveElementData* InventoryEntry = QuestBoard.Elements.FindByPredicate(
+        [](const FArcweaveElementData& Element)
+        {
+            return Element.Attributes.ContainsByPredicate([](const FArcweaveAttributeData& Attribute)
+            {
+                return Attribute.Name == TEXT("entry_point") && Attribute.Value.Data == TEXT("inventory");
+            });
+        });
+    if (!TestNotNull(TEXT("The inventory query is discoverable from its authored entry-point marker"), InventoryEntry)) return false;
+    const FString InventoryEntryId = InventoryEntry->Id;
+    TSet<FString> QueryDestinations;
+    TSet<FString> QueryJumperIds;
+    int32 PhysicalChoices = 0;
     for (const FArcweaveConnectionsData& Choice : Menu->Outputs)
     {
-        TestEqual(TEXT("Every Play Mode choice enters the same event router"), Choice.Targetid, FString(QuestBindings::EventRouterBranch));
         TestFalse(TEXT("Every Play Mode choice has an authored label"), Choice.Label.IsEmpty());
+        if (Choice.TargetType == TEXT("branches"))
+        {
+            ++PhysicalChoices;
+            TestEqual(TEXT("Every physical Play Mode choice enters the same event router"), Choice.Targetid, FString(QuestBindings::EventRouterBranch));
+        }
+        else
+        {
+            TestEqual(TEXT("Optional queries are reached through jumpers"), Choice.TargetType, FString(TEXT("jumpers")));
+            const FArcweaveJumpersData* QueryJumper = QuestBoard.Jumpers.FindByPredicate(
+                [&Choice](const FArcweaveJumpersData& Jumper) { return Jumper.Id == Choice.Targetid; });
+            if (!TestNotNull(TEXT("Each optional query has an imported jumper"), QueryJumper)) return false;
+            QueryJumperIds.Add(QueryJumper->Id);
+            QueryDestinations.Add(QueryJumper->ElementData.Id);
+        }
     }
+    TestEqual(TEXT("The menu retains all five physical interactions"), PhysicalChoices, 5);
+    TestEqual(TEXT("The two query choices use distinct jumpers"), QueryJumperIds.Num(), 2);
+    TestEqual(TEXT("Inventory and objective choices lead to separate query flows"), QueryDestinations.Num(), 2);
+    TestTrue(TEXT("The menu reaches the marked inventory query"), QueryDestinations.Contains(InventoryEntryId));
+    TestTrue(TEXT("The menu reaches the marked objectives query"), QueryDestinations.Contains(Director->PresentationEntryId));
+    TestEqual(TEXT("A query precedes gameplay choices, so native events must select the router rather than the first output"),
+        Menu->Outputs[0].TargetType, FString(TEXT("jumpers")));
     TSet<FString> ReturnJumperIds;
     for (const TCHAR* LeafId : {QuestBindings::PresentationUnacceptedElement, QuestBindings::PresentationCollectingElement,
         QuestBindings::PresentationReadyElement, QuestBindings::PresentationPoweredElement, QuestBindings::PresentationCompletedElement})
@@ -55,6 +88,13 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         ReturnJumperIds.Add(ReturnJumper->Id);
     }
     TestEqual(TEXT("The five objective leaves have separate return jumpers"), ReturnJumperIds.Num(), 5);
+    if (!TestEqual(TEXT("Inventory has one return connection"), InventoryEntry->Outputs.Num(), 1)) return false;
+    const FArcweaveJumpersData* InventoryReturn = QuestBoard.Jumpers.FindByPredicate(
+        [InventoryEntry](const FArcweaveJumpersData& Jumper) { return Jumper.Id == InventoryEntry->Outputs[0].Targetid; });
+    if (!TestNotNull(TEXT("Inventory returns through an imported jumper"), InventoryReturn)) return false;
+    TestEqual(TEXT("Inventory returns directly to the station menu"), InventoryReturn->ElementData.Id, EventEntryId);
+    ReturnJumperIds.Add(InventoryReturn->Id);
+    TestEqual(TEXT("Inventory and the five objective leaves have separate return jumpers"), ReturnJumperIds.Num(), 6);
     struct FEventLane
     {
         const TCHAR* EventType;
@@ -70,7 +110,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         {TEXT("enter_exit"), {QuestBindings::ExitDeniedElement, QuestBindings::CompletedElement,
             QuestBindings::ExitAlreadyCompletedElement}}
     };
-    TSet<FString> ObjectiveJumperIds;
+    TSet<FString> WorldReturnJumperIds;
     for (const FEventLane& Lane : Lanes)
     {
         FString LaneJumperId;
@@ -78,19 +118,29 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         {
             const FArcweaveElementData* Response = QuestBoard.Elements.FindByPredicate(
                 [ResponseId](const FArcweaveElementData& Element) { return Element.Id == ResponseId; });
-            if (!TestNotNull(TEXT("The shared board contains each event response"), Response)
-                || !TestEqual(TEXT("Each event response has one objectives connection"), Response->Outputs.Num(), 1)) return false;
-            const FArcweaveJumpersData* ObjectiveJumper = QuestBoard.Jumpers.FindByPredicate(
+            if (!TestNotNull(TEXT("The shared board contains each event response"), Response)) return false;
+            if (Response->Id == QuestBindings::CompletedElement || Response->Id == QuestBindings::ExitAlreadyCompletedElement)
+            {
+                TestTrue(TEXT("Successful and repeated exits end the Play Mode playthrough"), Response->Outputs.IsEmpty());
+                continue;
+            }
+            if (!TestEqual(TEXT("Each continuing event response has one return connection"), Response->Outputs.Num(), 1)) return false;
+            const FArcweaveJumpersData* ReturnJumper = QuestBoard.Jumpers.FindByPredicate(
                 [Response](const FArcweaveJumpersData& Jumper) { return Jumper.Id == Response->Outputs[0].Targetid; });
-            if (!TestNotNull(TEXT("Each event response reaches objectives through an imported jumper"), ObjectiveJumper)) return false;
-            TestEqual(TEXT("Each objectives jumper resolves to the marked presentation entry"),
-                ObjectiveJumper->ElementData.Id, Director->PresentationEntryId);
-            if (LaneJumperId.IsEmpty()) LaneJumperId = ObjectiveJumper->Id;
-            TestEqual(TEXT("Outcomes in one event lane share their objectives jumper"), ObjectiveJumper->Id, LaneJumperId);
-            ObjectiveJumperIds.Add(ObjectiveJumper->Id);
+            if (!TestNotNull(TEXT("Each continuing event returns through an imported jumper"), ReturnJumper)) return false;
+            TestEqual(TEXT("World responses return directly to the station without requiring a query"),
+                ReturnJumper->ElementData.Id, EventEntryId);
+            if (LaneJumperId.IsEmpty()) LaneJumperId = ReturnJumper->Id;
+            TestEqual(TEXT("Outcomes in one event lane share their station return jumper"), ReturnJumper->Id, LaneJumperId);
+            WorldReturnJumperIds.Add(ReturnJumper->Id);
         }
     }
-    TestEqual(TEXT("The four event lanes have separate objectives jumpers"), ObjectiveJumperIds.Num(), 4);
+    TestEqual(TEXT("The four event lanes have separate station return jumpers"), WorldReturnJumperIds.Num(), 4);
+    TSet<FString> AllJumperIds = ReturnJumperIds;
+    AllJumperIds.Append(WorldReturnJumperIds);
+    AllJumperIds.Append(QueryJumperIds);
+    TestEqual(TEXT("The query choices and world/query returns use twelve distinct jumpers"), AllJumperIds.Num(), 12);
+    TestEqual(TEXT("The imported board has no unused jumpers"), QuestBoard.Jumpers.Num(), AllJumperIds.Num());
 
     const TSet<FName> RequiredUIFields = {
         TEXT("hud.brand"), TEXT("hud.station_name"), TEXT("hud.mission_tagline"), TEXT("hud.cells_label"),
@@ -351,7 +401,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     {
         return Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(Id).Value;
     };
-    const auto CheckEvent = [this, Director, Arcweave, &Variable, &EventEntryId, &Lanes](const TCHAR* EventType,
+    const auto CheckEvent = [this, Director, Arcweave, &Variable, &EventEntryId, &InventoryEntryId, &Lanes](const TCHAR* EventType,
         const TFunction<bool()>& Action, FName CellId = NAME_None)
     {
         const FArcweaveProjectData Before = Arcweave->GetArcweaveProjectData();
@@ -364,9 +414,11 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
             Variable(QuestBindings::EventTypeAttribute), FString(EventType));
         TestEqual(Prefix + TEXT("menu label assignments cannot overwrite the injected cell identity"),
             Variable(QuestBindings::CellIdAttribute), CellId.IsNone() ? FString() : CellId.ToString());
-        TestEqual(Prefix + TEXT("refreshes presentation exactly once on success and stops before returning to the menu"),
+        TestEqual(Prefix + TEXT("automatically refreshes presentation exactly once without selecting a menu query"),
             After.Visits.FindChecked(Director->PresentationEntryId),
             Before.Visits.FindChecked(Director->PresentationEntryId) + (bResult ? 1 : 0));
+        TestEqual(Prefix + TEXT("never executes the optional inventory query"),
+            After.Visits.FindChecked(InventoryEntryId), Before.Visits.FindChecked(InventoryEntryId));
         // The plugin counts element visits, not branch evaluations. Each selected lane
         // must execute exactly one response, with no response from another event's lane.
         for (const FEventLane& Lane : Lanes)
@@ -381,7 +433,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
                 ResponseVisits, ExpectedIncrement);
             if (bResult && ExpectedIncrement == 1)
             {
-                TestTrue(Prefix + TEXT("stops the gameplay cursor at its response before jumping to objectives"),
+                TestTrue(Prefix + TEXT("keeps the gameplay cursor at its response while the HUD refreshes independently"),
                     Lane.Responses.ContainsByPredicate([Director](const TCHAR* Response)
                     {
                         return Director->GetCurrentElementId() == Response;
@@ -460,6 +512,79 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TestEqual(Prefix + TEXT("objective is unchanged"), Director->GetObjective(), Objective);
         TestEqual(Prefix + TEXT("status is unchanged"), Director->GetStatus(), Status);
     };
+    const auto CheckOptionalQueries = [this, Director, Arcweave, &Error, &EventEntryId, &InventoryEntryId,
+        &Lanes, &GateCommands, &PickupCommands, &PresentationChanges](const TCHAR* Stage)
+    {
+        for (const FString& QueryId : {InventoryEntryId, Director->PresentationEntryId})
+        {
+            const bool bInventory = QueryId == InventoryEntryId;
+            const FString Prefix = FString(Stage) + (bInventory ? TEXT(" inventory query: ") : TEXT(" objective query: "));
+            const FArcweaveProjectData Before = Arcweave->GetArcweaveProjectData();
+            const FString Cursor = Director->GetCurrentElementId();
+            const FString Status = Director->GetStatus();
+            const FString Objective = Director->GetObjective();
+            const FString Presentation = Director->GetPresentationElementId();
+            const bool bGateWasOpen = Director->IsGateOpen();
+            const TSet<FName> PhysicalCells = Director->CollectedCells;
+            const int32 Commands = GateCommands + PickupCommands;
+            const int32 Notifications = PresentationChanges;
+            FArcweaveElementData Result;
+            if (!TestTrue(Prefix + TEXT("executes its separate authored flow"), Director->RunGraph(QueryId, false, Result, Error)))
+            {
+                AddError(Error);
+                return false;
+            }
+            const FArcweaveProjectData After = Arcweave->GetArcweaveProjectData();
+            TestEqual(Prefix + TEXT("stops at its return jumper without entering the station again"),
+                After.Visits.FindChecked(EventEntryId), Before.Visits.FindChecked(EventEntryId));
+            TestEqual(Prefix + TEXT("executes its entry exactly once"),
+                After.Visits.FindChecked(QueryId), Before.Visits.FindChecked(QueryId) + 1);
+            const FString OtherQueryId = bInventory ? Director->PresentationEntryId : InventoryEntryId;
+            TestEqual(Prefix + TEXT("does not enter the other query flow"),
+                After.Visits.FindChecked(OtherQueryId), Before.Visits.FindChecked(OtherQueryId));
+            for (const FEventLane& Lane : Lanes)
+            {
+                for (const TCHAR* Response : Lane.Responses)
+                {
+                    TestEqual(Prefix + TEXT("does not replay a gameplay response: ") + Response,
+                        After.Visits.FindChecked(Response), Before.Visits.FindChecked(Response));
+                }
+            }
+            TestEqual(Prefix + TEXT("preserves the variable collection"), After.CurrentVars.Num(), Before.CurrentVars.Num());
+            for (const auto& Pair : Before.CurrentVars)
+            {
+                const FArcweaveVariable& Actual = After.CurrentVars.FindChecked(Pair.Key);
+                if (bInventory || Pair.Value.Scope != TEXT("quest_ui"))
+                {
+                    TestEqual(Prefix + TEXT("preserves shared state and inputs: ") + Pair.Value.Scope + TEXT(".") + Pair.Value.Name,
+                        Actual.Value, Pair.Value.Value);
+                }
+                TestEqual(Prefix + TEXT("preserves the authored default: ") + Pair.Value.Name,
+                    Actual.DefaultValue, Pair.Value.DefaultValue);
+            }
+            TestEqual(Prefix + TEXT("does not dispatch physical commands"), GateCommands + PickupCommands, Commands);
+            TestEqual(Prefix + TEXT("does not publish a gameplay change"), PresentationChanges, Notifications);
+            TestEqual(Prefix + TEXT("preserves the physical gate"), Director->IsGateOpen(), bGateWasOpen);
+            TestTrue(Prefix + TEXT("preserves the physical pickups"), Director->CollectedCells.Includes(PhysicalCells)
+                && PhysicalCells.Includes(Director->CollectedCells));
+            TestEqual(Prefix + TEXT("preserves the gameplay cursor"), Director->GetCurrentElementId(), Cursor);
+            TestEqual(Prefix + TEXT("preserves interaction feedback"), Director->GetStatus(), Status);
+            TestEqual(Prefix + TEXT("preserves the cached HUD objective"), Director->GetObjective(), Objective);
+            TestEqual(Prefix + TEXT("preserves the cached HUD cursor"), Director->GetPresentationElementId(), Presentation);
+            if (bInventory)
+            {
+                TestEqual(Prefix + TEXT("finishes at the inventory element"), Result.Id, InventoryEntryId);
+                TestEqual(Prefix + TEXT("renders the current authored label and collected count"), Result.Content,
+                    Director->GetUIText(TEXT("hud.cells_label")) + TEXT(": ") + FString::FromInt(Director->GetPowerCellCount()));
+            }
+            else
+            {
+                TestEqual(Prefix + TEXT("selects the same current objective as the automatic HUD refresh"), Result.Id, Presentation);
+                TestEqual(Prefix + TEXT("renders the same current objective as the HUD"), Result.Content, Objective);
+            }
+        }
+        return true;
+    };
     const auto CheckRestart = [this, Director, Arcweave, &InitialState, &EventEntryId, &Visits, &Error, &UIVariableIds, &CheckUIValues]()
     {
         if (!TestTrue(TEXT("Restart reloads defaults and computes the initial presentation"), Director->StartNewGame(Error)))
@@ -513,6 +638,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("Initial terminal prompt is available"), Director->GetUIText(TEXT("quest_ui.terminal_prompt")).IsEmpty());
     CheckCachedReads(TEXT("Initial state"));
     CheckPresentation(QuestBindings::PresentationUnacceptedElement);
+    if (!CheckOptionalQueries(TEXT("Initial state"))) return false;
 
     TestTrue(TEXT("A generator attempt before acceptance executes authored guidance"), AttemptGenerator());
     TestTrue(TEXT("Narrative denial is not an integration error"), Error.IsEmpty());
@@ -567,6 +693,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Exactly one physical pickup command was issued"), PickupCommands, 1);
     CheckCachedReads(TEXT("Collecting state"));
     CheckPresentation(QuestBindings::PresentationCollectingElement);
+    if (!CheckOptionalQueries(TEXT("Collecting state"))) return false;
 
     TestTrue(TEXT("Duplicate pickup executes authored feedback"), AttemptPickup(TEXT("cell_a")));
     TestEqual(TEXT("Duplicate uses the duplicate response"), Director->GetCurrentElementId(), FString(QuestBindings::DuplicatePickupElement));
@@ -596,6 +723,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     const FString ReadyPrompt = Director->GetUIText(TEXT("quest_ui.generator_prompt"));
     TestFalse(TEXT("Ready generator prompt is supplied by the graph"), ReadyPrompt.IsEmpty());
     CheckPresentation(QuestBindings::PresentationReadyElement);
+    if (!CheckOptionalQueries(TEXT("Ready state"))) return false;
 
     TestTrue(TEXT("Generator succeeds after the required pickups"), AttemptGenerator());
     TestEqual(TEXT("Success follows the authored connection"), Director->GetCurrentElementId(), FString(QuestBindings::SuccessElement));
@@ -609,6 +737,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Gate command runs once"), GateCommands, 1);
     CheckCachedReads(TEXT("Powered state"));
     CheckPresentation(QuestBindings::PresentationPoweredElement);
+    if (!CheckOptionalQueries(TEXT("Powered state"))) return false;
 
     TestTrue(TEXT("Repeated generator use executes an authored already-online response"), AttemptGenerator());
     TestEqual(TEXT("Repeated generator reaches AlreadyOnline"), Director->GetCurrentElementId(), FString(QuestBindings::AlreadyOnlineElement));
@@ -631,6 +760,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     CheckCachedReads(TEXT("Completed state"));
     CheckPresentation(QuestBindings::PresentationCompletedElement);
     CheckUIValues(TEXT("Completed state"));
+    if (!CheckOptionalQueries(TEXT("Completed state"))) return false;
     const FArcweaveProjectData ForwardCompletedState = Arcweave->GetArcweaveProjectData();
 
     const FArcweaveProjectData BeforeUnknown = Arcweave->GetArcweaveProjectData();

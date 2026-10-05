@@ -37,10 +37,12 @@ class NarrativeValidationTests(unittest.TestCase):
     def element_id(self, binding):
         if binding == "EventEntryElement":
             return self.project["startingElement"]
-        if binding == "PresentationEntryElement":
+        if binding in {"PresentationEntryElement", "InventoryEntryElement"}:
+            marker = "objectives_ui" if binding == "PresentationEntryElement" else "inventory"
             board = self.project["boards"][self.bindings["Board"]]
             return next(ident for ident in board["elements"]
                         if any(self.project["attributes"][key].get("name") == "entry_point"
+                               and self.project["attributes"][key].get("value", {}).get("data") == marker
                                for key in self.project["elements"][ident].get("attributes", []) or []))
         return self.bindings[binding]
 
@@ -124,8 +126,16 @@ class NarrativeValidationTests(unittest.TestCase):
     def menu_connection(self, event="use_terminal", cell_id=""):
         return next(self.project["connections"][ident]
                     for ident in self.element("EventEntryElement")["outputs"]
-                    if SYNC.validate_menu_label(SYNC.localized_field(
+                    if self.project["connections"][ident]["targetType"] == "branches"
+                    and SYNC.validate_menu_label(SYNC.localized_field(
                         self.project, "connections", ident, "label")) == (event, cell_id))
+
+    def query_connection(self, binding="InventoryEntryElement"):
+        destination = self.element_id(binding)
+        return next(self.project["connections"][ident]
+                    for ident in self.element("EventEntryElement")["outputs"]
+                    if self.project["connections"][ident]["targetType"] == "jumpers"
+                    and self.project["jumpers"][self.project["connections"][ident]["targetid"]]["elementId"] == destination)
 
     def menu_label(self, event="use_terminal", cell_id=""):
         return ("<p>Use this interaction</p>" + self.code_block(f'game_event.type = "{event}"')
@@ -343,6 +353,7 @@ class NarrativeValidationTests(unittest.TestCase):
                 self.assert_invalid("must contain exactly one objectives_ui entry marker")
 
     def test_presentation_marker_requires_plain_string_objectives_ui(self):
+        marker = self.presentation_marker()
         for value in (
             {"type": "string", "plain": False, "data": "objectives_ui"},
             {"type": "string", "data": "objectives_ui"},
@@ -353,8 +364,8 @@ class NarrativeValidationTests(unittest.TestCase):
             {"type": "string", "plain": True},
         ):
             with self.subTest(value=value):
-                self.presentation_marker()["value"] = value
-                self.assert_invalid("objectives_ui entry marker must be a plain-string element attribute owned by its entry")
+                marker["value"] = value
+                self.assert_invalid("exactly one objectives_ui entry marker|objectives_ui entry marker must be a plain-string element attribute owned by its entry")
 
     def test_presentation_marker_requires_its_element_owner(self):
         for owner in (
@@ -387,13 +398,178 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Presentation elements must not retain metadata besides the entry marker")
 
     def test_event_entry_cannot_bypass_router(self):
-        output = self.element("EventEntryElement")["outputs"][0]
-        self.project["connections"][output].update(targetid=self.bindings["TerminalBranch"], targetType="branches")
+        self.menu_connection().update(targetid=self.bindings["TerminalBranch"], targetType="branches")
         self.assert_invalid("shared world-event entry must connect directly to its routing branch")
 
     def test_menu_choices_can_be_reordered(self):
         self.element("EventEntryElement")["outputs"].reverse()
         self.validate()
+
+    def test_inventory_entry_and_marker_need_no_uuid_bindings(self):
+        self.assertNotIn("InventoryEntryElement", self.bindings)
+        for project in (self.unreal, self.authoring, self.localized):
+            with self.subTest(localized="contents" in project):
+                self.project = copy.deepcopy(project)
+                entry = self.element_id("InventoryEntryElement")
+                marker = self.element("InventoryEntryElement")["attributes"][0]
+                self.assertNotIn(entry, self.bindings.values())
+                self.assertNotIn(marker, self.bindings.values())
+                replacement = str(uuid4())
+                self.project = json.loads(json.dumps(project).replace(entry, replacement).replace(marker, str(uuid4())))
+                self.assertEqual(self.element_id("InventoryEntryElement"), replacement)
+                self.validate()
+
+    def test_inventory_requires_its_entry_marker(self):
+        self.element("InventoryEntryElement")["attributes"] = []
+        self.assert_invalid("must contain exactly one inventory entry marker")
+
+    def test_inventory_marker_must_be_unique(self):
+        entry = self.element_id("InventoryEntryElement")
+        marker = self.element("InventoryEntryElement")["attributes"][0]
+        duplicate = str(uuid4())
+        self.project["attributes"][duplicate] = dict(self.project["attributes"][marker])
+        self.project["elements"][entry]["attributes"].append(duplicate)
+        self.assert_invalid("must contain exactly one inventory entry marker")
+
+    def test_inventory_marker_requires_a_plain_string_owned_by_its_entry(self):
+        for change in ({"cType": "components"}, {"cId": self.bindings["PlayerComponent"]},
+                       {"value": {"type": "string", "data": "inventory", "plain": False}}):
+            with self.subTest(change=change):
+                self.project = copy.deepcopy(self.unreal)
+                marker = self.element("InventoryEntryElement")["attributes"][0]
+                self.project["attributes"][marker].update(change)
+                self.assert_invalid("inventory entry marker must be a plain-string element attribute owned by its entry")
+
+    def test_inventory_marker_cannot_move_to_station_menu(self):
+        marker = self.element("InventoryEntryElement")["attributes"].pop()
+        self.element("EventEntryElement")["attributes"] = [marker]
+        self.project["attributes"][marker]["cId"] = self.project["startingElement"]
+        self.assert_invalid("inventory entry must be distinct from the interaction menu")
+
+    def test_query_entries_cannot_share_one_element(self):
+        marker = self.element("InventoryEntryElement")["attributes"].pop()
+        self.element("PresentationEntryElement")["attributes"].append(marker)
+        self.project["attributes"][marker]["cId"] = self.element_id("PresentationEntryElement")
+        self.assert_invalid("inventory entry must be distinct from the interaction menu and other queries")
+
+    def test_extra_entry_marker_is_rejected(self):
+        marker = str(uuid4())
+        self.project["attributes"][marker] = {
+            "name": "entry_point", "cType": "elements", "cId": self.project["startingElement"],
+            "value": {"type": "string", "plain": True, "data": "other_query"},
+        }
+        self.element("EventEntryElement")["attributes"] = [marker]
+        self.assert_invalid("only its objectives_ui and inventory entry markers")
+
+    def test_query_labels_can_change_without_changing_routing(self):
+        self.query_connection()["label"] = "<p>Look in your backpack</p>"
+        self.query_connection("PresentationEntryElement")["label"] = "<p>Review the task</p>"
+        self.validate()
+
+    def test_query_choices_require_visible_text(self):
+        self.query_connection()["label"] = self.code_block("show(player.power_cells)")
+        self.assert_invalid("Each query menu label must include visible choice text")
+
+    def test_query_choices_cannot_change_state_or_event_inputs(self):
+        for binding in ("InventoryEntryElement", "PresentationEntryElement"):
+            for script in ('game_event.type = "collect_cell"', 'game_event.cell_id = "cell_b"',
+                           "player.power_cells += 1", "quest.started = true", "cell_a.collected = true",
+                           'quest_ui.mission_heading = "Changed"', "resetAll()"):
+                with self.subTest(query=binding, script=script):
+                    self.project = copy.deepcopy(self.unreal)
+                    self.query_connection(binding)["label"] += self.code_block(script)
+                    self.assert_invalid("Query menu labels must be feedback only")
+
+    def test_query_choices_must_use_jumpers(self):
+        connection = self.query_connection()
+        jumper = connection["targetid"]
+        destination = self.project["jumpers"].pop(jumper)["elementId"]
+        self.project["boards"][self.bindings["Board"]]["jumpers"].remove(jumper)
+        connection.update(targetid=destination, targetType="elements")
+        self.assert_invalid("plus two query jumpers")
+
+    def test_menu_requires_both_query_choices(self):
+        connection = self.query_connection()
+        output = next(ident for ident, item in self.project["connections"].items() if item is connection)
+        jumper = connection["targetid"]
+        self.element("EventEntryElement")["outputs"].remove(output)
+        del self.project["connections"][output]
+        del self.project["jumpers"][jumper]
+        board = self.project["boards"][self.bindings["Board"]]
+        board["connections"].remove(output)
+        board["jumpers"].remove(jumper)
+        self.assert_invalid("plus two query jumpers")
+
+    def test_query_menu_cannot_offer_the_same_query_twice(self):
+        jumper = self.query_connection()["targetid"]
+        self.project["jumpers"][jumper]["elementId"] = self.element_id("PresentationEntryElement")
+        self.assert_invalid("inventory and objectives exactly once")
+
+    def test_query_menu_cannot_dispatch_gameplay(self):
+        jumper = self.query_connection()["targetid"]
+        self.project["jumpers"][jumper]["elementId"] = self.bindings["PickupActionElement"]
+        self.assert_invalid("Menu query jumpers must target the inventory or objectives_ui entry")
+
+    def test_inventory_content_can_read_the_shared_count(self):
+        self.script("InventoryEntryElement", 'show(hud.cells_label, ": ", player.power_cells)')
+        self.validate()
+
+    def test_inventory_cannot_change_state_or_inputs(self):
+        for script in ("player.power_cells += 1", "quest.started = true", "cell_a.collected = true",
+                       'game_event.type = "enter_exit"', 'game_event.cell_id = "cell_a"',
+                       'quest_ui.mission_heading = "Changed"', "resetAll()", "show(random(10))"):
+            with self.subTest(script=script):
+                self.project = copy.deepcopy(self.unreal)
+                self.script("InventoryEntryElement", script)
+                self.assert_invalid("Inventory query must be feedback only")
+
+    def test_localized_inventory_cannot_change_state(self):
+        self.project = copy.deepcopy(self.localized)
+        self.localized_content("InventoryEntryElement")["text"] = self.code_block("player.power_cells = 99")
+        self.assert_invalid("Inventory query must be feedback only")
+
+    def test_inventory_cannot_call_a_physical_command(self):
+        self.element("InventoryEntryElement")["components"] = [self.bindings["CollectCellComponent"]]
+        self.assert_invalid("Only PickupAction may collect a cell")
+
+    def test_inventory_must_return_to_station(self):
+        self.return_jumper("InventoryEntryElement")["elementId"] = self.element_id("PresentationEntryElement")
+        self.assert_invalid("Every return jumper must target the interaction menu")
+
+    def test_inventory_requires_its_own_return_jumper(self):
+        self.return_connection("InventoryEntryElement")["targetid"] = self.return_connection()["targetid"]
+        self.assert_invalid("Each return jumper must be used only by its own")
+
+    def test_inventory_cannot_enter_world_gameplay(self):
+        self.return_connection("InventoryEntryElement").update(
+            targetid=self.bindings["PickupActionElement"], targetType="elements")
+        self.assert_invalid("inventory query must use its own return jumper")
+
+    def test_inventory_cannot_define_extra_metadata(self):
+        self.element("InventoryEntryElement")["attributes"].append("legacy_inventory_field")
+        self.assert_invalid("inventory query must retain only its inventory entry marker")
+
+    def test_inventory_requires_executable_feedback(self):
+        self.element("InventoryEntryElement")["content"] = "<p> </p>"
+        self.assert_invalid("Executable elements need nonempty content")
+
+    def test_world_events_cannot_enter_optional_inventory(self):
+        self.return_connection("TerminalAcceptedElement").update(
+            targetid=self.element_id("InventoryEntryElement"), targetType="elements")
+        self.assert_invalid("World events must return to the menu without entering the optional query flows")
+
+    def test_exit_completion_ends_the_playthrough(self):
+        for binding in SYNC.EXIT_ENDINGS:
+            self.assertFalse(self.element(binding).get("outputs"))
+        self.validate()
+
+    def test_completed_exit_cannot_continue_to_the_menu(self):
+        self.add_output("CompletedElement", "EventEntryElement")
+        self.assert_invalid("Only the completed exit outcomes may end a playthrough")
+
+    def test_repeated_exit_cannot_continue_to_the_menu(self):
+        self.add_output("ExitAlreadyCompletedElement", "EventEntryElement")
+        self.assert_invalid("Only the completed exit outcomes may end a playthrough")
 
     def test_menu_input_assignments_can_be_reordered(self):
         self.menu_connection()["label"] = ("<p>Consult the station terminal</p>"
@@ -402,7 +578,9 @@ class NarrativeValidationTests(unittest.TestCase):
         self.validate()
 
     def test_menu_requires_all_five_interaction_choices(self):
-        removed = self.element("EventEntryElement")["outputs"].pop()
+        removed = next(ident for ident in self.element("EventEntryElement")["outputs"]
+                       if self.project["connections"][ident]["targetType"] == "branches")
+        self.element("EventEntryElement")["outputs"].remove(removed)
         del self.project["connections"][removed]
         self.project["boards"][self.bindings["Board"]]["connections"].remove(removed)
         self.assert_invalid("routing branch with five menu choices")
@@ -454,7 +632,8 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_all_locales_menu_input_assignments_are_validated(self):
         self.project = copy.deepcopy(self.localized)
-        ident = self.element("EventEntryElement")["outputs"][0]
+        ident = next(ident for ident in self.element("EventEntryElement")["outputs"]
+                     if self.project["connections"][ident]["targetType"] == "branches")
         locale = next(item["iso"] for item in self.project["locales"] if item["base"] is None)
         self.project["contents"][ident]["label"][locale]["text"] = self.menu_label("collect_cell", "unknown")
         self.assert_invalid("complete supported event type and cell identity pair")
@@ -834,22 +1013,22 @@ class NarrativeValidationTests(unittest.TestCase):
         connection["targetid"] = self.bindings["PresentationCollectingElement"]
         self.assert_invalid("Presentation must return to the interaction menu through exactly its five bound display leaves")
 
-    def test_events_cannot_bypass_the_presentation_entry(self):
+    def test_events_cannot_enter_the_optional_objective_flow(self):
         self.generator_connection().update(
             targetid=self.bindings["PresentationReadyElement"], targetType="elements")
-        self.assert_invalid("World events must enter presentation only through its objectives_ui entry boundary")
+        self.assert_invalid("World events must return to the menu without entering the optional query flows")
 
-    def test_world_outcomes_must_refresh_objectives_before_the_next_choice(self):
+    def test_ordinary_world_outcomes_must_return_to_the_menu(self):
         element = self.element("TerminalAcceptedElement")
         output = element["outputs"].pop()
         del self.project["connections"][output]
         self.project["boards"][self.bindings["Board"]]["connections"].remove(output)
-        self.assert_invalid("Every world-event outcome must continue to the objectives_ui entry")
+        self.assert_invalid("Only the completed exit outcomes may end a playthrough")
 
-    def test_world_outcomes_cannot_loop_back_to_menu_without_presentation(self):
+    def test_world_outcomes_return_to_the_menu_through_local_jumpers(self):
         output = self.element("TerminalAcceptedElement")["outputs"][0]
         self.project["connections"][output].update(targetid=self.element_id("EventEntryElement"), targetType="elements")
-        self.assert_invalid("automatic event path contains a cycle before its execution boundary")
+        self.assert_invalid("Each world-event lane must share its own return jumper")
 
     def test_presentation_must_return_to_the_menu(self):
         element = self.element("PresentationReadyElement")
@@ -914,10 +1093,10 @@ class NarrativeValidationTests(unittest.TestCase):
         self.return_connection()["targetid"] = self.return_connection("PresentationCollectingElement")["targetid"]
         self.assert_invalid("Each return jumper must be used only by its own presentation leaf")
 
-    def test_world_lane_cannot_jump_to_menu_before_refreshing_objectives(self):
+    def test_world_lane_cannot_share_a_presentation_return_jumper(self):
         ident = self.element("TerminalAcceptedElement")["outputs"][0]
         self.project["connections"][ident].update(targetid=self.return_connection()["targetid"], targetType="jumpers")
-        self.assert_invalid("World-event jumpers must target the objectives_ui entry")
+        self.assert_invalid("separate return jumpers|Each return jumper must be used only by its own")
 
     def test_condition_cannot_jump_directly_to_menu(self):
         self.generator_connection().update(targetid=self.return_connection()["targetid"], targetType="jumpers")
@@ -929,10 +1108,11 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_world_outcomes_share_one_jumper_per_lane(self):
         for bindings in SYNC.EVENT_LANES.values():
-            targets = {self.return_connection(binding)["targetid"] for binding in bindings}
+            targets = {self.return_connection(binding)["targetid"] for binding in bindings
+                       if binding not in SYNC.EXIT_ENDINGS}
             self.assertEqual(len(targets), 1)
             self.assertEqual(self.project["jumpers"][targets.pop()]["elementId"],
-                             self.element_id("PresentationEntryElement"))
+                             self.element_id("EventEntryElement"))
         self.validate()
 
     def test_world_jumper_requires_an_owned_destination(self):
@@ -948,14 +1128,14 @@ class NarrativeValidationTests(unittest.TestCase):
                     self.project["jumpers"][ident]["elementId"] = self.bindings["PickupActionElement"]
                 self.assert_invalid("boundary jumper must exist on the same board|World-event jumpers must target")
 
-    def test_world_lanes_cannot_share_the_same_ui_jumper(self):
+    def test_world_lanes_cannot_share_the_same_return_jumper(self):
         self.return_connection("TerminalAcceptedElement")["targetid"] = self.return_connection("PickupActionElement")["targetid"]
-        self.assert_invalid("Each world-event lane must share its own objectives_ui jumper")
+        self.assert_invalid("Each world-event lane must share its own return jumper")
 
     def test_world_lane_outcome_cannot_bypass_its_shared_jumper(self):
         self.return_connection("TerminalAcceptedElement").update(
-            targetid=self.element_id("PresentationEntryElement"), targetType="elements")
-        self.assert_invalid("Each world-event lane must share its own objectives_ui jumper")
+            targetid=self.element_id("EventEntryElement"), targetType="elements")
+        self.assert_invalid("Each world-event lane must share its own return jumper")
 
     def test_world_lane_cannot_split_its_return_across_multiple_jumpers(self):
         ident = str(uuid4())
@@ -963,7 +1143,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.project["jumpers"][ident] = dict(self.project["jumpers"][original])
         self.project["boards"][self.bindings["Board"]]["jumpers"].append(ident)
         self.return_connection("TerminalAcceptedElement")["targetid"] = ident
-        self.assert_invalid("Each world-event lane must share its own objectives_ui jumper")
+        self.assert_invalid("Each world-event lane must share its own return jumper")
 
     def test_stale_element_display_metadata_is_rejected(self):
         self.element("PresentationReadyElement")["attributes"] = ["legacy-display-attribute"]

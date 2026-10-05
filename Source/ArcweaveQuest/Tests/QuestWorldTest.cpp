@@ -64,6 +64,23 @@ public:
 
         case 1:
         {
+            const FArcweaveProjectData InitialState = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData();
+            for (const FArcweaveBoardData& Board : InitialState.Boards)
+            {
+                for (const FArcweaveElementData& Element : Board.Elements)
+                {
+                    for (const FArcweaveAttributeData& Attribute : Element.Attributes)
+                    {
+                        if (Attribute.Name == TEXT("entry_point"))
+                        {
+                            if (Attribute.Value.Data == TEXT("objectives_ui")) PresentationEntryId = Element.Id;
+                            if (Attribute.Value.Data == TEXT("inventory")) InventoryEntryId = Element.Id;
+                        }
+                    }
+                }
+            }
+            if (!Test.TestFalse(TEXT("The running world imports the marked objectives entry"), PresentationEntryId.IsEmpty())
+                || !Test.TestFalse(TEXT("The running world imports the marked inventory query"), InventoryEntryId.IsEmpty())) return true;
             Test.TestFalse(TEXT("GameMode starts the world with an unaccepted quest"), Director->IsQuestStarted());
             Test.TestEqual(TEXT("World starts with zero power cells"), Director->GetPowerCellCount(), 0);
             Test.TestEqual(TEXT("World uses the authored two-cell requirement"), Director->GetRequiredPowerCellCount(), 2);
@@ -73,6 +90,8 @@ public:
             Test.TestTrue(TEXT("World startup has no gameplay cursor"), Director->GetCurrentElementId().IsEmpty());
             Test.TestTrue(TEXT("World startup has no interaction feedback"), Director->GetStatus().IsEmpty());
             Test.TestEqual(TEXT("World startup computes the authored initial objective"), Director->GetObjective(), FString(TEXT("Use the terminal to begin.")));
+            Test.TestEqual(TEXT("World startup computes its HUD without a menu selection"), Visits(PresentationEntryId), 1);
+            Test.TestEqual(TEXT("World startup does not run the optional inventory query"), Visits(InventoryEntryId), 0);
             Test.TestTrue(TEXT("World startup leaves the event type empty"), Variable(QuestBindings::EventTypeAttribute).IsEmpty());
             Test.TestTrue(TEXT("World startup leaves the pickup identity empty"), Variable(QuestBindings::CellIdAttribute).IsEmpty());
             Test.TestEqual(TEXT("World startup leaves shared cell A available"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("false")));
@@ -142,6 +161,8 @@ public:
             Test.TestFalse(TEXT("An early exit overlap cannot restore power"), Director->IsPowerRestored());
             if (!InteractAt(TEXT("terminal"))) return true;
             if (!Test.TestTrue(TEXT("Tracing and interacting with the actual terminal starts the quest"), Director->IsQuestStarted())) return true;
+            Test.TestEqual(TEXT("Accepting the task immediately updates the HUD objective without selecting a query"),
+                Director->GetObjective(), FString(TEXT("Collect power cells (0/2), then use the generator.")));
             ++Step;
             return false;
 
@@ -165,6 +186,8 @@ public:
             Test.TestEqual(TEXT("Actual cell A pickup leaves cell B available in the narrative"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
             Test.TestEqual(TEXT("World pickup displays feedback after the count update"),
                 Director->GetStatus(), FString(TEXT("Collected a power cell (1/2).")));
+            Test.TestEqual(TEXT("World pickup immediately updates the HUD objective without an inventory check"),
+                Director->GetObjective(), FString(TEXT("Collect power cells (1/2), then use the generator.")));
             Test.TestTrue(TEXT("Quest notification hides the actual collected cell A actor"), CellA->IsHidden());
             Test.TestFalse(TEXT("Collected cell A no longer blocks collision"), CellA->GetActorEnableCollision());
             {
@@ -183,6 +206,8 @@ public:
             Test.TestEqual(TEXT("Actual cell B pickup reuses the combined action and feedback element"),
                 Director->GetCurrentElementId(), FString(QuestBindings::PickupActionElement));
             Test.TestEqual(TEXT("Actual cell B pickup updates its shared collected flag"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("true")));
+            Test.TestEqual(TEXT("The second world pickup immediately selects the ready objective"),
+                Director->GetPresentationElementId(), FString(QuestBindings::PresentationReadyElement));
             Test.TestTrue(TEXT("Quest notification hides the actual collected cell B actor"), CellB->IsHidden());
             Test.TestFalse(TEXT("Collected cell B no longer blocks collision"), CellB->GetActorEnableCollision());
             ++Step;
@@ -245,6 +270,8 @@ public:
                 Director->GetCurrentElementId(), FString(QuestBindings::CompletedElement));
             Test.TestEqual(TEXT("Physical completion selects the completed presentation"),
                 Director->GetPresentationElementId(), FString(QuestBindings::PresentationCompletedElement));
+            Test.TestEqual(TEXT("The terminal exit leaf still refreshes the completed HUD"),
+                Director->GetUIText(TEXT("quest_ui.mission_heading")), FString(TEXT("MISSION COMPLETE")));
             Test.TestEqual(TEXT("Physical exit entry completes exactly once"), Visits(QuestBindings::CompletedElement), 1);
             CheckExitEvent();
             Character->QuestView(TEXT("gate"));
@@ -367,6 +394,7 @@ private:
     {
         BeforeExitVisits = ExitResponseVisits();
         BeforeExitEventVisits = Visits(EventEntryId);
+        BeforeExitPresentationVisits = Visits(PresentationEntryId);
         Character->QuestView(TEXT("exit"));
         PhaseStart = World->GetTimeSeconds();
     }
@@ -383,6 +411,14 @@ private:
         Test.TestEqual(TEXT("Physical exit overlap executes exactly one authored exit response"), ExitResponseVisits(), BeforeExitVisits + 1);
         Test.TestEqual(TEXT("Physical exit overlap supplies the exit event type"), Variable(QuestBindings::EventTypeAttribute), FString(TEXT("enter_exit")));
         Test.TestTrue(TEXT("Physical exit overlap clears the pickup identity"), Variable(QuestBindings::CellIdAttribute).IsEmpty());
+        CheckAutomaticPresentation(BeforeExitPresentationVisits);
+    }
+
+    void CheckAutomaticPresentation(int32 BeforePresentationVisits)
+    {
+        Test.TestEqual(TEXT("Every physical interaction refreshes the HUD exactly once, independently of Play Mode queries"),
+            Visits(PresentationEntryId), BeforePresentationVisits + 1);
+        Test.TestEqual(TEXT("Physical gameplay never needs the optional inventory query"), Visits(InventoryEntryId), 0);
     }
 
     AQuestWorldActor* InteractAt(const TCHAR* View)
@@ -400,6 +436,7 @@ private:
         if (Test.TestNotNull(FString::Printf(TEXT("%s viewpoint traces a real interactive actor"), View), Target))
         {
             const int32 BeforeEventVisits = Visits(EventEntryId);
+            const int32 BeforePresentationVisits = Visits(PresentationEntryId);
             Character->QuestInteract();
             const FString ExpectedEvent = FString(View) == TEXT("terminal") ? TEXT("use_terminal")
                 : FString(View) == TEXT("generator") ? TEXT("check_generator") : TEXT("collect_cell");
@@ -409,6 +446,7 @@ private:
             const FString ExpectedCellId = ExpectedEvent == TEXT("collect_cell") ? FString(View) : FString();
             Test.TestEqual(FString(View) + TEXT(" interaction supplies its physical cell identity or clears it"),
                 Variable(QuestBindings::CellIdAttribute), ExpectedCellId);
+            CheckAutomaticPresentation(BeforePresentationVisits);
         }
         return Target;
     }
@@ -431,9 +469,12 @@ private:
     TArray<TPair<TWeakObjectPtr<UPointLightComponent>, float>> StationLights;
     TMap<FString, int32> InitialVisits;
     FString EventEntryId;
+    FString PresentationEntryId;
+    FString InventoryEntryId;
     int32 Step = 0;
     int32 BeforeExitVisits = 0;
     int32 BeforeExitEventVisits = 0;
+    int32 BeforeExitPresentationVisits = 0;
     double Deadline;
     double AnimationStart = 0.0;
     double PhaseStart = 0.0;
