@@ -1,6 +1,6 @@
 # Build, test, and package
 
-Follow the [README setup](../README.md#run) first. The sample pins the Arcweave plugin to the **v2.2.0** release commit; initialize it with `git submodule update --init --recursive` if it was not cloned with the project. Git LFS supplies the committed Unreal map.
+Follow the [README setup](../README.md#run) first. The sample pins the Arcweave plugin to the **v2.2.0** release commit; initialize it with `git submodule update --init --recursive` if it was not cloned with the project.
 
 ## Build options
 
@@ -12,11 +12,7 @@ powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Editor -EngineR
 
 Close the project's Unreal Editor before rebuilding its DLLs. The targets disable adaptive unity compilation because the bundled plugin relies on unity include order. Build output and automation reports go to `Saved/Validation`.
 
-The scene uses Unreal primitive meshes and C++ actors. Regenerate the committed map after compiling the editor target with:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Map
-```
+The committed `Content/Maps/PowerStation.umap` contains the starting map. C++ builds the station at runtime from Unreal primitive meshes and actors; edit `AQuestGameMode::BuildStation()` to change its layout.
 
 ## Source map
 
@@ -66,7 +62,7 @@ powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Test -TestFilte
 | `ArcweaveQuest.SaveSession` | A checkpoint written in one process and restored in a second |
 | `Arcweave.Project.RuntimeState` | The plugin's snapshot API |
 
-Run the two `SaveSession` phases in order. They use an automation-only slot, which the read phase removes. The runner checks Unreal's JSON report and fails if no tests run, any test fails, or tests remain unrun. See [recorded local results](verification.md).
+Run the two `SaveSession` phases in order. They use an automation-only slot, which the read phase removes. The runner checks Unreal's JSON report and fails if no tests run, any test fails, or tests remain unrun.
 
 ## Package
 

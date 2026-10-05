@@ -8,13 +8,11 @@ A C++ Unreal sample where Arcweave drives a world objective: accept a task, coll
 
 ## Run
 
-Requires **Windows**, **Unreal Engine 5.6.1**, **Visual Studio 2022** with Game development with C++, **MSVC 14.38**, a Windows SDK, **Git**, and **Git LFS**.
+Requires **Windows**, **Unreal Engine 5.6.1**, **Visual Studio 2022** with Game development with C++, **MSVC 14.38**, a Windows SDK, and **Git**.
 
 ```powershell
-git lfs install
 git clone --recurse-submodules https://github.com/arcweave/arcweave-unreal-quest-example.git
 cd arcweave-unreal-quest-example
-git lfs pull
 powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Editor
 ```
 
@@ -48,7 +46,6 @@ To update the narrative, export **for Unreal** from your Arcweave workspace or f
 
 - [Narrative structure, C++ integration, and editing your own copy](docs/narrative.md)
 - [Build options, tests, and packaging](docs/development.md)
-- [Local verification](docs/verification.md)
 
 ## License
 

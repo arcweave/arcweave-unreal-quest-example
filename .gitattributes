@@ -1,5 +1,4 @@
 * text=auto eol=lf
-*.uasset filter=lfs diff=lfs merge=lfs -text
-*.umap filter=lfs diff=lfs merge=lfs -text
-*.png filter=lfs diff=lfs merge=lfs -text
-docs/images/*.png -filter -diff -merge -text
+*.uasset binary
+*.umap binary
+*.png binary
