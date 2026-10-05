@@ -9,16 +9,10 @@ Arcweave owns quest progression, feedback, objectives, interaction prompts, stat
 ## Import your own copy
 
 1. In your Arcweave workspace, choose **Import project**, select JSON import, and upload [`Narrative/import.json`](../Narrative/import.json). This creates a separate editable project with the sample's board layout, components, and translations.
-2. Open the imported project and copy its hash from the URL: `https://arcweave.com/app/project/NEW_HASH`.
-3. Create an Arcweave API key with **Read projects** access to your copy. Save the key in a text file outside this repository, then run from the repository root with Python 3.9 or later:
+2. Edit your copy while keeping the [named game interface](#name-based-integration).
+3. [Export it for Unreal](#refresh-the-bundled-narrative), either manually from Arcweave or through the REST API, and replace `Content/ArcweaveExport/quest.json` in this repository.
 
-```powershell
-python Scripts/sync-narrative.py --project NEW_HASH --token-file "C:\path\outside-repository\arcweave-token.txt"
-```
-
-This validates your copy before updating the bundled game export, authoring export, uploadable import, and project metadata together. The new project becomes the default for future syncs, so subsequent runs can omit `--project`. The script reads the online project; it does not change it.
-
-Press **R** in Unreal or start a new Play session to reload the export. No C++ rebuild is needed for text or condition changes. Existing checkpoints require the previous narrative content, so start a new mission and save again after syncing. See [refreshing the narrative](#refresh-the-bundled-narrative) for validation details and packaged builds.
+Press **R** in Unreal or start a new Play session to reload the export. No API key is needed for a manual export, and text or condition changes do not require a C++ rebuild. Changed narrative content makes existing checkpoints incompatible, so start a new mission and save again.
 
 ## Play Mode and Unreal
 
@@ -115,7 +109,7 @@ The **Inputs** folder contains the **Game event** component, with custom ID `gam
 
 `UQuestDirector::RunEvent` replaces **both** inputs before following the shared router. Non-pickup events clear `cell_id`; pickup requests supply the physical cell's matching ID. Play Mode's five interaction labels replace both fields in the same way. Its two query labels leave them unchanged. The inputs retain the latest request until the next interaction and reset with a new game. An empty `type` means no request has been supplied. If the router is directly executed with an empty or unknown value, no condition matches. Unreal reports “The authored branch has no destination.” without changing quest progress or running world commands. Arcweave exports empty plain strings as JSON `null`, which the bundled Unreal plugin imports as empty strings.
 
-Keep the station menu selected as the project starting element in Arcweave. The sync validator checks its seven menu outputs: two query jumpers and five supported input assignments sharing the event-router target. Its ID may change without changing C++. Inventory and objectives/UI entries are identified by element metadata on the same board, as described below.
+Keep the station menu selected as the project starting element in Arcweave, with its seven menu outputs: two query jumpers and five supported input assignments sharing the event-router target. Its ID may change without changing C++. Inventory and objectives/UI entries are identified by element metadata on the same board, as described below.
 
 ## Name-based integration
 
@@ -123,7 +117,7 @@ The game uses the same qualified names as Arcscript: `quest.started`, `player.po
 
 There is no UUID configuration or generated binding header. The starting element comes from the export, query entries use `entry_point` metadata, and the gate action is dispatched by its `open_gate` custom ID. A copied project may use different object IDs while keeping this named interface. The integration and plugin still use the export's internal IDs to traverse connections and capture snapshots; changing the imported content still makes old checkpoints incompatible.
 
-The sample validator and native automation identify expected response elements by their unique authored titles. These are test expectations, independent of the route being checked; the game does not look up response titles. If renaming those sample outcomes, update `ELEMENT_TITLES` in `Scripts/sync-narrative.py` and the title expectations in `Source/ArcweaveQuest/Tests/QuestTestNarrative.h`. Branch roles are discovered from the station menu or their expected outcomes. The checks retain the sample's quest contract without requiring any copied UUIDs.
+Native automation identifies expected response elements by their unique authored titles. These are test expectations, independent of the route being checked; the game does not look up response titles. If renaming those sample outcomes, update the title expectations in [`QuestTestNarrative.h`](../Source/ArcweaveQuest/Tests/QuestTestNarrative.h). The tests retain the sample's quest contract without requiring any copied UUIDs.
 
 ## Runtime execution
 
@@ -271,32 +265,42 @@ Loading does **not** call `TranspileObject`, recompute the objectives/UI graph, 
 
 The separate HUD panel below the inventory reads `save_ui.controls` and the latest operation's authored message. Missing saves use `no_save`; failed writes or reads use `save_failed` or `load_failed`; changed content or unsupported formats use `incompatible_save`. Successful operations use `saved` or `loaded`. These are UI strings on **UI → Save and load**, not quest flags or action-component references. Inventory and objective queries may read them but cannot write or reset them. The existing browser Play Mode flow has no file save/load actions.
 
-Snapshots require the same imported project content, not just the same Arcweave project ID. The plugin's fingerprint includes exported text and layout as well as quest rules; JSON whitespace and object-key order do not affect it. After changing and syncing narrative content, start a new mission and save again. This sample reports incompatible saves without altering the current mission; migrating snapshots across project versions is outside its scope.
+Snapshots require the same imported project content, not just the same Arcweave project ID. The plugin's fingerprint includes exported text and layout as well as quest rules; JSON whitespace and object-key order do not affect it. After replacing the export with changed narrative content, start a new mission and save again. This sample reports incompatible saves without altering the current mission; migrating snapshots across project versions is outside its scope.
 
 ## Files and editing
 
-- `Source/ArcweaveQuest/QuestDirector.cpp` discovers the game interface from qualified custom IDs, the export's starting element, and query entry markers. `Scripts/sync-narrative.py` and `Source/ArcweaveQuest/Tests/QuestTestNarrative.h` describe the sample's expected responses with readable titles and custom IDs. No separate UUID binding files are required.
-- `Narrative/project.json` records the online project/workspace, export URLs, export time, and SHA-256 checksums. It contains no credential.
-- `Narrative/import.json` reproduces this graph and its board layout using the all-locales authoring export plus coordinates from the Unreal export. It is a directly uploadable, top-level project JSON file. Importing it creates a separate project; it does not update the linked one. The sync script regenerates it alongside the other exports.
-- `Narrative/authoring.json` is the actual Arcweave JSON API export. That endpoint omits coordinates.
-- `Content/ArcweaveExport/quest.json` is the actual Unreal API response, including its `project` envelope and layout. It is the only JSON file in that import directory.
+- `Source/ArcweaveQuest/QuestDirector.cpp` discovers the game interface from qualified custom IDs, the export's starting element, and query entry markers. `Source/ArcweaveQuest/Tests/QuestTestNarrative.h` describes the sample's expected responses with readable titles and custom IDs. No separate UUID binding files are required.
+- `Narrative/import.json` is the starter project, including its board layout and translations, ready to upload into your Arcweave workspace. Importing it creates a separate project. Replacing the game's runtime export does not update this starter copy.
+- `Content/ArcweaveExport/quest.json` is the game's narrative input. Replace it with your Unreal export as described below. It is the only JSON file in that import directory.
 
-Keep command and data-component custom IDs, event names, variable meanings, and the two query entry markers when editing. Preserve the sample response titles for validation, or update the test expectations when renaming them. Content, attribute defaults, conditions, notes, node positions, and internal automatic paths can change without adding C++ identifiers. Keep the complete experience on one board. Keep every connection theme set to `default`. The menu's two query jumpers target the inventory and objectives/UI entries. Four event-group returns, one inventory return, and five objective returns target the current project starting element. Intended loops return from a single interaction or query to the menu; automatic paths before that boundary must remain acyclic. Only the starting menu has multiple outputs: two query jumpers followed by five interactions sharing a router. Other elements have one continuation, except the successful and already-completed exit elements, which end the playthrough. Each condition row has exactly one outgoing connection. Only the five interaction labels assign the two event inputs; query labels do not write variables. Leave branch-condition connection labels empty so they do not replace the selected interaction's text in Play Mode. Changing the event interface, supported commands, or query contracts requires corresponding C++ or validator changes.
+Keep command and data-component custom IDs, event names, variable meanings, and the two query entry markers when editing. Preserve the sample response titles for native automation, or update the test expectations when renaming them. Content, attribute defaults, conditions, notes, node positions, and internal automatic paths can change without adding C++ identifiers. Keep the complete experience on one board. The menu's two query jumpers target the inventory and objectives/UI entries. Four event-group returns, one inventory return, and five objective returns target the current project starting element. Intended loops return from a single interaction or query to the menu; automatic paths before that boundary must remain acyclic. Only the starting menu has multiple outputs: two query jumpers followed by five interactions sharing a router. Other elements have one continuation, except the successful and already-completed exit elements, which end the playthrough. Each condition row has exactly one outgoing connection. Only the five interaction labels assign the two event inputs; query labels do not write variables. Leave branch-condition connection labels empty so they do not replace the selected interaction's text in Play Mode. Changing the event interface, supported commands, or query contracts requires corresponding C++ and test changes.
 
 ## Refresh the bundled narrative
 
-Use Python 3.9 or later and an API key with **Read projects** access to the project recorded in `Narrative/project.json`. Keep its token file outside the repository:
+The game reads a local Unreal export from `Content/ArcweaveExport/quest.json`. Use either method below to replace it from your own Arcweave workspace.
+
+### Manual export
+
+1. Open your project in Arcweave and choose **Export project**.
+2. Select **Engine**, then **Export for Unreal**. If **Language to export** is shown, choose the language to use in the game (English for the bundled sample).
+3. Click **Export**, download the ZIP, and extract `project.json`. This sample does not need **Include assets**.
+4. Rename the extracted file to `quest.json` and replace `Content/ArcweaveExport/quest.json` in this repository.
+
+### REST API
+
+Use `GET https://arcweave.com/api/v1/PROJECT_HASH/unreal` with an API token that has **Read projects** access to your workspace. The project hash is the part after `/project/` in its Arcweave URL. Set `ARCWEAVE_API_TOKEN` in your shell to your token, replace `PROJECT_HASH` below, and run from the repository root:
 
 ```powershell
-python Scripts/sync-narrative.py --token-file "C:\path\outside-repository\arcweave-token.txt"
+Invoke-WebRequest -UseBasicParsing `
+  -Uri "https://arcweave.com/api/v1/PROJECT_HASH/unreal" `
+  -Headers @{ Authorization = "Bearer $env:ARCWEAVE_API_TOKEN"; Accept = "application/json" } `
+  -OutFile "Content/ArcweaveExport/quest.json"
 ```
 
-The script downloads the Unreal, default-locale JSON, and all-locales JSON exports from `https://arcweave.com` and validates them before replacing the bundled runtime export, authoring export, uploadable import, and project metadata.
+This exports the project's default language. Append `?locale=en` to request English, or use another locale from your project. Keep the API token outside the repository; the game only needs the downloaded file.
 
-Their shared graph, scripts, default-locale text, and component values must match. The comparison accounts for omitted layout and root containers, localized fields, and editor-only HTML attributes. Additional translations remain in the import. If content differs between downloads, sync leaves all bundled files and project selection unchanged and asks you to rerun.
+### Load the replacement
 
-It resolves and checks the named sample contract, the four State components and their seven typed attributes and new-game defaults, absence of global variables, the four UI components and their twenty-seven strings, the Game event component and its two typed inputs, and the single-board graph contract. Menu checks cover the authored starting element, two query jumpers without input assignments, and five labeled interaction assignments sharing the router target. The four router conditions must lead directly to their branches without an else route. World checks cover pickup check order, nonempty executable content, one statement per code block, command placement, ordinary outcomes returning through four local group jumpers, and completed-exit outcomes ending the path. Inventory checks require the unique plain-string `entry_point = inventory` marker, read-only content, and its return jumper. Presentation checks require the unique plain-string `entry_point = objectives_ui` marker on the starting board, the seven unconditional entry resets, the shared conditional powered fields, five direct objective routes, read-only conditions, writes restricted to known `quest_ui.*` fields, and objective returns through five local menu jumpers. Cycle checks respect the station menu boundary while rejecting loops within an automatic path. New designer notes and internal graph objects do not require fixed IDs. The script updates export checksums, does not edit online projects, and never stores or prints the key. Three requests count against the workspace's import/export rate limit; on HTTP 429, wait for the reported interval and rerun. The layout-preserving `import.json` is generated from the same downloaded exports, so the browser import and bundled game stay synchronized.
+The pinned plugin accepts both the manual export's top-level project JSON and the REST response's `project` envelope; no conversion is needed. Keep `quest.json` as the only JSON file in `Content/ArcweaveExport`, with any backups outside that directory.
 
-Run `python Scripts/test-sync-narrative.py` to check the bundled exports and validator regressions offline, without an API key.
-
-For an editor run, press **R** to restart the mission after syncing, or start a new Play session. This reloads the local export. For an existing packaged build, also copy the refreshed `quest.json` into `Builds/Windows/ArcweaveQuest/Content/ArcweaveExport/` before restarting; packaging again includes it automatically. Text and condition edits do not require recompiling C++. This sample pins the [v2.2.0 plugin release](https://github.com/arcweave/arcweave-unreal-plugin/releases/tag/v2.2.0), which includes starting-element discovery and the runtime-state API. Updated project content makes existing checkpoints incompatible; start a new mission and save again after syncing.
+For an editor run, press **R** to restart the mission, or start a new Play session. This reloads the local export. For an existing packaged build, also replace `Builds/Windows/ArcweaveQuest/Content/ArcweaveExport/quest.json` before restarting; packaging again includes it automatically. Text and condition edits do not require recompiling C++. Updated project content makes existing checkpoints incompatible; start a new mission and save again. Use the [native automation](development.md#native-automation) to check quest behavior after editing.

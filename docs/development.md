@@ -35,14 +35,13 @@ Input mappings live in `Config/DefaultInput.ini`. It removes Unreal's inherited 
 
 ## Checks without Unreal
 
-Requires Python 3.9 or later and PowerShell. These checks also run in GitHub Actions:
+Requires Windows PowerShell. These checks also run in GitHub Actions:
 
 ```powershell
-python Scripts/test-sync-narrative.py
 powershell -ExecutionPolicy Bypass -File Scripts/test-build.ps1
 ```
 
-The Python suite validates the bundled exports, named contract, graph structure, import copy, and sync behavior, including an export with every object ID reassigned. The PowerShell fixtures check build-script routing and automation-report failures without invoking Unreal.
+The fixtures check packaging and packaged-test routing for default, absolute, and relative output directories without invoking Unreal. Use the native automation below to verify quest behavior after replacing the narrative export.
 
 ## Native automation
 
@@ -79,4 +78,4 @@ powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task WorldTest -Pack
 
 Packaging builds a Win64 Development game in `Builds/Windows`, with windowless cooking and hot reload disabled. Use `-OutputDirectory` to choose another archive location, and pass the same value to subsequent packaged tests. Run builds sequentially to avoid UnrealBuildTool conflicts.
 
-The package includes `Content/ArcweaveExport/quest.json` as a loose non-asset file. Syncing the source project does not update an existing package: copy the refreshed export into `Builds/Windows/ArcweaveQuest/Content/ArcweaveExport/`, or package again. Changing narrative content invalidates older checkpoints.
+The package includes `Content/ArcweaveExport/quest.json` as a loose non-asset file. Replacing the source export does not update an existing package: replace `Builds/Windows/ArcweaveQuest/Content/ArcweaveExport/quest.json` with the new export, or package again. See the [manual and REST API export instructions](narrative.md#refresh-the-bundled-narrative). Changing narrative content invalidates older checkpoints.
