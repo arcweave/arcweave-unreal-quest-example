@@ -834,6 +834,39 @@ class NarrativeValidationTests(unittest.TestCase):
                 self.project["attributes"][ident]["value"]["data"] += " revised"
         self.validate()
 
+    def test_save_ui_requires_each_control_and_feedback_field(self):
+        for field in SYNC.SAVE_FIELDS:
+            with self.subTest(field=field):
+                self.project = copy.deepcopy(self.unreal)
+                component = self.project["components"][self.bindings["SaveUIComponent"]]
+                attribute = next(self.project["attributes"][ident] for ident in component["attributes"]
+                                 if self.project["attributes"][ident]["customId"] == field)
+                attribute["customId"] = "unsupported_message"
+                self.assert_invalid("save_ui component must have exactly its required string attributes")
+
+    def test_save_ui_feedback_must_remain_nonempty_plain_text(self):
+        for value in ({"type": "string", "plain": True, "data": ""},
+                      {"type": "string", "plain": False, "data": "<p>Saved.</p>"},
+                      {"type": "string", "plain": True, "data": 'show("Saved")'},
+                      {"type": "boolean", "data": True}):
+            with self.subTest(value=value):
+                self.ui_attribute("SaveUIComponent")["value"] = value
+                self.assert_invalid("UI attributes must be nonempty plain strings")
+
+    def test_queries_cannot_overwrite_save_controls_or_feedback(self):
+        for field in SYNC.SAVE_FIELDS:
+            for binding, error in (("InventoryEntryElement", "Inventory query must be feedback only"),
+                                   ("PresentationCollectingElement", "Presentation may only assign quest_ui fields")):
+                with self.subTest(field=field, binding=binding):
+                    self.project = copy.deepcopy(self.unreal)
+                    self.script(binding, f'save_ui.{field} = "Changed"')
+                    self.assert_invalid(error)
+
+    def test_queries_can_read_authored_save_text(self):
+        for binding in ("InventoryEntryElement", "PresentationCollectingElement"):
+            self.script(binding, "show(save_ui.controls, save_ui.saved)")
+        self.validate()
+
     def test_flat_runtime_export_does_not_require_folders(self):
         self.project["components"] = {key: item for key, item in self.project["components"].items()
                                       if "children" not in item}
@@ -1189,14 +1222,14 @@ class NarrativeValidationTests(unittest.TestCase):
         owner = self.bindings["OpenGateComponent"]
         self.project["attributes"][extra] = dict(self.ui_attribute(), cId=owner, customId="debug_label")
         self.project["components"][owner]["attributes"] = [extra]
-        self.assert_invalid("Only the seven state values, nineteen UI strings, and two game_event inputs may add scoped variables")
+        self.assert_invalid("Only the seven state values, twenty-six UI strings, and two game_event inputs may add scoped variables")
 
     def test_additional_board_variable_is_rejected(self):
         extra = "5aa30329-45b8-42df-b65b-1e94f0a76a84"
         owner = self.bindings["Board"]
         self.project["attributes"][extra] = dict(self.ui_attribute(), cType="boards", cId=owner, customId="debug_label")
         self.project["boards"][owner]["attributes"] = [extra]
-        self.assert_invalid("Only the seven state values, nineteen UI strings, and two game_event inputs may add scoped variables")
+        self.assert_invalid("Only the seven state values, twenty-six UI strings, and two game_event inputs may add scoped variables")
 
     def test_ui_component_cannot_be_attached_as_a_command(self):
         for binding in SYNC.UI_COMPONENTS:
@@ -1433,7 +1466,8 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_conditional_ui_assignments_cannot_change_shared_state(self):
         for script in ("quest.completed = true", "player.power_cells += 1", "cell_a.collected = true",
-                       'game_event.type = "enter_exit"', 'hud.station_name = "Changed"'):
+                       'game_event.type = "enter_exit"', 'hud.station_name = "Changed"',
+                       'save_ui.controls = "Changed"'):
             with self.subTest(script=script):
                 self.element("PresentationEntryElement")["content"] = ("".join(self.entry_resets())
                     + self.code_block("if quest.power_restored") + self.code_block(script) + self.code_block("endif"))
@@ -1467,7 +1501,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_entry_cannot_reset_gameplay_or_static_ui(self):
         for target in (
-            "quest.started", "player.power_cells", "hud.station_name", "world_text.sign_exit", "quest_ui.unknown",
+            "quest.started", "player.power_cells", "hud.station_name", "world_text.sign_exit", "save_ui.saved", "quest_ui.unknown",
             "game_event.type", "game_event.cell_id",
         ):
             with self.subTest(target=target):

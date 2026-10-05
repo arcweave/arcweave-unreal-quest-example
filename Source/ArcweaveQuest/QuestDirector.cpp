@@ -1,11 +1,13 @@
 #include "QuestDirector.h"
 
 #include "QuestBindings.h"
+#include "QuestSaveGame.h"
 #include "ArcweaveVariable.h"
 #include "ArcscriptTranspilerOutput.h"
 #include "ArcweaveSubsystem.h"
 #include "Engine/Engine.h"
 #include "GetIsTargetBranchOutput.h"
+#include "Kismet/GameplayStatics.h"
 
 UQuestDirector::UQuestDirector()
 {
@@ -23,6 +25,7 @@ void UQuestDirector::Deinitialize()
     if (Arcweave)
     {
         Arcweave->OnArcweaveVariableChanged.RemoveDynamic(this, &UQuestDirector::HandleVariablesChanged);
+        Arcweave->OnArcweaveStateRestored.RemoveDynamic(this, &UQuestDirector::HandleStateRestored);
     }
     StateValues.Reset();
     bProjectLoaded = false;
@@ -44,6 +47,7 @@ bool UQuestDirector::StartNewGame(FString& Error)
     PresentationEntryId.Empty();
     PresentationElementId.Empty();
     Status.Empty();
+    PersistenceStatus.Empty();
     bGateOpen = false;
 
     const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
@@ -75,7 +79,7 @@ bool UQuestDirector::StartNewGame(FString& Error)
 
     UIVariableIds.Reset();
     for (const TCHAR* ComponentId : {QuestBindings::HUDTextComponent,
-        QuestBindings::WorldTextComponent, QuestBindings::QuestUIComponent})
+        QuestBindings::WorldTextComponent, QuestBindings::QuestUIComponent, QuestBindings::SaveUIComponent})
     {
         const FArcweaveComponentData* UI = Project.Components.FindByPredicate(
             [ComponentId](const FArcweaveComponentData& Component) { return Component.Id == ComponentId; });
@@ -95,6 +99,7 @@ bool UQuestDirector::StartNewGame(FString& Error)
         StateValues.Add(Id, Project.CurrentVars.FindChecked(Id).Value);
     }
     Arcweave->OnArcweaveVariableChanged.AddUniqueDynamic(this, &UQuestDirector::HandleVariablesChanged);
+    Arcweave->OnArcweaveStateRestored.AddUniqueDynamic(this, &UQuestDirector::HandleStateRestored);
     bProjectLoaded = true;
 
     // Startup computes the authored objective/UI without simulating a world interaction.
@@ -129,6 +134,113 @@ bool UQuestDirector::TryRestorePower(FString& Error)
 bool UQuestDirector::ReachExit(FString& Error)
 {
     return RunEvent(TEXT("enter_exit"), Error);
+}
+
+bool UQuestDirector::SaveCheckpoint(const FString& SlotName, const FTransform& PlayerTransform,
+    const FRotator& ControlRotation, FString& Error)
+{
+    if (!bProjectLoaded || bInteractionInProgress)
+    {
+        return RejectPersistence(TEXT("save_ui.save_failed"),
+            TEXT("Save after the narrative is loaded and the current interaction has completed."), Error);
+    }
+
+    UQuestSaveGame* Save = Cast<UQuestSaveGame>(UGameplayStatics::CreateSaveGameObject(UQuestSaveGame::StaticClass()));
+    if (!Arcweave->CaptureState(Save->ArcweaveState, Error))
+    {
+        return RejectPersistence(TEXT("save_ui.save_failed"), Error, Error);
+    }
+    Save->CollectedCells = CollectedCells;
+    Save->bGateOpen = bGateOpen;
+    Save->CurrentElementId = CurrentElementId;
+    Save->PresentationElementId = PresentationElementId;
+    Save->Objective = Objective;
+    Save->Status = Status;
+    Save->PlayerTransform = PlayerTransform;
+    Save->ControlRotation = ControlRotation;
+    if (!UGameplayStatics::SaveGameToSlot(Save, SlotName, 0))
+    {
+        return RejectPersistence(TEXT("save_ui.save_failed"), TEXT("Could not write the quest save slot."), Error);
+    }
+
+    PersistenceStatus = GetUIText(TEXT("save_ui.saved"));
+    Error.Empty();
+    return true;
+}
+
+bool UQuestDirector::LoadCheckpoint(const FString& SlotName, FTransform& OutPlayerTransform,
+    FRotator& OutControlRotation, FString& Error)
+{
+    if (!bProjectLoaded || bInteractionInProgress)
+    {
+        return RejectPersistence(TEXT("save_ui.load_failed"),
+            TEXT("Load after the narrative is loaded and the current interaction has completed."), Error);
+    }
+    if (!UGameplayStatics::DoesSaveGameExist(SlotName, 0))
+    {
+        return RejectPersistence(TEXT("save_ui.no_save"), TEXT("The quest save slot does not exist."), Error);
+    }
+    const UQuestSaveGame* Save = Cast<UQuestSaveGame>(UGameplayStatics::LoadGameFromSlot(SlotName, 0));
+    if (!Save)
+    {
+        return RejectPersistence(TEXT("save_ui.load_failed"), TEXT("Could not read a quest checkpoint from the save slot."), Error);
+    }
+    FArcweaveRuntimeState CurrentState;
+    if (!Arcweave->CaptureState(CurrentState, Error))
+    {
+        return RejectPersistence(TEXT("save_ui.load_failed"), Error, Error);
+    }
+    if (Save->FormatVersion != 1 || Save->ArcweaveState.FormatVersion != CurrentState.FormatVersion
+        || Save->ArcweaveState.ProjectFingerprint != CurrentState.ProjectFingerprint)
+    {
+        return RejectPersistence(TEXT("save_ui.incompatible_save"),
+            TEXT("The checkpoint requires a different save format or narrative export."), Error);
+    }
+
+    // Validate game-owned data before RestoreState commits the narrative snapshot.
+    const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
+    const auto HasElement = [&Project](const FString& ElementId)
+    {
+        return Project.Boards.ContainsByPredicate([&ElementId](const FArcweaveBoardData& Board)
+        {
+            return Board.Elements.ContainsByPredicate([&ElementId](const FArcweaveElementData& Element)
+            {
+                return Element.Id == ElementId;
+            });
+        });
+    };
+    if ((!Save->CurrentElementId.IsEmpty() && !HasElement(Save->CurrentElementId))
+        || !HasElement(Save->PresentationElementId)
+        || !Save->PlayerTransform.IsValid() || Save->ControlRotation.ContainsNaN())
+    {
+        return RejectPersistence(TEXT("save_ui.load_failed"), TEXT("The checkpoint contains invalid game state."), Error);
+    }
+    for (FName CellId : Save->CollectedCells)
+    {
+        if (CellId != TEXT("cell_a") && CellId != TEXT("cell_b"))
+        {
+            return RejectPersistence(TEXT("save_ui.load_failed"), TEXT("The checkpoint contains an unknown world pickup."), Error);
+        }
+    }
+    if (!Arcweave->RestoreState(Save->ArcweaveState, Error))
+    {
+        return RejectPersistence(TEXT("save_ui.load_failed"), Error, Error);
+    }
+
+    // RestoreState refreshed the read caches. Restore resolved presentation and applied
+    // effects directly; rerunning either graph would execute scripts and change visits.
+    CollectedCells = Save->CollectedCells;
+    bGateOpen = Save->bGateOpen;
+    CurrentElementId = Save->CurrentElementId;
+    PresentationElementId = Save->PresentationElementId;
+    Objective = Save->Objective;
+    Status = Save->Status;
+    OutPlayerTransform = Save->PlayerTransform;
+    OutControlRotation = Save->ControlRotation;
+    PersistenceStatus = GetUIText(TEXT("save_ui.loaded"));
+    Error.Empty();
+    PublishChange();
+    return true;
 }
 
 bool UQuestDirector::IsQuestStarted() const
@@ -170,12 +282,20 @@ void UQuestDirector::HandleVariablesChanged(const TArray<FArcweaveVariable>& Var
     }
 }
 
+void UQuestDirector::HandleStateRestored()
+{
+    // The delegate fires before LoadCheckpoint applies game-owned state. Refresh only
+    // read caches here; publish once the complete checkpoint is ready.
+    RefreshRuntimeCaches();
+}
+
 bool UQuestDirector::RunEvent(const FString& EventType, FString& Error, FName CellId)
 {
     if (!bProjectLoaded)
     {
         return RejectInteraction(TEXT("The local narrative export has not been loaded. Restart after checking the export file."), Error);
     }
+    TGuardValue<bool> InteractionGuard(bInteractionInProgress, true);
 
     // Replace the complete event input each time; pickup context cannot leak into later events.
     Arcweave->SetVariable(QuestBindings::EventTypeAttribute, EventType);
@@ -289,15 +409,31 @@ bool UQuestDirector::RefreshPresentation(FString& Error)
     }
     PresentationElementId = Presentation.Id;
     Objective = Presentation.Content;
+    RefreshRuntimeCaches();
+    return true;
+}
+
+void UQuestDirector::RefreshRuntimeCaches()
+{
     // Read current values after Arcscript has updated quest_ui. Shared hud and world_text
-    // variables also retain runtime changes until the game explicitly changes or resets them.
+    // variables also retain runtime changes. Restoration uses this same read-only path.
     const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
+    for (auto& Variable : StateValues)
+    {
+        Variable.Value = Project.CurrentVars.FindChecked(Variable.Key).Value;
+    }
     UIText.Reset();
     for (const auto& Variable : UIVariableIds)
     {
         UIText.Add(Variable.Key, Project.CurrentVars.FindChecked(Variable.Value).Value);
     }
-    return true;
+}
+
+bool UQuestDirector::RejectPersistence(FName FeedbackField, const FString& Message, FString& Error)
+{
+    Error = Message;
+    PersistenceStatus = GetUIText(FeedbackField);
+    return false;
 }
 
 bool UQuestDirector::RejectInteraction(const FString& Message, FString& Error)

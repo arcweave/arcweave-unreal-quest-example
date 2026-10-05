@@ -97,6 +97,19 @@ void AQuestHUD::DrawHUD()
     DrawRect(FLinearColor(0.13f, 0.20f, 0.25f), Right - 223 * S, Margin + 82 * S, 200 * S, 8 * S);
     DrawRect(Cyan, Right - 223 * S, Margin + 82 * S, 200 * S * Progress, 8 * S);
 
+    const FString PersistenceStatus = Director->GetPersistenceStatus();
+    const float SaveY = Margin + 124 * S;
+    const float SaveHeight = PersistenceStatus.IsEmpty() ? 36 * S
+        : 54 * S + WrappedText(PersistenceStatus, 0, 0, 204 * S, 0.73f * S, White, false);
+    DrawRect(Panel, Right - 242 * S, SaveY, 242 * S, SaveHeight);
+    Text(Director->GetUIText(TEXT("save_ui.controls")), Right - 223 * S, SaveY + 10 * S,
+        0.73f * S, Muted);
+    if (!PersistenceStatus.IsEmpty())
+    {
+        WrappedText(PersistenceStatus, Right - 223 * S, SaveY + 36 * S, 204 * S,
+            0.73f * S, White);
+    }
+
     const FString Status = Director->GetStatus();
     const float StatusWidth = FMath::Min(860.0f * S, Canvas->ClipX - Margin * 2);
     const float StatusHeight = WrappedText(Status, 0, 0, StatusWidth - 36 * S, 0.84f * S, White, false) + 26 * S;

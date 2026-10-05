@@ -148,7 +148,9 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TEXT("world_text.cell_b_label"), TEXT("world_text.sign_station"), TEXT("world_text.sign_distribution"),
         TEXT("world_text.sign_gate"), TEXT("world_text.sign_exit"), TEXT("quest_ui.mission_heading"),
         TEXT("quest_ui.grid_status"), TEXT("quest_ui.terminal_prompt"), TEXT("quest_ui.cell_prompt"),
-        TEXT("quest_ui.generator_prompt"), TEXT("quest_ui.generator_label"), TEXT("quest_ui.gate_label")
+        TEXT("quest_ui.generator_prompt"), TEXT("quest_ui.generator_label"), TEXT("quest_ui.gate_label"),
+        TEXT("save_ui.controls"), TEXT("save_ui.saved"), TEXT("save_ui.loaded"), TEXT("save_ui.no_save"),
+        TEXT("save_ui.save_failed"), TEXT("save_ui.load_failed"), TEXT("save_ui.incompatible_save")
     };
     struct FUIComponentScope
     {
@@ -159,7 +161,8 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     const FUIComponentScope UIComponents[] = {
         {QuestBindings::HUDTextComponent, TEXT("hud"), 5},
         {QuestBindings::WorldTextComponent, TEXT("world_text"), 7},
-        {QuestBindings::QuestUIComponent, TEXT("quest_ui"), 7}
+        {QuestBindings::QuestUIComponent, TEXT("quest_ui"), 7},
+        {QuestBindings::SaveUIComponent, TEXT("save_ui"), 7}
     };
     TMap<FName, FString> AuthoredUI;
     TMap<FName, FString> UIVariableIds;
@@ -625,7 +628,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         return true;
     };
 
-    TestEqual(TEXT("Seven state values, nineteen UI strings, and two event inputs are imported"), InitialState.CurrentVars.Num(), 28);
+    TestEqual(TEXT("Seven state values, twenty-six UI strings, and two event inputs are imported"), InitialState.CurrentVars.Num(), 35);
     TestFalse(TEXT("Initialization does not accept the task"), Director->IsQuestStarted());
     TestFalse(TEXT("Initialization does not complete the task"), Director->IsQuestCompleted());
     TestEqual(TEXT("Initial required cell count comes from the export"), Director->GetRequiredPowerCellCount(), 2);

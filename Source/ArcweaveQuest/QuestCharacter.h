@@ -24,6 +24,10 @@ public:
     void QuestView(const FString& View);
     UFUNCTION(Exec)
     void QuestInteract();
+    UFUNCTION(Exec)
+    void QuestSave();
+    UFUNCTION(Exec)
+    void QuestLoad();
 
 private:
     void MoveForward(float Value);

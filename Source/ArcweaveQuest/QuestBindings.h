@@ -48,4 +48,5 @@ namespace QuestBindings
     inline constexpr const TCHAR* CellBComponent = TEXT("a5de1ba7-3d2b-48be-9175-b68c452fd845");
     inline constexpr const TCHAR* CellBCollectedAttribute = TEXT("65bcb1a3-27dc-45ff-a494-a67b26587ccd");
     inline constexpr const TCHAR* CellIdAttribute = TEXT("a4b099e4-f7c4-4ba5-8d21-62e8ca2ae359");
+    inline constexpr const TCHAR* SaveUIComponent = TEXT("1c5f80be-f89b-453e-af02-73047e80a587");
 }

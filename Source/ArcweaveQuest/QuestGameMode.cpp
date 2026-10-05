@@ -17,6 +17,8 @@
 #include "Engine/SkyLight.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 
@@ -44,6 +46,33 @@ void AQuestGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
         Director->OnQuestChanged.Remove(QuestChangedHandle);
     }
     Super::EndPlay(EndPlayReason);
+}
+
+bool AQuestGameMode::SaveCheckpoint(const FString& SlotName, FString& Error)
+{
+    APlayerController* Player = GetWorld()->GetFirstPlayerController();
+    return Director->SaveCheckpoint(SlotName, Player->GetPawn()->GetActorTransform(),
+        Player->GetControlRotation(), Error);
+}
+
+bool AQuestGameMode::LoadCheckpoint(const FString& SlotName, FString& Error)
+{
+    // Both restoring world collision and teleporting the player can generate overlaps.
+    // They restore a checkpoint, rather than representing a new exit interaction.
+    TGuardValue<bool> ApplyingCheckpoint(bApplyingCheckpoint, true);
+    FTransform PlayerTransform;
+    FRotator ControlRotation;
+    if (!Director->LoadCheckpoint(SlotName, PlayerTransform, ControlRotation, Error))
+    {
+        return false;
+    }
+
+    APlayerController* Player = GetWorld()->GetFirstPlayerController();
+    AQuestCharacter* Character = CastChecked<AQuestCharacter>(Player->GetPawn());
+    Character->GetCharacterMovement()->StopMovementImmediately();
+    Character->SetActorTransform(PlayerTransform, false, nullptr, ETeleportType::TeleportPhysics);
+    Player->SetControlRotation(ControlRotation);
+    return true;
 }
 
 void AQuestGameMode::AddBlock(FVector Location, FVector Dimensions, FLinearColor Color, FRotator Rotation)
@@ -202,10 +231,10 @@ void AQuestGameMode::BuildStation()
 
 void AQuestGameMode::RefreshStation()
 {
-    const bool bGateOpen = Director->IsGateOpen();
+    const bool bAnimateGate = Director->IsGateOpen() && !bApplyingCheckpoint;
     for (AQuestWorldActor* Object : StationObjects)
     {
-        Object->ApplyQuestState(*Director, bGateOpen);
+        Object->ApplyQuestState(*Director, bAnimateGate);
     }
     for (UPointLightComponent* Light : StationLights)
     {
@@ -222,6 +251,10 @@ void AQuestGameMode::RefreshStation()
 void AQuestGameMode::HandleExitBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
     UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+    if (bApplyingCheckpoint)
+    {
+        return;
+    }
     const AQuestCharacter* Character = Cast<AQuestCharacter>(OtherActor);
     if (Character && OtherComponent == Character->GetCapsuleComponent())
     {

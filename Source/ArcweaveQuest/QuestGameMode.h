@@ -21,6 +21,9 @@ public:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+    bool SaveCheckpoint(const FString& SlotName, FString& Error);
+    bool LoadCheckpoint(const FString& SlotName, FString& Error);
+
 private:
     void BuildStation();
     void RefreshStation();
@@ -42,4 +45,5 @@ private:
     UPROPERTY()
     TObjectPtr<UBoxComponent> ExitTrigger;
     FDelegateHandle QuestChangedHandle;
+    bool bApplyingCheckpoint = false;
 };
