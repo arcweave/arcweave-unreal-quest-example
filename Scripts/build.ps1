@@ -3,6 +3,7 @@ param(
     [string]$EngineRoot = "C:\Program Files\Epic Games\UE_5.6",
     [string]$CompilerVersion = "14.38.33130",
     [string]$TestFilter = "",
+    [ValidateSet("", "Write", "Read")][string]$SavePhase = "",
     [switch]$Packaged,
     [string]$OutputDirectory = ""
 )
@@ -41,6 +42,7 @@ if ($Task -eq "Test" -or $Task -eq "WorldTest") {
             $RunnerArguments += "-game"
         }
     }
+    if ($SavePhase) { $RunnerArguments += "-QuestSavePhase=$SavePhase" }
     $RunnerArguments += @("-unattended", "-NullRHI", "-RenderOffscreen", "-nosplash", "-nosound", "-nop4", "-UTF8Output", "-NoLiveCoding", "-abslog=$Log", "-ExecCmds=Automation RunTests $TestFilter", "-TestExit=Automation Test Queue Empty", "-ReportExportPath=$Report", "-stdout", "-FullStdOutLogOutput")
     # A pipeline also waits for the packaged Windows GUI executable to exit.
     & $TestRunner @RunnerArguments | Out-Host

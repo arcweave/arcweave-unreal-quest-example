@@ -1,6 +1,7 @@
 #include "QuestCharacter.h"
 
 #include "QuestDirector.h"
+#include "QuestGameMode.h"
 #include "QuestWorldActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
@@ -10,6 +11,11 @@
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
+
+namespace
+{
+const FString CheckpointSlot(TEXT("ArcweaveQuestCheckpoint"));
+}
 
 AQuestCharacter::AQuestCharacter()
 {
@@ -46,6 +52,8 @@ void AQuestCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
     PlayerInputComponent->BindAxis(TEXT("LookUp"), this, &ACharacter::AddControllerPitchInput);
     PlayerInputComponent->BindAction(TEXT("Interact"), IE_Pressed, this, &AQuestCharacter::Interact);
     PlayerInputComponent->BindAction(TEXT("Restart"), IE_Pressed, this, &AQuestCharacter::RestartQuest);
+    PlayerInputComponent->BindAction(TEXT("SaveCheckpoint"), IE_Pressed, this, &AQuestCharacter::QuestSave);
+    PlayerInputComponent->BindAction(TEXT("LoadCheckpoint"), IE_Pressed, this, &AQuestCharacter::QuestLoad);
 }
 
 void AQuestCharacter::MoveForward(float Value)
@@ -154,4 +162,23 @@ void AQuestCharacter::QuestInteract()
     // Refresh the trace when console commands run back-to-back in the same frame.
     RefreshFocus();
     Interact();
+}
+
+void AQuestCharacter::QuestSave()
+{
+    FString Error;
+    if (!GetWorld()->GetAuthGameMode<AQuestGameMode>()->SaveCheckpoint(CheckpointSlot, Error))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Could not save checkpoint: %s"), *Error);
+    }
+}
+
+void AQuestCharacter::QuestLoad()
+{
+    FString Error;
+    if (!GetWorld()->GetAuthGameMode<AQuestGameMode>()->LoadCheckpoint(CheckpointSlot, Error))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Could not load checkpoint: %s"), *Error);
+    }
+    RefreshFocus();
 }

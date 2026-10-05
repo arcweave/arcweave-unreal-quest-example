@@ -1143,7 +1143,8 @@
             "children": [
                 "06e4e920-e844-4509-9891-18e05d39f48b",
                 "db3ac52b-3cc2-4a1b-86c8-2d2cd5903573",
-                "e170ad75-b550-436b-9877-32a16bcaffbe"
+                "e170ad75-b550-436b-9877-32a16bcaffbe",
+                "1c5f80be-f89b-453e-af02-73047e80a587"
             ],
             "name": "UI"
         },
@@ -1221,6 +1222,19 @@
                 "65bcb1a3-27dc-45ff-a494-a67b26587ccd"
             ],
             "name": "Cell B"
+        },
+        "1c5f80be-f89b-453e-af02-73047e80a587": {
+            "customId": "save_ui",
+            "attributes": [
+                "b23571ef-2b8b-43aa-816b-c505621a4e82",
+                "24d08ef6-83eb-4d04-890a-f7df3d482ddc",
+                "abb30c43-b50c-4683-9c4f-c3f4bd324bfd",
+                "c9dcab7b-bddb-4713-9018-ebad24d27843",
+                "4fe4952e-5cf2-4203-aaf5-6ab227b5058b",
+                "01a69477-e07a-47a8-bcf0-f28871469e15",
+                "ddaf3a93-9ae6-4552-91bf-4d201e817245"
+            ],
+            "name": "Save and load"
         }
     },
     "attributes": {
@@ -1544,6 +1558,83 @@
             },
             "cType": "elements",
             "cId": "660c9cc9-512d-4248-b565-26eb1216177d"
+        },
+        "b23571ef-2b8b-43aa-816b-c505621a4e82": {
+            "name": "controls",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "F5 SAVE   F9 LOAD"
+            },
+            "customId": "controls",
+            "cType": "components",
+            "cId": "1c5f80be-f89b-453e-af02-73047e80a587"
+        },
+        "24d08ef6-83eb-4d04-890a-f7df3d482ddc": {
+            "name": "saved",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "Progress saved."
+            },
+            "customId": "saved",
+            "cType": "components",
+            "cId": "1c5f80be-f89b-453e-af02-73047e80a587"
+        },
+        "abb30c43-b50c-4683-9c4f-c3f4bd324bfd": {
+            "name": "loaded",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "Saved progress restored."
+            },
+            "customId": "loaded",
+            "cType": "components",
+            "cId": "1c5f80be-f89b-453e-af02-73047e80a587"
+        },
+        "c9dcab7b-bddb-4713-9018-ebad24d27843": {
+            "name": "no_save",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "No saved progress yet. Press F5 to save."
+            },
+            "customId": "no_save",
+            "cType": "components",
+            "cId": "1c5f80be-f89b-453e-af02-73047e80a587"
+        },
+        "4fe4952e-5cf2-4203-aaf5-6ab227b5058b": {
+            "name": "save_failed",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "Could not save progress. Please try again."
+            },
+            "customId": "save_failed",
+            "cType": "components",
+            "cId": "1c5f80be-f89b-453e-af02-73047e80a587"
+        },
+        "01a69477-e07a-47a8-bcf0-f28871469e15": {
+            "name": "load_failed",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "Could not load saved progress."
+            },
+            "customId": "load_failed",
+            "cType": "components",
+            "cId": "1c5f80be-f89b-453e-af02-73047e80a587"
+        },
+        "ddaf3a93-9ae6-4552-91bf-4d201e817245": {
+            "name": "incompatible_save",
+            "value": {
+                "plain": true,
+                "type": "string",
+                "data": "This save belongs to a different version of the mission. Start again and save your progress."
+            },
+            "customId": "incompatible_save",
+            "cType": "components",
+            "cId": "1c5f80be-f89b-453e-af02-73047e80a587"
         }
     },
     "assets": {

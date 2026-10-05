@@ -1,10 +1,10 @@
 # Arcweave Unreal Quest Example
 
-A small C++ Unreal project in which Arcweave drives a world objective: accept a task, collect the required power cells, restore a station generator, and reach the exit. One Arcweave board runs the mission both in browser Play Mode and in Unreal. Arcweave owns quest progression, feedback, objective text, prompts, and station labels.
+A small C++ Unreal project in which Arcweave drives a world objective: accept a task, collect the required power cells, restore a station generator, and reach the exit. One Arcweave board runs the mission both in browser Play Mode and in Unreal. Arcweave owns quest progression, feedback, objective text, prompts, and station labels. The Unreal sample also saves and restores narrative progress together with the physical world.
 
 [Open the matching Arcweave project](https://arcweave.com/app/project/MWEZgMb62g) · [Narrative and C++ guide](docs/narrative.md)
 
-This example pins the Arcweave plugin to main commit `7513d9e113f4b8bca56e662fdb736fb41cb933ba` as a Git submodule, including [starting-element support](https://github.com/arcweave/arcweave-unreal-plugin/pull/39). It does not include save/load. The build targets disable adaptive unity compilation because the bundled plugin relies on unity include order; its source is unchanged.
+This example pins the Arcweave plugin to main commit `3b235a2a16cdff2f7bcdee5022bb1f16db466270` as a Git submodule, including starting-element discovery and the `CaptureState` / `RestoreState` API. The build targets disable adaptive unity compilation because the bundled plugin relies on unity include order; its source is unchanged.
 
 ## Run locally
 
@@ -36,11 +36,20 @@ In Unreal:
 - Try the generator before accepting the task to see Arcweave's terminal guidance, or before collecting both cells to see its missing-cell response.
 - Find both power cells, then activate the generator again. Arcweave sets the quest's power state, which lights the station, and references the Open gate component to request the gate action.
 - Walk through the gate into the exit corridor to complete the mission. Restoring power and completing the escape are separate authored states.
-- Press **R** to restart the mission.
+- Press **F5** to save or **F9** to load the single checkpoint slot. Save/load controls and feedback appear below the inventory panel.
+- Press **R** to restart the mission. Restart does not delete the checkpoint.
 
 The authored `quest.required_power_cells` value defaults to `2`. Setting it to `1` updates the requirement, feedback, prompts, and HUD together. The sample has two cells; a larger requirement needs more authored cell state and menu choices, as well as physical pickups in the level.
 
 The game runs offline from `Content/ArcweaveExport/quest.json`. An API key is only needed to refresh that export; no credential belongs in Unreal settings or packaged builds.
+
+## Save and load
+
+Try this sequence: accept the task, collect one cell, and press **F5**. Finish the mission, then press **F9**. The saved player position, one-cell inventory, remaining pickup, closed gate, unpowered station, and objective all return. The checkpoint survives restarting the game; press **F9** after opening a new session. Saving again replaces the same slot, `ArcweaveQuestCheckpoint`, stored in `Saved/SaveGames/ArcweaveQuestCheckpoint.sav` for that game instance.
+
+The plugin captures variables and visit counts in `FArcweaveRuntimeState`. This sample stores that snapshot in a C++ `USaveGame` with applied world effects, player pose, narrative cursors, and resolved objective/feedback. Loading restores this state and refreshes native caches without re-executing Arcscript, adding visits, or replaying collection/gate commands. Missing or incompatible saves leave the current mission untouched and show feedback from Arcweave's **UI → Save and load** component.
+
+A checkpoint requires the same imported narrative content. Changes to the exported project—including text or layout—make an older save incompatible; start a fresh mission and save again after updating the export. This example does not migrate old snapshots. File persistence belongs to the Unreal sample; the browser Play Mode quest remains unchanged. See the [C++ persistence guide](docs/narrative.md#save-and-load).
 
 ## How it works
 
@@ -50,6 +59,7 @@ The game runs offline from `Content/ArcweaveExport/quest.json`. An API key is on
 | Execute elements, update variables, select branch, dispatch components | [QuestDirector.cpp](Source/ArcweaveQuest/QuestDirector.cpp) |
 | Build the station and reflect quest state in the world | [QuestGameMode.cpp](Source/ArcweaveQuest/QuestGameMode.cpp) |
 | Movement and interaction | [QuestCharacter.cpp](Source/ArcweaveQuest/QuestCharacter.cpp) |
+| Save slot, Arcweave snapshot, world state, and player pose | [QuestSaveGame.h](Source/ArcweaveQuest/QuestSaveGame.h), [QuestDirector.cpp](Source/ArcweaveQuest/QuestDirector.cpp), and [QuestGameMode.cpp](Source/ArcweaveQuest/QuestGameMode.cpp) |
 | Objective and interaction display | [QuestHUD.cpp](Source/ArcweaveQuest/QuestHUD.cpp) |
 | Stable narrative UUID bindings | [QuestBindings.h](Source/ArcweaveQuest/QuestBindings.h) and [bindings.json](Narrative/bindings.json) |
 
@@ -59,13 +69,13 @@ The **Restore power · playable quest** board uses four local return jumpers for
 
 Referenced action components are a convention implemented by this sample: `collect_cell` and `open_gate` dispatch to C++ handlers. A pickup request identifies `cell_a` or `cell_b` through `game_event.cell_id`. The pickup branch checks that cell's shared `collected` flag, then task acceptance. In the accepted pickup element, Arcscript marks the cell as collected, increments `player.power_cells`, and renders the updated count before the `collect_cell` handler records the physical pickup. C++ does not write the narrative count. This gives Play Mode the same collection rules and progression as Unreal. The plugin does not provide an arbitrary Arcscript command/event registration API.
 
-The **State** folder contains Player (`player`), Restore power quest (`quest`), Cell A (`cell_a`), and Cell B (`cell_b`). **Inputs** contains Game event, **Actions** contains Collect cell and Open gate, and **UI** contains the three text components. Component variables hold values that Arcscript and Unreal can read; references to action components request effects in the engine. The director keeps a read cache of the five player/quest values, seeded at import and updated immediately by `OnArcweaveVariableChanged` when Arcscript or `SetVariable` changes them. HUD and world state getters read this cache without copying the entire imported project. Arcweave remains authoritative; there is no separate Restore power action or independently managed native power flag.
+The **State** folder contains Player (`player`), Restore power quest (`quest`), Cell A (`cell_a`), and Cell B (`cell_b`). **Inputs** contains Game event, **Actions** contains Collect cell and Open gate, and **UI** contains the four text components. Component variables hold values that Arcscript and Unreal can read; references to action components request effects in the engine. The director keeps a read cache of the five player/quest values, seeded at import and updated immediately by `OnArcweaveVariableChanged` when Arcscript or `SetVariable` changes them. HUD and world state getters read this cache without copying the entire imported project. Arcweave remains authoritative; there is no separate Restore power action or independently managed native power flag.
 
-The **UI** component folder separates shared HUD text (`hud`, five strings), static world labels (`world_text`, seven strings), and state-dependent quest display (`quest_ui`, seven strings). Folder names organize the editor; component custom IDs define Arcscript scopes. The director maps qualified keys such as `hud.station_name` to attribute UUIDs, then caches current values after each event. HUD drawing and looking at objects only call `GetUIText`; they never execute Arcscript or increment visits.
+The **UI** component folder separates shared HUD text (`hud`, five strings), static world labels (`world_text`, seven strings), state-dependent quest display (`quest_ui`, seven strings), and save/load controls and feedback (`save_ui`, seven strings). Folder names organize the editor; component custom IDs define Arcscript scopes. The director maps qualified keys such as `hud.station_name` to attribute UUIDs, then caches current values after each event. HUD drawing and looking at objects only call `GetUIText`; they never execute Arcscript or increment visits.
 
-The inventory query reads `hud.cells_label` and `player.power_cells` to display the current count; the required count remains part of the objective. The objectives/UI entry resets the seven `quest_ui` fields to their authored defaults, then conditionally applies the four shared powered-state fields when `quest.completed || quest.power_restored`. One branch selects the completed, powered, unaccepted, collecting, or ready objective directly. The outcome elements override only the remaining fields that differ, such as the completed heading. Each objective returns to the menu in Play Mode. Inventory only reads state; objectives may update `quest_ui`. Neither query changes quest progress, event inputs, or shared HUD/world text, nor dispatches world commands. Entry metadata identifies the query paths; display text remains in Arcweave. Use one statement per Arcscript code block, as required by the bundled interpreter.
+The inventory query reads `hud.cells_label` and `player.power_cells` to display the current count; the required count remains part of the objective. The objectives/UI entry resets the seven `quest_ui` fields to their authored defaults, then conditionally applies the four shared powered-state fields when `quest.completed || quest.power_restored`. One branch selects the completed, powered, unaccepted, collecting, or ready objective directly. The outcome elements override only the remaining fields that differ, such as the completed heading. Each objective returns to the menu in Play Mode. Inventory only reads state; objectives may update `quest_ui`. Neither query changes quest progress, event inputs, or shared HUD/world/save text, nor dispatches world commands. Entry metadata identifies the query paths; display text remains in Arcweave. Use one statement per Arcscript code block, as required by the bundled interpreter.
 
-The seven state fields are `player.power_cells` (the authored collected-item count), `quest.started` (terminal task accepted), `quest.required_power_cells` (authored requirement), `quest.power_restored` (set by generator success), `quest.completed` (set by exit completion), and each cell's `collected` flag. Together with the nineteen UI strings and two inputs on **Game event**, the plugin imports **28 component variables and no globals**. Event inputs describe the most recent request and are replaced on every interaction; restart restores empty event inputs and uncollected cells. There is no simulator board, simulation flag, or separate preview state. Editing authored wording and refreshing the export changes the response without a C++ edit. Runtime changes to shared HUD/world strings appear on the next event refresh and persist across presentation resets; restart restores authored values.
+The seven state fields are `player.power_cells` (the authored collected-item count), `quest.started` (terminal task accepted), `quest.required_power_cells` (authored requirement), `quest.power_restored` (set by generator success), `quest.completed` (set by exit completion), and each cell's `collected` flag. Together with the twenty-six UI strings and two inputs on **Game event**, the plugin imports **35 component variables and no globals**. Event inputs describe the most recent request and are replaced on every interaction; restart restores empty event inputs and uncollected cells. There is no simulator board, simulation flag, or separate preview state. Editing authored wording and refreshing the export changes the response without a C++ edit. Runtime changes to shared HUD/world strings appear on the next event refresh and persist across presentation resets; restart restores authored values.
 
 The scene uses Unreal primitive meshes and C++ actors. There are no quest Blueprints or external model dependencies. The committed map can be regenerated with `Scripts/build.ps1 -Task Map` after compiling the editor target.
 
@@ -75,11 +85,18 @@ The scene uses Unreal primitive meshes and C++ actors. There are no quest Bluepr
 powershell -ExecutionPolicy Bypass -File Scripts/test-build.ps1
 python Scripts/test-sync-narrative.py
 powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Test
+powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Test -TestFilter ArcweaveQuest.Persistence
 powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task WorldTest
+powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task WorldTest -TestFilter ArcweaveQuest.SaveLoadWorld
+powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Test -TestFilter ArcweaveQuest.SaveSession -SavePhase Write
+powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Test -TestFilter ArcweaveQuest.SaveSession -SavePhase Read
 powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Package
 powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task WorldTest -Packaged
+powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task WorldTest -Packaged -TestFilter ArcweaveQuest.SaveLoadWorld
 ```
 
 The first two commands check build-script routing and narrative validation without starting Unreal; the Python check requires Python 3.9 or later. Unreal tests and cooking run without a window using `-NullRHI -RenderOffscreen`. Packaging also disables hot reload. `Test` checks the narrative flow; `WorldTest` exercises the running world, pickups, lighting, and gate collision. `-Packaged` runs it in the packaged Development executable. The script checks Unreal's JSON automation report, including that tests actually ran. Reports and build logs are under `Saved/Validation`; packaged output defaults to `Builds/Windows`. Use the same `-OutputDirectory` argument for `Package` and `WorldTest -Packaged` when choosing a different archive directory. See [local verification results](docs/verification.md).
+
+`Persistence` checks disk snapshots and rejected loads; `SaveLoadWorld` restores actual actors, player position, lighting, and gate collision. Run the two `SaveSession` phases in the shown order: the second process loads the first process's checkpoint and continues playing. It requires `-SavePhase` and uses an automation-only slot, which the read phase deletes. The plugin's own snapshot tests can also be run with `-Task Test -TestFilter Arcweave.Project.RuntimeState`.
 
 The package includes the bundled JSON as a loose non-asset file so the plugin's local import can find it. The sample targets a single-player Windows desktop game; it is not a multiplayer or VR/mobile integration example.

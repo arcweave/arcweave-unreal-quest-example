@@ -31,10 +31,14 @@ DISPLAY_FIELDS = {
     "mission_heading", "grid_status", "terminal_prompt", "cell_prompt",
     "generator_prompt", "generator_label", "gate_label",
 }
+SAVE_FIELDS = {
+    "controls", "saved", "loaded", "no_save", "save_failed", "load_failed", "incompatible_save",
+}
 UI_COMPONENTS = {
     "HUDTextComponent": ("hud", HUD_FIELDS),
     "WorldTextComponent": ("world_text", WORLD_FIELDS),
     "QuestUIComponent": ("quest_ui", DISPLAY_FIELDS),
+    "SaveUIComponent": ("save_ui", SAVE_FIELDS),
 }
 SCOPED_FIELDS = dict(UI_COMPONENTS.values())
 EVENT_INPUTS = {
@@ -437,7 +441,7 @@ def validate_bindings(project, bindings):
             if value["type"] in {"boolean", "integer", "float"} or (value["type"] == "string" and value.get("plain")):
                 if (attribute_id not in scoped_attributes or attribute["cType"] != "components"
                         or attribute.get("cId") != scoped_attributes[attribute_id]):
-                    raise ValueError("Only the seven state values, nineteen UI strings, and two game_event inputs may add scoped variables.")
+                    raise ValueError("Only the seven state values, twenty-six UI strings, and two game_event inputs may add scoped variables.")
     state_ids = {bindings[name] for name in STATE_COMPONENTS}
     data_ids = ui_ids | state_ids | {event_component_id}
     for component_id, component in project["components"].items():
