@@ -1,6 +1,6 @@
 # Build, test, and package
 
-Follow the [README setup](../README.md#run) first. The sample pins the Arcweave plugin to the **v2.2.0** release commit; initialize it with `git submodule update --init --recursive` if it was not cloned with the project. Git LFS supplies the committed Unreal map.
+Follow the [README setup](../README.md#run) first. The sample pins the Arcweave plugin to the **v2.2.0** release commit; initialize it with `git submodule update --init --recursive` if it was not cloned with the project.
 
 ## Build options
 
@@ -12,11 +12,7 @@ powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Editor -EngineR
 
 Close the project's Unreal Editor before rebuilding its DLLs. The targets disable adaptive unity compilation because the bundled plugin relies on unity include order. Build output and automation reports go to `Saved/Validation`.
 
-The scene uses Unreal primitive meshes and C++ actors. Regenerate the committed map after compiling the editor target with:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Map
-```
+The committed `Content/Maps/PowerStation.umap` contains the starting map. C++ builds the station at runtime from Unreal primitive meshes and actors; edit `AQuestGameMode::BuildStation()` to change its layout.
 
 ## Source map
 
@@ -27,7 +23,7 @@ powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Map
 | Movement, interaction, and checkpoint keys | [QuestCharacter.cpp](../Source/ArcweaveQuest/QuestCharacter.cpp) |
 | Objective, inventory, and save/load display | [QuestHUD.cpp](../Source/ArcweaveQuest/QuestHUD.cpp) |
 | Game-owned snapshot data | [QuestSaveGame.h](../Source/ArcweaveQuest/QuestSaveGame.h) |
-| Bound narrative IDs | [QuestBindings.h](../Source/ArcweaveQuest/QuestBindings.h) and [bindings.json](../Narrative/bindings.json) |
+| Discover expected narrative objects for automation | [QuestTestNarrative.h](../Source/ArcweaveQuest/Tests/QuestTestNarrative.h) |
 
 `UQuestDirector` is sample code. It accesses the plugin with `GEngine->GetEngineSubsystem<UArcweaveSubsystem>()`. The plugin imports the project and evaluates Arcscript; the sample interprets an `open_gate` component reference as a native gate command and reads collected flags to update pickup visibility. See the [narrative guide](narrative.md) for the shared Play Mode/game flow, state ownership, entry discovery, and persistence contract.
 
@@ -35,14 +31,13 @@ Input mappings live in `Config/DefaultInput.ini`. It removes Unreal's inherited 
 
 ## Checks without Unreal
 
-Requires Python 3.9 or later and PowerShell. These checks also run in GitHub Actions:
+Requires Windows PowerShell. These checks also run in GitHub Actions:
 
 ```powershell
-python Scripts/test-sync-narrative.py
 powershell -ExecutionPolicy Bypass -File Scripts/test-build.ps1
 ```
 
-The Python suite validates the bundled exports, graph contracts, import copy, and sync behavior. The PowerShell fixtures check build-script routing and automation-report failures without invoking Unreal.
+The fixtures check packaging and packaged-test routing for default, absolute, and relative output directories without invoking Unreal. Use the native automation below to verify quest behavior after replacing the narrative export.
 
 ## Native automation
 
@@ -67,7 +62,7 @@ powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Test -TestFilte
 | `ArcweaveQuest.SaveSession` | A checkpoint written in one process and restored in a second |
 | `Arcweave.Project.RuntimeState` | The plugin's snapshot API |
 
-Run the two `SaveSession` phases in order. They use an automation-only slot, which the read phase removes. The runner checks Unreal's JSON report and fails if no tests run, any test fails, or tests remain unrun. See [recorded local results](verification.md).
+Run the two `SaveSession` phases in order. They use an automation-only slot, which the read phase removes. The runner checks Unreal's JSON report and fails if no tests run, any test fails, or tests remain unrun.
 
 ## Package
 
@@ -79,4 +74,4 @@ powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task WorldTest -Pack
 
 Packaging builds a Win64 Development game in `Builds/Windows`, with windowless cooking and hot reload disabled. Use `-OutputDirectory` to choose another archive location, and pass the same value to subsequent packaged tests. Run builds sequentially to avoid UnrealBuildTool conflicts.
 
-The package includes `Content/ArcweaveExport/quest.json` as a loose non-asset file. Syncing the source project does not update an existing package: copy the refreshed export into `Builds/Windows/ArcweaveQuest/Content/ArcweaveExport/`, or package again. Changing narrative content invalidates older checkpoints.
+The package includes `Content/ArcweaveExport/quest.json` as a loose non-asset file. Replacing the source export does not update an existing package: replace `Builds/Windows/ArcweaveQuest/Content/ArcweaveExport/quest.json` with the new export, or package again. See the [manual and REST API export instructions](narrative.md#refresh-the-bundled-narrative). Changing narrative content invalidates older checkpoints.

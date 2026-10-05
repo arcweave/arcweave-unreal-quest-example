@@ -1,7 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "QuestCharacter.h"
-#include "QuestBindings.h"
+#include "QuestTestNarrative.h"
 #include "QuestDirector.h"
 #include "QuestWorldActor.h"
 
@@ -65,6 +65,7 @@ public:
         case 1:
         {
             const FArcweaveProjectData InitialState = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData();
+            if (!NarrativeIds.Resolve(InitialState, Test)) return true;
             for (const FArcweaveBoardData& Board : InitialState.Boards)
             {
                 for (const FArcweaveElementData& Element : Board.Elements)
@@ -92,10 +93,10 @@ public:
             Test.TestEqual(TEXT("World startup computes the authored initial objective"), Director->GetObjective(), FString(TEXT("Use the terminal to begin.")));
             Test.TestEqual(TEXT("World startup computes its HUD without a menu selection"), Visits(PresentationEntryId), 1);
             Test.TestEqual(TEXT("World startup does not run the optional inventory query"), Visits(InventoryEntryId), 0);
-            Test.TestTrue(TEXT("World startup leaves the event type empty"), Variable(QuestBindings::EventTypeAttribute).IsEmpty());
-            Test.TestTrue(TEXT("World startup leaves the pickup identity empty"), Variable(QuestBindings::CellIdAttribute).IsEmpty());
-            Test.TestEqual(TEXT("World startup leaves shared cell A available"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("false")));
-            Test.TestEqual(TEXT("World startup leaves shared cell B available"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
+            Test.TestTrue(TEXT("World startup leaves the event type empty"), Variable(*NarrativeIds.EventTypeAttribute).IsEmpty());
+            Test.TestTrue(TEXT("World startup leaves the pickup identity empty"), Variable(*NarrativeIds.CellIdAttribute).IsEmpty());
+            Test.TestEqual(TEXT("World startup leaves shared cell A available"), Variable(*NarrativeIds.CellACollectedAttribute), FString(TEXT("false")));
+            Test.TestEqual(TEXT("World startup leaves shared cell B available"), Variable(*NarrativeIds.CellBCollectedAttribute), FString(TEXT("false")));
             InitialVisits = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().Visits;
             FHitResult Hit;
             Test.TestTrue(TEXT("Closed gate blocks the actual doorway collision trace"), TraceGate(Hit));
@@ -125,8 +126,8 @@ public:
             Test.TestFalse(TEXT("Authored prerequisite response leaves world power off"), Director->IsPowerRestored());
             Test.TestFalse(TEXT("Authored prerequisite response leaves the gate closed"), Director->IsGateOpen());
             Test.TestEqual(TEXT("Actual generator interaction enters the authored terminal-required node"),
-                Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
-            Test.TestEqual(TEXT("Actual preterminal interaction visits the authored guidance node"), Visits(QuestBindings::TerminalRequiredElement), 1);
+                Director->GetCurrentElementId(), FString(*NarrativeIds.TerminalRequiredElement));
+            Test.TestEqual(TEXT("Actual preterminal interaction visits the authored guidance node"), Visits(*NarrativeIds.TerminalRequiredElement), 1);
             Test.TestTrue(TEXT("World feedback includes the guidance node's authored explanation"),
                 Director->GetStatus().Contains(TEXT("The generator is waiting for authorization.")));
             ++Step;
@@ -137,9 +138,9 @@ public:
             CellA = InteractAt(TEXT("cell_a"));
             if (!CellA.IsValid()) return true;
             Test.TestEqual(TEXT("Real pickup before acceptance uses the authored prerequisite"),
-                Director->GetCurrentElementId(), FString(QuestBindings::PickupTerminalRequiredElement));
+                Director->GetCurrentElementId(), FString(*NarrativeIds.PickupTerminalRequiredElement));
             Test.TestEqual(TEXT("Denied world pickup leaves the narrative count at zero"), Director->GetPowerCellCount(), 0);
-            Test.TestEqual(TEXT("Denied world pickup leaves the shared collected flag false"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("false")));
+            Test.TestEqual(TEXT("Denied world pickup leaves the shared collected flag false"), Variable(*NarrativeIds.CellACollectedAttribute), FString(TEXT("false")));
             Test.TestFalse(TEXT("Denied world pickup remains visible"), CellA->IsHidden());
             Test.TestTrue(TEXT("Denied world pickup retains collision"), CellA->GetActorEnableCollision());
             Test.TestEqual(TEXT("Physical cell label comes from the authored catalog"),
@@ -155,7 +156,7 @@ public:
             // Teleporting uses the character capsule's normal overlap path; never call ReachExit here.
             if (World->GetTimeSeconds() - PhaseStart < 0.1) return false;
             Test.TestEqual(TEXT("Real exit overlap before power executes authored denial"),
-                Director->GetCurrentElementId(), FString(QuestBindings::ExitDeniedElement));
+                Director->GetCurrentElementId(), FString(*NarrativeIds.ExitDeniedElement));
             CheckExitEvent();
             Test.TestFalse(TEXT("An early physical exit overlap cannot complete the task"), Director->IsQuestCompleted());
             Test.TestFalse(TEXT("An early exit overlap cannot restore power"), Director->IsPowerRestored());
@@ -171,7 +172,7 @@ public:
             Test.TestFalse(TEXT("World generator takes the insufficient-cell branch"), Director->IsPowerRestored());
             Test.TestFalse(TEXT("Insufficient-cell branch leaves the actual gate closed"), Director->IsGateOpen());
             Test.TestEqual(TEXT("Insufficient-cell interaction reaches the authored response"),
-                Director->GetCurrentElementId(), FString(QuestBindings::MissingCellsElement));
+                Director->GetCurrentElementId(), FString(*NarrativeIds.MissingCellsElement));
             Test.TestFalse(TEXT("Insufficient-cell response is shown to the player"), Director->GetStatus().IsEmpty());
             ++Step;
             return false;
@@ -181,9 +182,9 @@ public:
             if (!CellA.IsValid()) return true;
             Test.TestEqual(TEXT("Actual cell A pickup updates the narrative variable"), Director->GetPowerCellCount(), 1);
             Test.TestEqual(TEXT("Actual cell A pickup ends at the state and feedback element"),
-                Director->GetCurrentElementId(), FString(QuestBindings::PickupActionElement));
-            Test.TestEqual(TEXT("Actual cell A pickup updates its shared collected flag"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("true")));
-            Test.TestEqual(TEXT("Actual cell A pickup leaves cell B available in the narrative"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
+                Director->GetCurrentElementId(), FString(*NarrativeIds.PickupActionElement));
+            Test.TestEqual(TEXT("Actual cell A pickup updates its shared collected flag"), Variable(*NarrativeIds.CellACollectedAttribute), FString(TEXT("true")));
+            Test.TestEqual(TEXT("Actual cell A pickup leaves cell B available in the narrative"), Variable(*NarrativeIds.CellBCollectedAttribute), FString(TEXT("false")));
             Test.TestEqual(TEXT("World pickup displays feedback after the count update"),
                 Director->GetStatus(), FString(TEXT("Collected a power cell (1/2).")));
             Test.TestEqual(TEXT("World pickup immediately updates the HUD objective without an inventory check"),
@@ -204,10 +205,10 @@ public:
             if (!CellB.IsValid()) return true;
             Test.TestEqual(TEXT("Actual cell B pickup updates the narrative variable"), Director->GetPowerCellCount(), 2);
             Test.TestEqual(TEXT("Actual cell B pickup reuses the state and feedback element"),
-                Director->GetCurrentElementId(), FString(QuestBindings::PickupActionElement));
-            Test.TestEqual(TEXT("Actual cell B pickup updates its shared collected flag"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("true")));
+                Director->GetCurrentElementId(), FString(*NarrativeIds.PickupActionElement));
+            Test.TestEqual(TEXT("Actual cell B pickup updates its shared collected flag"), Variable(*NarrativeIds.CellBCollectedAttribute), FString(TEXT("true")));
             Test.TestEqual(TEXT("The second world pickup immediately selects the ready objective"),
-                Director->GetPresentationElementId(), FString(QuestBindings::PresentationReadyElement));
+                Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationReadyElement));
             Test.TestTrue(TEXT("Quest notification hides the actual collected cell B actor"), CellB->IsHidden());
             Test.TestFalse(TEXT("Collected cell B no longer blocks collision"), CellB->GetActorEnableCollision());
             ++Step;
@@ -226,7 +227,7 @@ public:
                 Gate->FindComponentByClass<UTextRenderComponent>()->Text.ToString(),
                 Director->GetUIText(TEXT("quest_ui.gate_label")));
             Test.TestEqual(TEXT("World power restoration selects the exit objective"),
-                Director->GetPresentationElementId(), FString(QuestBindings::PresentationPoweredElement));
+                Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationPoweredElement));
             for (const auto& Light : StationLights)
             {
                 Test.TestTrue(TEXT("World notification increases each native station light's intensity"), Light.Key->Intensity > Light.Value);
@@ -267,12 +268,12 @@ public:
             if (World->GetTimeSeconds() - PhaseStart < 0.1) return false;
             Test.TestTrue(TEXT("Entering the real exit volume completes the powered task"), Director->IsQuestCompleted());
             Test.TestEqual(TEXT("The physical exit overlap executes the authored completion node"),
-                Director->GetCurrentElementId(), FString(QuestBindings::CompletedElement));
+                Director->GetCurrentElementId(), FString(*NarrativeIds.CompletedElement));
             Test.TestEqual(TEXT("Physical completion selects the completed presentation"),
-                Director->GetPresentationElementId(), FString(QuestBindings::PresentationCompletedElement));
+                Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationCompletedElement));
             Test.TestEqual(TEXT("The terminal exit leaf still refreshes the completed HUD"),
                 Director->GetUIText(TEXT("quest_ui.mission_heading")), FString(TEXT("MISSION COMPLETE")));
-            Test.TestEqual(TEXT("Physical exit entry completes exactly once"), Visits(QuestBindings::CompletedElement), 1);
+            Test.TestEqual(TEXT("Physical exit entry completes exactly once"), Visits(*NarrativeIds.CompletedElement), 1);
             CheckExitEvent();
             Character->QuestView(TEXT("gate"));
             PhaseStart = World->GetTimeSeconds();
@@ -289,8 +290,8 @@ public:
         {
             if (World->GetTimeSeconds() - PhaseStart < 0.1) return false;
             Test.TestEqual(TEXT("Physical exit reentry executes authored repeated-entry feedback"),
-                Director->GetCurrentElementId(), FString(QuestBindings::ExitAlreadyCompletedElement));
-            Test.TestEqual(TEXT("Physical reentry does not execute completion twice"), Visits(QuestBindings::CompletedElement), 1);
+                Director->GetCurrentElementId(), FString(*NarrativeIds.ExitAlreadyCompletedElement));
+            Test.TestEqual(TEXT("Physical reentry does not execute completion twice"), Visits(*NarrativeIds.CompletedElement), 1);
             Test.TestTrue(TEXT("Repeated physical exit entry preserves completion"), Director->IsQuestCompleted());
             CheckExitEvent();
             // Leave the trigger before restarting so the next session begins outside it.
@@ -319,13 +320,13 @@ public:
             Test.TestEqual(TEXT("World restart does not simulate an interaction"), Visits(EventEntryId), 0);
             Test.TestTrue(TEXT("World restart clears the gameplay cursor"), Director->GetCurrentElementId().IsEmpty());
             Test.TestTrue(TEXT("World restart clears gameplay feedback"), Director->GetStatus().IsEmpty());
-            Test.TestTrue(TEXT("World restart clears the last event type"), Variable(QuestBindings::EventTypeAttribute).IsEmpty());
-            Test.TestTrue(TEXT("World restart clears the pickup identity"), Variable(QuestBindings::CellIdAttribute).IsEmpty());
-            Test.TestEqual(TEXT("World restart resets shared cell A"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("false")));
-            Test.TestEqual(TEXT("World restart resets shared cell B"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
-            Test.TestEqual(TEXT("World restart clears the previous completion visit"), Visits(QuestBindings::CompletedElement), 0);
+            Test.TestTrue(TEXT("World restart clears the last event type"), Variable(*NarrativeIds.EventTypeAttribute).IsEmpty());
+            Test.TestTrue(TEXT("World restart clears the pickup identity"), Variable(*NarrativeIds.CellIdAttribute).IsEmpty());
+            Test.TestEqual(TEXT("World restart resets shared cell A"), Variable(*NarrativeIds.CellACollectedAttribute), FString(TEXT("false")));
+            Test.TestEqual(TEXT("World restart resets shared cell B"), Variable(*NarrativeIds.CellBCollectedAttribute), FString(TEXT("false")));
+            Test.TestEqual(TEXT("World restart clears the previous completion visit"), Visits(*NarrativeIds.CompletedElement), 0);
             Test.TestEqual(TEXT("World restart selects the unaccepted presentation"),
-                Director->GetPresentationElementId(), FString(QuestBindings::PresentationUnacceptedElement));
+                Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationUnacceptedElement));
             Test.TestTrue(TEXT("World restart restores the visits of a freshly initialized session"),
                 InitialVisits.OrderIndependentCompareEqual(GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData().Visits));
             FHitResult Hit;
@@ -342,44 +343,44 @@ public:
             // A state update drives the station through its normal notification path.
             // Opening the gate remains a separately authored engine action.
             UArcweaveSubsystem* Arcweave = GEngine->GetEngineSubsystem<UArcweaveSubsystem>();
-            Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("true"));
+            Arcweave->SetVariable(*NarrativeIds.PowerRestoredAttribute, TEXT("true"));
             Test.TestTrue(TEXT("The world power getter reads the changed quest attribute immediately"), Director->IsPowerRestored());
             if (!InteractAt(TEXT("terminal"))) return true;
             Test.TestEqual(TEXT("A normal world interaction reads the external power milestone"),
-                Director->GetCurrentElementId(), FString(QuestBindings::TerminalPoweredElement));
+                Director->GetCurrentElementId(), FString(*NarrativeIds.TerminalPoweredElement));
             Test.TestEqual(TEXT("External power refresh selects the powered presentation"),
-                Director->GetPresentationElementId(), FString(QuestBindings::PresentationPoweredElement));
-            Test.TestEqual(TEXT("External power refresh never executes the generator success element"), Visits(QuestBindings::SuccessElement), 0);
+                Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationPoweredElement));
+            Test.TestEqual(TEXT("External power refresh never executes the generator success element"), Visits(*NarrativeIds.SuccessElement), 0);
             Test.TestFalse(TEXT("Power state alone does not issue the gate-opening action"), Director->IsGateOpen());
             Test.TestTrue(TEXT("The separately controlled gate still blocks the doorway"), TraceGate(Hit));
             for (const auto& Light : StationLights)
             {
                 Test.TestTrue(TEXT("Normal world refresh lights the station from the scoped power value"), Light.Key->Intensity > Light.Value);
             }
-            Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("false"));
+            Arcweave->SetVariable(*NarrativeIds.PowerRestoredAttribute, TEXT("false"));
             Test.TestFalse(TEXT("Clearing scoped power immediately clears the world power getter"), Director->IsPowerRestored());
             if (!InteractAt(TEXT("terminal"))) return true;
             Test.TestEqual(TEXT("World presentation follows power back to the collecting state"),
-                Director->GetPresentationElementId(), FString(QuestBindings::PresentationCollectingElement));
+                Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationCollectingElement));
             Test.TestFalse(TEXT("Normal world refresh does not restore a stale native power flag"), Director->IsPowerRestored());
             for (const auto& Light : StationLights)
             {
                 Test.TestEqual(TEXT("World fixtures return to their unpowered intensity from the scoped value"), Light.Key->Intensity, Light.Value);
             }
             // The same refresh path applies externally changed pickup flags to the real actors.
-            Arcweave->SetVariable(QuestBindings::CellACollectedAttribute, TEXT("true"));
+            Arcweave->SetVariable(*NarrativeIds.CellACollectedAttribute, TEXT("true"));
             if (!InteractAt(TEXT("terminal"))) return true;
             Test.TestTrue(TEXT("A normal world refresh hides cell A from its Arcweave flag"), CellA->IsHidden());
             Test.TestFalse(TEXT("An externally collected cell A stops colliding"), CellA->GetActorEnableCollision());
             Test.TestFalse(TEXT("Changing cell A's flag leaves cell B visible"), CellB->IsHidden());
-            Arcweave->SetVariable(QuestBindings::CellACollectedAttribute, TEXT("false"));
-            Arcweave->SetVariable(QuestBindings::CellBCollectedAttribute, TEXT("true"));
+            Arcweave->SetVariable(*NarrativeIds.CellACollectedAttribute, TEXT("false"));
+            Arcweave->SetVariable(*NarrativeIds.CellBCollectedAttribute, TEXT("true"));
             if (!InteractAt(TEXT("terminal"))) return true;
             Test.TestFalse(TEXT("Clearing cell A's flag makes its world actor visible again"), CellA->IsHidden());
             Test.TestTrue(TEXT("Clearing cell A's flag restores collision"), CellA->GetActorEnableCollision());
             Test.TestTrue(TEXT("Cell B's own flag hides its world actor"), CellB->IsHidden());
             Test.TestFalse(TEXT("An externally collected cell B stops colliding"), CellB->GetActorEnableCollision());
-            Test.TestEqual(TEXT("External flag refresh does not run a pickup script"), Visits(QuestBindings::PickupActionElement), 0);
+            Test.TestEqual(TEXT("External flag refresh does not run a pickup script"), Visits(*NarrativeIds.PickupActionElement), 0);
             Test.TestEqual(TEXT("External flag refresh does not change inventory"), Director->GetPowerCellCount(), 0);
             FString Error;
             if (!Test.TestTrue(TEXT("The externally changed state also resets through normal restart"), Director->StartNewGame(Error)))
@@ -416,16 +417,16 @@ private:
 
     int32 ExitResponseVisits() const
     {
-        return Visits(QuestBindings::ExitDeniedElement) + Visits(QuestBindings::CompletedElement)
-            + Visits(QuestBindings::ExitAlreadyCompletedElement);
+        return Visits(*NarrativeIds.ExitDeniedElement) + Visits(*NarrativeIds.CompletedElement)
+            + Visits(*NarrativeIds.ExitAlreadyCompletedElement);
     }
 
     void CheckExitEvent()
     {
         Test.TestEqual(TEXT("Physical exit overlap enters the shared event graph once"), Visits(EventEntryId), BeforeExitEventVisits + 1);
         Test.TestEqual(TEXT("Physical exit overlap executes exactly one authored exit response"), ExitResponseVisits(), BeforeExitVisits + 1);
-        Test.TestEqual(TEXT("Physical exit overlap supplies the exit event type"), Variable(QuestBindings::EventTypeAttribute), FString(TEXT("enter_exit")));
-        Test.TestTrue(TEXT("Physical exit overlap clears the pickup identity"), Variable(QuestBindings::CellIdAttribute).IsEmpty());
+        Test.TestEqual(TEXT("Physical exit overlap supplies the exit event type"), Variable(*NarrativeIds.EventTypeAttribute), FString(TEXT("enter_exit")));
+        Test.TestTrue(TEXT("Physical exit overlap clears the pickup identity"), Variable(*NarrativeIds.CellIdAttribute).IsEmpty());
         CheckAutomaticPresentation(BeforeExitPresentationVisits);
     }
 
@@ -457,10 +458,10 @@ private:
                 : FString(View) == TEXT("generator") ? TEXT("check_generator") : TEXT("collect_cell");
             Test.TestEqual(FString(View) + TEXT(" interaction enters the shared event graph exactly once"),
                 Visits(EventEntryId), BeforeEventVisits + 1);
-            Test.TestEqual(FString(View) + TEXT(" interaction supplies its event type"), Variable(QuestBindings::EventTypeAttribute), ExpectedEvent);
+            Test.TestEqual(FString(View) + TEXT(" interaction supplies its event type"), Variable(*NarrativeIds.EventTypeAttribute), ExpectedEvent);
             const FString ExpectedCellId = ExpectedEvent == TEXT("collect_cell") ? FString(View) : FString();
             Test.TestEqual(FString(View) + TEXT(" interaction supplies its physical cell identity or clears it"),
-                Variable(QuestBindings::CellIdAttribute), ExpectedCellId);
+                Variable(*NarrativeIds.CellIdAttribute), ExpectedCellId);
             CheckAutomaticPresentation(BeforePresentationVisits);
         }
         return Target;
@@ -473,6 +474,7 @@ private:
     }
 
     FAutomationTestBase& Test;
+    FQuestTestNarrative NarrativeIds;
     TWeakObjectPtr<UWorld> World;
     TWeakObjectPtr<AQuestCharacter> Character;
     TWeakObjectPtr<UQuestDirector> Director;

@@ -16,20 +16,6 @@
       "Enabled": true
     },
     {
-      "Name": "PythonScriptPlugin",
-      "Enabled": true,
-      "TargetAllowList": [
-        "Editor"
-      ]
-    },
-    {
-      "Name": "EditorScriptingUtilities",
-      "Enabled": true,
-      "TargetAllowList": [
-        "Editor"
-      ]
-    },
-    {
       "Name": "AndroidFileServer",
       "Enabled": false
     }

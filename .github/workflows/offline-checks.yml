@@ -9,15 +9,10 @@ permissions:
   contents: read
 
 jobs:
-  narrative-and-build-scripts:
+  build-script-routing:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Validate narrative exports and sync
-        run: python Scripts/test-sync-narrative.py
       - name: Validate build-script routing without Unreal
         shell: powershell
         run: ./Scripts/test-build.ps1

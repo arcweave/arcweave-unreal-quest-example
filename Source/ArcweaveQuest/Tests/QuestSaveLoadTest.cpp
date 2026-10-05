@@ -1,7 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "QuestDirector.h"
-#include "QuestBindings.h"
+#include "QuestTestNarrative.h"
 #include "QuestSaveGame.h"
 
 #include "ArcweaveSubsystem.h"
@@ -48,7 +48,7 @@ FQuestCheckpointObservation ObserveCheckpoint(const UQuestDirector& Director)
 }
 
 void CheckCheckpoint(FAutomationTestBase& Test, const FString& Stage,
-    const UQuestDirector& Director, const FQuestCheckpointObservation& Expected)
+    const UQuestDirector& Director, const FQuestCheckpointObservation& Expected, const FQuestTestNarrative& NarrativeIds)
 {
     const FString Prefix = Stage + TEXT(": ");
     const FArcweaveProjectData Actual = GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData();
@@ -69,22 +69,22 @@ void CheckCheckpoint(FAutomationTestBase& Test, const FString& Stage,
         Test.TestEqual(Prefix + TEXT("cached UI restored: ") + Pair.Key.ToString(), Director.GetUIText(Pair.Key), Pair.Value);
     }
     Test.TestEqual(Prefix + TEXT("acceptance read cache"), Director.IsQuestStarted(),
-        Expected.Narrative.CurrentVars.FindChecked(QuestBindings::QuestStartedAttribute).Value == TEXT("true"));
+        Expected.Narrative.CurrentVars.FindChecked(*NarrativeIds.QuestStartedAttribute).Value == TEXT("true"));
     Test.TestEqual(Prefix + TEXT("power read cache"), Director.IsPowerRestored(),
-        Expected.Narrative.CurrentVars.FindChecked(QuestBindings::PowerRestoredAttribute).Value == TEXT("true"));
+        Expected.Narrative.CurrentVars.FindChecked(*NarrativeIds.PowerRestoredAttribute).Value == TEXT("true"));
     Test.TestEqual(Prefix + TEXT("completion read cache"), Director.IsQuestCompleted(),
-        Expected.Narrative.CurrentVars.FindChecked(QuestBindings::QuestCompletedAttribute).Value == TEXT("true"));
+        Expected.Narrative.CurrentVars.FindChecked(*NarrativeIds.QuestCompletedAttribute).Value == TEXT("true"));
     Test.TestEqual(Prefix + TEXT("inventory read cache"), Director.GetPowerCellCount(),
-        FCString::Atoi(*Expected.Narrative.CurrentVars.FindChecked(QuestBindings::PowerCellsAttribute).Value));
+        FCString::Atoi(*Expected.Narrative.CurrentVars.FindChecked(*NarrativeIds.PowerCellsAttribute).Value));
     Test.TestEqual(Prefix + TEXT("gameplay cursor"), Director.GetCurrentElementId(), Expected.CurrentElement);
     Test.TestEqual(Prefix + TEXT("objective cursor"), Director.GetPresentationElementId(), Expected.PresentationElement);
     Test.TestEqual(Prefix + TEXT("resolved objective"), Director.GetObjective(), Expected.Objective);
     Test.TestEqual(Prefix + TEXT("resolved interaction feedback"), Director.GetStatus(), Expected.Status);
     Test.TestEqual(Prefix + TEXT("applied gate effect"), Director.IsGateOpen(), Expected.bGateOpen);
     Test.TestEqual(Prefix + TEXT("cell A availability follows its saved Arcweave flag"), Director.HasCollectedCell(TEXT("cell_a")),
-        Expected.Narrative.CurrentVars.FindChecked(QuestBindings::CellACollectedAttribute).Value == TEXT("true"));
+        Expected.Narrative.CurrentVars.FindChecked(*NarrativeIds.CellACollectedAttribute).Value == TEXT("true"));
     Test.TestEqual(Prefix + TEXT("cell B availability follows its saved Arcweave flag"), Director.HasCollectedCell(TEXT("cell_b")),
-        Expected.Narrative.CurrentVars.FindChecked(QuestBindings::CellBCollectedAttribute).Value == TEXT("true"));
+        Expected.Narrative.CurrentVars.FindChecked(*NarrativeIds.CellBCollectedAttribute).Value == TEXT("true"));
 }
 
 /** Only removes slots created by this test, including on an assertion failure. */
@@ -130,6 +130,9 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
         return false;
     }
 
+    FQuestTestNarrative NarrativeIds;
+    if (!NarrativeIds.Resolve(Arcweave->GetArcweaveProjectData(), *this)) return false;
+
     int32 GameplayCommands = 0;
     const auto ObserveCommands = [&GameplayCommands](UQuestDirector* Target)
     {
@@ -162,7 +165,7 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
     if (!TestTrue(TEXT("Save writes a real one-cell checkpoint"), Director->SaveCheckpoint(OneCellSlot, SavedTransform, SavedControl, Error))) return false;
     TestTrue(TEXT("The checkpoint exists in Unreal's save system"), UGameplayStatics::DoesSaveGameExist(OneCellSlot, 0));
     TestEqual(TEXT("Saving uses the authored confirmation"), Director->GetPersistenceStatus(), Director->GetUIText(TEXT("save_ui.saved")));
-    CheckCheckpoint(*this, TEXT("Saving does not advance the game"), *Director, OneCell);
+    CheckCheckpoint(*this, TEXT("Saving does not advance the game"), *Director, OneCell, NarrativeIds);
 
     TestTrue(TEXT("Continue to the second pickup"), Director->CollectCell(TEXT("cell_b"), Error));
     if (!TestTrue(TEXT("Restore power after the one-cell checkpoint"), Director->TryRestorePower(Error))) return false;
@@ -173,7 +176,7 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
     const FQuestCheckpointObservation Completed = ObserveCheckpoint(*Director);
     if (!TestTrue(TEXT("Save the completed mission"), Director->SaveCheckpoint(CompletedSlot, SavedTransform, SavedControl, Error))) return false;
 
-    const auto RestoreAndCheck = [this, &Director, &Error, &GameplayCommands, &SavedTransform, &SavedControl]
+    const auto RestoreAndCheck = [this, &Director, &Error, &GameplayCommands, &SavedTransform, &SavedControl, &NarrativeIds]
         (const FString& Slot, const FQuestCheckpointObservation& Expected, const TCHAR* Stage)
     {
         int32 Notifications = 0;
@@ -188,7 +191,7 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
             AddError(Error);
             return false;
         }
-        CheckCheckpoint(*this, Stage, *Director, Expected);
+        CheckCheckpoint(*this, Stage, *Director, Expected, NarrativeIds);
         TestTrue(FString(Stage) + TEXT(": player transform round-trips"), RestoredTransform.Equals(SavedTransform));
         TestTrue(FString(Stage) + TEXT(": camera rotation round-trips"), RestoredControl.Equals(SavedControl));
         TestEqual(FString(Stage) + TEXT(": no gameplay action is replayed"), GameplayCommands, CommandsBefore);
@@ -202,7 +205,7 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
     if (!RestoreAndCheck(CompletedSlot, Completed, TEXT("Powered to completed"))) return false;
     if (!RestoreAndCheck(CompletedSlot, Completed, TEXT("Repeated completed load"))) return false;
 
-    const auto CheckRejectedLoad = [this, Director, &Error, &GameplayCommands]
+    const auto CheckRejectedLoad = [this, Director, &Error, &GameplayCommands, &NarrativeIds]
         (const FString& Slot, const TCHAR* ExpectedMessageKey, const TCHAR* Stage)
     {
         const FQuestCheckpointObservation Before = ObserveCheckpoint(*Director);
@@ -215,7 +218,7 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
         TestFalse(FString(Stage) + TEXT(": diagnostic explains the failure"), Error.IsEmpty());
         TestEqual(FString(Stage) + TEXT(": authored player-facing feedback"),
             Director->GetPersistenceStatus(), Director->GetUIText(FName(ExpectedMessageKey)));
-        CheckCheckpoint(*this, Stage, *Director, Before);
+        CheckCheckpoint(*this, Stage, *Director, Before, NarrativeIds);
         TestTrue(FString(Stage) + TEXT(": transform output is untouched"), Output.Equals(OutputSentinel));
         TestTrue(FString(Stage) + TEXT(": rotation output is untouched"), Control.Equals(RotationSentinel));
         TestEqual(FString(Stage) + TEXT(": no engine commands"), GameplayCommands, CommandsBefore);
@@ -251,7 +254,7 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
 
     UQuestSaveGame* InvalidNarrative = Cast<UQuestSaveGame>(UGameplayStatics::LoadGameFromSlot(OneCellSlot, 0));
     if (!TestNotNull(TEXT("Reload the checkpoint for invalid narrative data"), InvalidNarrative)) return false;
-    InvalidNarrative->ArcweaveState.Variables.Remove(QuestBindings::PowerCellsAttribute);
+    InvalidNarrative->ArcweaveState.Variables.Remove(*NarrativeIds.PowerCellsAttribute);
     if (!TestTrue(TEXT("Write an incomplete narrative snapshot"), UGameplayStatics::SaveGameToSlot(InvalidNarrative, InvalidSlot, 0))) return false;
     CheckRejectedLoad(InvalidSlot, TEXT("save_ui.load_failed"), TEXT("Invalid plugin-owned state"));
 
@@ -269,14 +272,14 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Gameplay continues from the restored checkpoint"), Director->CollectCell(TEXT("cell_b"), Error));
     TestEqual(TEXT("The next pickup increments restored inventory exactly once"), Director->GetPowerCellCount(), 2);
     TestEqual(TEXT("The next pickup executes the saved pickup counter plus one"),
-        Arcweave->GetArcweaveProjectData().Visits.FindChecked(QuestBindings::PickupActionElement),
-        OneCell.Narrative.Visits.FindChecked(QuestBindings::PickupActionElement) + 1);
+        Arcweave->GetArcweaveProjectData().Visits.FindChecked(*NarrativeIds.PickupActionElement),
+        OneCell.Narrative.Visits.FindChecked(*NarrativeIds.PickupActionElement) + 1);
 
     // Gate effects are saved independently, while pickups derive from Arcweave flags.
     // External state updates must not cause LoadCheckpoint to invent gameplay commands.
     if (!TestTrue(TEXT("Start a session with externally provided power"), Director->StartNewGame(Error))) return false;
-    Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("true"));
-    Arcweave->SetVariable(QuestBindings::CellACollectedAttribute, TEXT("true"));
+    Arcweave->SetVariable(*NarrativeIds.PowerRestoredAttribute, TEXT("true"));
+    Arcweave->SetVariable(*NarrativeIds.CellACollectedAttribute, TEXT("true"));
     if (!TestTrue(TEXT("Refresh the powered presentation without the generator action"), Director->StartQuest(Error))) return false;
     const FQuestCheckpointObservation ExternalPower = ObserveCheckpoint(*Director);
     TestTrue(TEXT("The external milestone supplies power"), Director->IsPowerRestored());
@@ -284,7 +287,7 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("The external collected flag controls cell A availability"), Director->HasCollectedCell(TEXT("cell_a")));
     TestFalse(TEXT("The external flag leaves cell B available"), Director->HasCollectedCell(TEXT("cell_b")));
     TestEqual(TEXT("The external collected flag requires no pickup element replay"),
-        ExternalPower.Narrative.Visits.FindChecked(QuestBindings::PickupActionElement), 0);
+        ExternalPower.Narrative.Visits.FindChecked(*NarrativeIds.PickupActionElement), 0);
     if (!TestTrue(TEXT("Save narrative power and its separately closed world gate"),
         Director->SaveCheckpoint(PoweredSlot, SavedTransform, SavedControl, Error))) return false;
     if (!RestoreAndCheck(CompletedSlot, Completed, TEXT("Move from external power to a completed checkpoint"))) return false;
@@ -313,6 +316,8 @@ bool FArcweaveQuestSaveSessionTest::RunTest(const FString& Parameters)
     UArcweaveSubsystem* Arcweave = GEngine->GetEngineSubsystem<UArcweaveSubsystem>();
     FString Error;
     if (!TestTrue(TEXT("New process initializes its interpreter"), Director->StartNewGame(Error))) return false;
+    FQuestTestNarrative NarrativeIds;
+    if (!NarrativeIds.Resolve(Arcweave->GetArcweaveProjectData(), *this)) return false;
     if (Phase == TEXT("Write"))
     {
         UGameplayStatics::DeleteGameInSlot(Slot, 0);
@@ -320,13 +325,13 @@ bool FArcweaveQuestSaveSessionTest::RunTest(const FString& Parameters)
             || !TestTrue(TEXT("Writer collects cell B"), Director->CollectCell(TEXT("cell_b"), Error))
             || !TestTrue(TEXT("Writer persists a one-cell checkpoint"), Director->SaveCheckpoint(Slot, ExpectedTransform, ExpectedControl, Error))) return false;
         TestEqual(TEXT("Writer has visited the pickup response once"),
-            Arcweave->GetArcweaveProjectData().Visits.FindChecked(QuestBindings::PickupActionElement), 1);
+            Arcweave->GetArcweaveProjectData().Visits.FindChecked(*NarrativeIds.PickupActionElement), 1);
     }
     else if (Phase == TEXT("Read"))
     {
         TestEqual(TEXT("Reader starts with an empty inventory"), Director->GetPowerCellCount(), 0);
         TestEqual(TEXT("Reader starts without prior pickup visits"),
-            Arcweave->GetArcweaveProjectData().Visits.FindChecked(QuestBindings::PickupActionElement), 0);
+            Arcweave->GetArcweaveProjectData().Visits.FindChecked(*NarrativeIds.PickupActionElement), 0);
         UQuestSaveGame* Saved = Cast<UQuestSaveGame>(UGameplayStatics::LoadGameFromSlot(Slot, 0));
         if (!TestNotNull(TEXT("The previous process left its USaveGame on disk"), Saved)) return false;
         FTransform PlayerTransform;

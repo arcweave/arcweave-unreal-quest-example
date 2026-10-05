@@ -1,6 +1,5 @@
 #include "QuestDirector.h"
 
-#include "QuestBindings.h"
 #include "QuestSaveGame.h"
 #include "ArcweaveVariable.h"
 #include "ArcscriptTranspilerOutput.h"
@@ -22,6 +21,7 @@ void UQuestDirector::Deinitialize()
         Arcweave->OnArcweaveVariableChanged.RemoveDynamic(this, &UQuestDirector::HandleVariablesChanged);
         Arcweave->OnArcweaveStateRestored.RemoveDynamic(this, &UQuestDirector::HandleStateRestored);
     }
+    VariableIds.Reset();
     StateValues.Reset();
     bProjectLoaded = false;
     Super::Deinitialize();
@@ -70,27 +70,32 @@ bool UQuestDirector::StartNewGame(FString& Error)
     }
     PresentationEntryId = PresentationEntry->Id;
 
-    UIVariableIds.Reset();
-    for (const TCHAR* ComponentId : {QuestBindings::HUDTextComponent,
-        QuestBindings::WorldTextComponent, QuestBindings::QuestUIComponent, QuestBindings::SaveUIComponent})
+    VariableIds.Reset();
+    for (const auto& Pair : Project.CurrentVars)
+    {
+        const FArcweaveVariable& Variable = Pair.Value;
+        VariableIds.Add(FName(*(Variable.Scope + TEXT(".") + Variable.Name)), Variable.Id);
+    }
+    UIText.Reset();
+    for (const TCHAR* Scope : {TEXT("hud"), TEXT("world_text"), TEXT("quest_ui"), TEXT("save_ui")})
     {
         const FArcweaveComponentData* UI = Project.Components.FindByPredicate(
-            [ComponentId](const FArcweaveComponentData& Component) { return Component.Id == ComponentId; });
+            [Scope](const FArcweaveComponentData& Component) { return Component.CustomId == Scope; });
         if (!UI)
         {
             return RejectInteraction(TEXT("The narrative export is missing a required UI component."), Error);
         }
         for (const FArcweaveAttributeData& Attribute : UI->Attributes)
         {
-            UIVariableIds.Add(FName(*(UI->CustomId + TEXT(".") + Attribute.CustomId)), Attribute.Id);
+            const FName Field(*(UI->CustomId + TEXT(".") + Attribute.CustomId));
+            UIText.Add(Field, Project.CurrentVars.FindChecked(VariableIds.FindChecked(Field)).Value);
         }
     }
     StateValues.Reset();
-    for (const TCHAR* Id : {QuestBindings::QuestStartedAttribute, QuestBindings::QuestCompletedAttribute,
-        QuestBindings::PowerRestoredAttribute, QuestBindings::PowerCellsAttribute, QuestBindings::RequiredPowerCellsAttribute,
-        QuestBindings::CellACollectedAttribute, QuestBindings::CellBCollectedAttribute})
+    for (const TCHAR* Field : {TEXT("quest.started"), TEXT("quest.completed"), TEXT("quest.power_restored"),
+        TEXT("player.power_cells"), TEXT("quest.required_power_cells"), TEXT("cell_a.collected"), TEXT("cell_b.collected")})
     {
-        StateValues.Add(Id, Project.CurrentVars.FindChecked(Id).Value);
+        StateValues.Add(Field, Project.CurrentVars.FindChecked(VariableIds.FindChecked(Field)).Value);
     }
     Arcweave->OnArcweaveVariableChanged.AddUniqueDynamic(this, &UQuestDirector::HandleVariablesChanged);
     Arcweave->OnArcweaveStateRestored.AddUniqueDynamic(this, &UQuestDirector::HandleStateRestored);
@@ -228,19 +233,19 @@ bool UQuestDirector::LoadCheckpoint(const FString& SlotName, FTransform& OutPlay
 
 bool UQuestDirector::IsQuestStarted() const
 {
-    return bProjectLoaded && StateValues.FindChecked(QuestBindings::QuestStartedAttribute)
+    return bProjectLoaded && StateValues.FindChecked(TEXT("quest.started"))
         .Equals(TEXT("true"), ESearchCase::CaseSensitive);
 }
 
 bool UQuestDirector::IsQuestCompleted() const
 {
-    return bProjectLoaded && StateValues.FindChecked(QuestBindings::QuestCompletedAttribute)
+    return bProjectLoaded && StateValues.FindChecked(TEXT("quest.completed"))
         .Equals(TEXT("true"), ESearchCase::CaseSensitive);
 }
 
 bool UQuestDirector::IsPowerRestored() const
 {
-    return bProjectLoaded && StateValues.FindChecked(QuestBindings::PowerRestoredAttribute)
+    return bProjectLoaded && StateValues.FindChecked(TEXT("quest.power_restored"))
         .Equals(TEXT("true"), ESearchCase::CaseSensitive);
 }
 
@@ -250,26 +255,26 @@ bool UQuestDirector::HasCollectedCell(FName CellId) const
     {
         return false;
     }
-    const TCHAR* AttributeId = CellId == TEXT("cell_a") ? QuestBindings::CellACollectedAttribute
-        : CellId == TEXT("cell_b") ? QuestBindings::CellBCollectedAttribute : nullptr;
-    return AttributeId && StateValues.FindChecked(AttributeId).Equals(TEXT("true"), ESearchCase::CaseSensitive);
+    const TCHAR* Field = CellId == TEXT("cell_a") ? TEXT("cell_a.collected")
+        : CellId == TEXT("cell_b") ? TEXT("cell_b.collected") : nullptr;
+    return Field && StateValues.FindChecked(Field).Equals(TEXT("true"), ESearchCase::CaseSensitive);
 }
 
 int32 UQuestDirector::GetPowerCellCount() const
 {
-    return bProjectLoaded ? FCString::Atoi(*StateValues.FindChecked(QuestBindings::PowerCellsAttribute)) : 0;
+    return bProjectLoaded ? FCString::Atoi(*StateValues.FindChecked(TEXT("player.power_cells"))) : 0;
 }
 
 int32 UQuestDirector::GetRequiredPowerCellCount() const
 {
-    return bProjectLoaded ? FCString::Atoi(*StateValues.FindChecked(QuestBindings::RequiredPowerCellsAttribute)) : 0;
+    return bProjectLoaded ? FCString::Atoi(*StateValues.FindChecked(TEXT("quest.required_power_cells"))) : 0;
 }
 
 void UQuestDirector::HandleVariablesChanged(const TArray<FArcweaveVariable>& Variables)
 {
     for (const FArcweaveVariable& Variable : Variables)
     {
-        if (FString* Value = StateValues.Find(Variable.Id))
+        if (FString* Value = StateValues.Find(FName(*(Variable.Scope + TEXT(".") + Variable.Name))))
         {
             *Value = Variable.Value;
         }
@@ -292,8 +297,8 @@ bool UQuestDirector::RunEvent(const FString& EventType, FString& Error, FName Ce
     TGuardValue<bool> InteractionGuard(bInteractionInProgress, true);
 
     // Replace the complete event input each time; pickup context cannot leak into later events.
-    Arcweave->SetVariable(QuestBindings::EventTypeAttribute, EventType);
-    Arcweave->SetVariable(QuestBindings::CellIdAttribute, CellId.IsNone() ? FString() : CellId.ToString());
+    Arcweave->SetVariable(VariableIds.FindChecked(TEXT("game_event.type")), EventType);
+    Arcweave->SetVariable(VariableIds.FindChecked(TEXT("game_event.cell_id")), CellId.IsNone() ? FString() : CellId.ToString());
 
     FArcweaveElementData LastElement;
     if (!RunGraph(Arcweave->GetArcweaveProjectData().StartingElementId, true, LastElement, Error) || !RefreshPresentation(Error))
@@ -414,12 +419,11 @@ void UQuestDirector::RefreshRuntimeCaches()
     const FArcweaveProjectData Project = Arcweave->GetArcweaveProjectData();
     for (auto& Variable : StateValues)
     {
-        Variable.Value = Project.CurrentVars.FindChecked(Variable.Key).Value;
+        Variable.Value = Project.CurrentVars.FindChecked(VariableIds.FindChecked(Variable.Key)).Value;
     }
-    UIText.Reset();
-    for (const auto& Variable : UIVariableIds)
+    for (auto& Variable : UIText)
     {
-        UIText.Add(Variable.Key, Project.CurrentVars.FindChecked(Variable.Value).Value);
+        Variable.Value = Project.CurrentVars.FindChecked(VariableIds.FindChecked(Variable.Key)).Value;
     }
 }
 

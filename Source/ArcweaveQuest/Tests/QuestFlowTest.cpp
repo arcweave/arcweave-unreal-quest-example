@@ -2,7 +2,7 @@
 
 #include "QuestDirector.h"
 
-#include "QuestBindings.h"
+#include "QuestTestNarrative.h"
 #include "ArcweaveVariable.h"
 #include "ArcscriptTranspilerOutput.h"
 #include "ArcweaveSubsystem.h"
@@ -28,6 +28,8 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         return false;
     }
     const FArcweaveProjectData InitialState = Arcweave->GetArcweaveProjectData();
+    FQuestTestNarrative NarrativeIds;
+    if (!NarrativeIds.Resolve(InitialState, *this)) return false;
     const FString EventEntryId = InitialState.StartingElementId;
     if (!TestFalse(TEXT("The imported project supplies its world-event starting element"), EventEntryId.IsEmpty())) return false;
     if (!TestEqual(TEXT("Play Mode and Unreal share one quest board"), InitialState.Boards.Num(), 1)) return false;
@@ -55,7 +57,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         if (Choice.TargetType == TEXT("branches"))
         {
             ++PhysicalChoices;
-            TestEqual(TEXT("Every physical Play Mode choice enters the same event router"), Choice.Targetid, FString(QuestBindings::EventRouterBranch));
+            TestEqual(TEXT("Every physical Play Mode choice enters the same event router"), Choice.Targetid, FString(*NarrativeIds.EventRouterBranch));
         }
         else
         {
@@ -75,8 +77,8 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("A query precedes gameplay choices, so native events must select the router rather than the first output"),
         Menu->Outputs[0].TargetType, FString(TEXT("jumpers")));
     TSet<FString> ReturnJumperIds;
-    for (const TCHAR* LeafId : {QuestBindings::PresentationUnacceptedElement, QuestBindings::PresentationCollectingElement,
-        QuestBindings::PresentationReadyElement, QuestBindings::PresentationPoweredElement, QuestBindings::PresentationCompletedElement})
+    for (const TCHAR* LeafId : {*NarrativeIds.PresentationUnacceptedElement, *NarrativeIds.PresentationCollectingElement,
+        *NarrativeIds.PresentationReadyElement, *NarrativeIds.PresentationPoweredElement, *NarrativeIds.PresentationCompletedElement})
     {
         const FArcweaveElementData* Leaf = QuestBoard.Elements.FindByPredicate(
             [LeafId](const FArcweaveElementData& Element) { return Element.Id == LeafId; });
@@ -102,14 +104,14 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TArray<const TCHAR*> Responses;
     };
     const FEventLane Lanes[] = {
-        {TEXT("use_terminal"), {QuestBindings::TerminalAcceptElement, QuestBindings::TerminalAcceptedElement,
-            QuestBindings::TerminalPoweredElement, QuestBindings::TerminalCompletedElement}},
-        {TEXT("collect_cell"), {QuestBindings::DuplicatePickupElement, QuestBindings::PickupTerminalRequiredElement,
-            QuestBindings::PickupActionElement}},
-        {TEXT("check_generator"), {QuestBindings::TerminalRequiredElement, QuestBindings::MissingCellsElement,
-            QuestBindings::SuccessElement, QuestBindings::AlreadyOnlineElement}},
-        {TEXT("enter_exit"), {QuestBindings::ExitDeniedElement, QuestBindings::CompletedElement,
-            QuestBindings::ExitAlreadyCompletedElement}}
+        {TEXT("use_terminal"), {*NarrativeIds.TerminalAcceptElement, *NarrativeIds.TerminalAcceptedElement,
+            *NarrativeIds.TerminalPoweredElement, *NarrativeIds.TerminalCompletedElement}},
+        {TEXT("collect_cell"), {*NarrativeIds.DuplicatePickupElement, *NarrativeIds.PickupTerminalRequiredElement,
+            *NarrativeIds.PickupActionElement}},
+        {TEXT("check_generator"), {*NarrativeIds.TerminalRequiredElement, *NarrativeIds.MissingCellsElement,
+            *NarrativeIds.SuccessElement, *NarrativeIds.AlreadyOnlineElement}},
+        {TEXT("enter_exit"), {*NarrativeIds.ExitDeniedElement, *NarrativeIds.CompletedElement,
+            *NarrativeIds.ExitAlreadyCompletedElement}}
     };
     TSet<FString> WorldReturnJumperIds;
     for (const FEventLane& Lane : Lanes)
@@ -120,7 +122,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
             const FArcweaveElementData* Response = QuestBoard.Elements.FindByPredicate(
                 [ResponseId](const FArcweaveElementData& Element) { return Element.Id == ResponseId; });
             if (!TestNotNull(TEXT("The shared board contains each event response"), Response)) return false;
-            if (Response->Id == QuestBindings::CompletedElement || Response->Id == QuestBindings::ExitAlreadyCompletedElement)
+            if (Response->Id == *NarrativeIds.CompletedElement || Response->Id == *NarrativeIds.ExitAlreadyCompletedElement)
             {
                 TestTrue(TEXT("Successful and repeated exits end the Play Mode playthrough"), Response->Outputs.IsEmpty());
                 continue;
@@ -160,10 +162,10 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         int32 Fields;
     };
     const FUIComponentScope UIComponents[] = {
-        {QuestBindings::HUDTextComponent, TEXT("hud"), 6},
-        {QuestBindings::WorldTextComponent, TEXT("world_text"), 7},
-        {QuestBindings::QuestUIComponent, TEXT("quest_ui"), 7},
-        {QuestBindings::SaveUIComponent, TEXT("save_ui"), 7}
+        {*NarrativeIds.HUDTextComponent, TEXT("hud"), 6},
+        {*NarrativeIds.WorldTextComponent, TEXT("world_text"), 7},
+        {*NarrativeIds.QuestUIComponent, TEXT("quest_ui"), 7},
+        {*NarrativeIds.SaveUIComponent, TEXT("save_ui"), 7}
     };
     TMap<FName, FString> AuthoredUI;
     TMap<FName, FString> UIVariableIds;
@@ -222,17 +224,17 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TArray<FStateField> Fields;
     };
     const FStateComponentScope StateComponents[] = {
-        {QuestBindings::PlayerComponent, TEXT("player"), {
-            {QuestBindings::PowerCellsAttribute, TEXT("power_cells"), TEXT("integer"), TEXT("0")}}},
-        {QuestBindings::QuestStateComponent, TEXT("quest"), {
-            {QuestBindings::QuestStartedAttribute, TEXT("started"), TEXT("boolean"), TEXT("false")},
-            {QuestBindings::PowerRestoredAttribute, TEXT("power_restored"), TEXT("boolean"), TEXT("false")},
-            {QuestBindings::QuestCompletedAttribute, TEXT("completed"), TEXT("boolean"), TEXT("false")},
-            {QuestBindings::RequiredPowerCellsAttribute, TEXT("required_power_cells"), TEXT("integer"), TEXT("2")}}},
-        {QuestBindings::CellAComponent, TEXT("cell_a"), {
-            {QuestBindings::CellACollectedAttribute, TEXT("collected"), TEXT("boolean"), TEXT("false")}}},
-        {QuestBindings::CellBComponent, TEXT("cell_b"), {
-            {QuestBindings::CellBCollectedAttribute, TEXT("collected"), TEXT("boolean"), TEXT("false")}}}
+        {*NarrativeIds.PlayerComponent, TEXT("player"), {
+            {*NarrativeIds.PowerCellsAttribute, TEXT("power_cells"), TEXT("integer"), TEXT("0")}}},
+        {*NarrativeIds.QuestStateComponent, TEXT("quest"), {
+            {*NarrativeIds.QuestStartedAttribute, TEXT("started"), TEXT("boolean"), TEXT("false")},
+            {*NarrativeIds.PowerRestoredAttribute, TEXT("power_restored"), TEXT("boolean"), TEXT("false")},
+            {*NarrativeIds.QuestCompletedAttribute, TEXT("completed"), TEXT("boolean"), TEXT("false")},
+            {*NarrativeIds.RequiredPowerCellsAttribute, TEXT("required_power_cells"), TEXT("integer"), TEXT("2")}}},
+        {*NarrativeIds.CellAComponent, TEXT("cell_a"), {
+            {*NarrativeIds.CellACollectedAttribute, TEXT("collected"), TEXT("boolean"), TEXT("false")}}},
+        {*NarrativeIds.CellBComponent, TEXT("cell_b"), {
+            {*NarrativeIds.CellBCollectedAttribute, TEXT("collected"), TEXT("boolean"), TEXT("false")}}}
     };
     for (const FStateComponentScope& Expected : StateComponents)
     {
@@ -271,7 +273,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TestEqual(TEXT("Runtime UI variable count for ") + FString(Expected.Scope), ScopedVariableCount, Expected.Fields);
     }
     const FArcweaveComponentData* EventComponent = InitialState.Components.FindByPredicate(
-        [](const FArcweaveComponentData& Component) { return Component.Id == QuestBindings::GameEventComponent; });
+        [&NarrativeIds](const FArcweaveComponentData& Component) { return Component.Id == *NarrativeIds.GameEventComponent; });
     if (!TestNotNull(TEXT("The Game event component is imported"), EventComponent)) return false;
     TestEqual(TEXT("Event inputs have the game_event scope"), EventComponent->CustomId, FString(TEXT("game_event")));
     TestEqual(TEXT("The event component has exactly two inputs"), EventComponent->Attributes.Num(), 2);
@@ -283,8 +285,8 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         const TCHAR* Default;
     };
     const FEventInput EventInputs[] = {
-        {QuestBindings::EventTypeAttribute, TEXT("type"), TEXT("string"), TEXT("")},
-        {QuestBindings::CellIdAttribute, TEXT("cell_id"), TEXT("string"), TEXT("")}
+        {*NarrativeIds.EventTypeAttribute, TEXT("type"), TEXT("string"), TEXT("")},
+        {*NarrativeIds.CellIdAttribute, TEXT("cell_id"), TEXT("string"), TEXT("")}
     };
     for (const FEventInput& Input : EventInputs)
     {
@@ -314,7 +316,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
                 Director->GetUIText(Pair.Key), State.CurrentVars.FindChecked(Pair.Value).Value);
         }
     };
-    const auto CheckPresentation = [this, Director, &AuthoredUI, &CheckUIValues](const TCHAR* ElementId)
+    const auto CheckPresentation = [this, Director, &AuthoredUI, &CheckUIValues, &NarrativeIds](const TCHAR* ElementId)
     {
         TMap<FName, FString> ExpectedFields;
         for (const auto& Pair : AuthoredUI)
@@ -322,22 +324,22 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
             if (Pair.Key.ToString().StartsWith(TEXT("quest_ui."))) ExpectedFields.Add(Pair.Key, Pair.Value);
         }
         const FString Stage(ElementId);
-        if (Stage == QuestBindings::PresentationUnacceptedElement)
+        if (Stage == *NarrativeIds.PresentationUnacceptedElement)
         {
             ExpectedFields.Add(TEXT("quest_ui.terminal_prompt"), TEXT("Read station terminal"));
             ExpectedFields.Add(TEXT("quest_ui.cell_prompt"), TEXT("Read the station terminal first"));
         }
-        else if (Stage == QuestBindings::PresentationReadyElement)
+        else if (Stage == *NarrativeIds.PresentationReadyElement)
         {
             ExpectedFields.Add(TEXT("quest_ui.generator_prompt"), TEXT("Install cells and restore power"));
         }
-        else if (Stage == QuestBindings::PresentationPoweredElement || Stage == QuestBindings::PresentationCompletedElement)
+        else if (Stage == *NarrativeIds.PresentationPoweredElement || Stage == *NarrativeIds.PresentationCompletedElement)
         {
             ExpectedFields.Add(TEXT("quest_ui.grid_status"), TEXT("GRID ONLINE"));
             ExpectedFields.Add(TEXT("quest_ui.generator_prompt"), TEXT("Review running generator"));
             ExpectedFields.Add(TEXT("quest_ui.generator_label"), TEXT("GENERATOR / ONLINE"));
             ExpectedFields.Add(TEXT("quest_ui.gate_label"), TEXT("GATE 01 / ACCESS GRANTED"));
-            if (Stage == QuestBindings::PresentationCompletedElement)
+            if (Stage == *NarrativeIds.PresentationCompletedElement)
             {
                 ExpectedFields.Add(TEXT("quest_ui.mission_heading"), TEXT("MISSION COMPLETE"));
             }
@@ -360,14 +362,14 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         ++GateCommands;
         OpenGate();
     });
-    Director->OnQuestChanged.AddLambda([this, Director, Arcweave, &PresentationChanges]
+    Director->OnQuestChanged.AddLambda([this, Director, Arcweave, &PresentationChanges, &NarrativeIds]
     {
         ++PresentationChanges;
         const FArcweaveProjectData State = Arcweave->GetArcweaveProjectData();
         TestEqual(TEXT("World notification reads cell A from its authored flag"), Director->HasCollectedCell(TEXT("cell_a")),
-            State.CurrentVars.FindChecked(QuestBindings::CellACollectedAttribute).Value == TEXT("true"));
+            State.CurrentVars.FindChecked(*NarrativeIds.CellACollectedAttribute).Value == TEXT("true"));
         TestEqual(TEXT("World notification reads cell B from its authored flag"), Director->HasCollectedCell(TEXT("cell_b")),
-            State.CurrentVars.FindChecked(QuestBindings::CellBCollectedAttribute).Value == TEXT("true"));
+            State.CurrentVars.FindChecked(*NarrativeIds.CellBCollectedAttribute).Value == TEXT("true"));
         if (Director->IsQuestCompleted())
         {
             TestTrue(TEXT("Completed presentation also observes restored power"), Director->IsPowerRestored());
@@ -382,7 +384,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     {
         return Arcweave->GetArcweaveProjectData().CurrentVars.FindChecked(Id).Value;
     };
-    const auto CheckEvent = [this, Director, Arcweave, &Variable, &EventEntryId, &InventoryEntryId, &Lanes](const TCHAR* EventType,
+    const auto CheckEvent = [this, Director, Arcweave, &Variable, &EventEntryId, &InventoryEntryId, &Lanes, &NarrativeIds](const TCHAR* EventType,
         const TFunction<bool()>& Action, FName CellId = NAME_None)
     {
         const FArcweaveProjectData Before = Arcweave->GetArcweaveProjectData();
@@ -392,9 +394,9 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TestEqual(Prefix + TEXT("executes the shared world-event entry exactly once"),
             After.Visits.FindChecked(EventEntryId), Before.Visits.FindChecked(EventEntryId) + 1);
         TestEqual(Prefix + TEXT("menu label assignments cannot overwrite the injected event type"),
-            Variable(QuestBindings::EventTypeAttribute), FString(EventType));
+            Variable(*NarrativeIds.EventTypeAttribute), FString(EventType));
         TestEqual(Prefix + TEXT("menu label assignments cannot overwrite the injected cell identity"),
-            Variable(QuestBindings::CellIdAttribute), CellId.IsNone() ? FString() : CellId.ToString());
+            Variable(*NarrativeIds.CellIdAttribute), CellId.IsNone() ? FString() : CellId.ToString());
         TestEqual(Prefix + TEXT("automatically refreshes presentation exactly once without selecting a menu query"),
             After.Visits.FindChecked(Director->PresentationEntryId),
             Before.Visits.FindChecked(Director->PresentationEntryId) + (bResult ? 1 : 0));
@@ -568,7 +570,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         }
         return true;
     };
-    const auto CheckRestart = [this, Director, Arcweave, &InitialState, &EventEntryId, &Visits, &Error, &UIVariableIds, &CheckUIValues]()
+    const auto CheckRestart = [this, Director, Arcweave, &InitialState, &EventEntryId, &Visits, &Error, &UIVariableIds, &CheckUIValues, &NarrativeIds]()
     {
         if (!TestTrue(TEXT("Restart reloads defaults and computes the initial presentation"), Director->StartNewGame(Error)))
         {
@@ -587,11 +589,11 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TestEqual(TEXT("Restart does not simulate a world event"), Visits(EventEntryId), 0);
         TestTrue(TEXT("Restart leaves the gameplay cursor empty"), Director->GetCurrentElementId().IsEmpty());
         TestTrue(TEXT("Restart clears previous gameplay feedback"), Director->GetStatus().IsEmpty());
-        TestEqual(TEXT("Restart clears the last event type"), Restarted.CurrentVars.FindChecked(QuestBindings::EventTypeAttribute).Value, FString());
-        TestEqual(TEXT("Restart clears the last pickup identity"), Restarted.CurrentVars.FindChecked(QuestBindings::CellIdAttribute).Value, FString());
-        TestEqual(TEXT("Restart resets the shared cell A flag"), Restarted.CurrentVars.FindChecked(QuestBindings::CellACollectedAttribute).Value, FString(TEXT("false")));
-        TestEqual(TEXT("Restart resets the shared cell B flag"), Restarted.CurrentVars.FindChecked(QuestBindings::CellBCollectedAttribute).Value, FString(TEXT("false")));
-        TestEqual(TEXT("Restart selects the unaccepted presentation"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationUnacceptedElement));
+        TestEqual(TEXT("Restart clears the last event type"), Restarted.CurrentVars.FindChecked(*NarrativeIds.EventTypeAttribute).Value, FString());
+        TestEqual(TEXT("Restart clears the last pickup identity"), Restarted.CurrentVars.FindChecked(*NarrativeIds.CellIdAttribute).Value, FString());
+        TestEqual(TEXT("Restart resets the shared cell A flag"), Restarted.CurrentVars.FindChecked(*NarrativeIds.CellACollectedAttribute).Value, FString(TEXT("false")));
+        TestEqual(TEXT("Restart resets the shared cell B flag"), Restarted.CurrentVars.FindChecked(*NarrativeIds.CellBCollectedAttribute).Value, FString(TEXT("false")));
+        TestEqual(TEXT("Restart selects the unaccepted presentation"), Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationUnacceptedElement));
         TestTrue(TEXT("Restart visits match a newly initialized session, not an all-zero map"),
             Restarted.Visits.OrderIndependentCompareEqual(InitialState.Visits));
         TestEqual(TEXT("Restart preserves quest, UI, and event input definitions"), Restarted.CurrentVars.Num(), InitialState.CurrentVars.Num());
@@ -615,131 +617,131 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Startup does not enter the world-event graph"), Visits(EventEntryId), 0);
     TestTrue(TEXT("Startup has no gameplay cursor"), Director->GetCurrentElementId().IsEmpty());
     TestTrue(TEXT("Startup has no interaction feedback"), Director->GetStatus().IsEmpty());
-    TestEqual(TEXT("Unaccepted presentation is selected by the graph"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationUnacceptedElement));
+    TestEqual(TEXT("Unaccepted presentation is selected by the graph"), Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationUnacceptedElement));
     TestEqual(TEXT("Authored initial objective is cached"), Director->GetObjective(), FString(TEXT("Use the terminal to begin.")));
     CheckUIValues(TEXT("Initialized state"));
     TestFalse(TEXT("Initial terminal prompt is available"), Director->GetUIText(TEXT("quest_ui.terminal_prompt")).IsEmpty());
     CheckCachedReads(TEXT("Initial state"));
-    CheckPresentation(QuestBindings::PresentationUnacceptedElement);
+    CheckPresentation(*NarrativeIds.PresentationUnacceptedElement);
     if (!CheckOptionalQueries(TEXT("Initial state"))) return false;
 
     TestTrue(TEXT("A generator attempt before acceptance executes authored guidance"), AttemptGenerator());
     TestTrue(TEXT("Narrative denial is not an integration error"), Error.IsEmpty());
-    TestEqual(TEXT("Generator enters the terminal-required response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
+    TestEqual(TEXT("Generator enters the terminal-required response"), Director->GetCurrentElementId(), FString(*NarrativeIds.TerminalRequiredElement));
     TestTrue(TEXT("Generator guidance is the authored authorization text"), Director->GetStatus().Contains(TEXT("The generator is waiting for authorization.")));
-    TestEqual(TEXT("Preterminal attempt visits the authored guidance once"), Visits(QuestBindings::TerminalRequiredElement), 1);
+    TestEqual(TEXT("Preterminal attempt visits the authored guidance once"), Visits(*NarrativeIds.TerminalRequiredElement), 1);
     TestFalse(TEXT("Generator guidance leaves acceptance false"), Director->IsQuestStarted());
     TestFalse(TEXT("Generator guidance leaves power off"), Director->IsPowerRestored());
 
-    Arcweave->SetVariable(QuestBindings::PowerCellsAttribute, TEXT("2"));
+    Arcweave->SetVariable(*NarrativeIds.PowerCellsAttribute, TEXT("2"));
     TestTrue(TEXT("Authored acceptance requirement still applies with enough cells"), AttemptGenerator());
-    TestEqual(TEXT("Acceptance takes precedence over the required count"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
-    TestEqual(TEXT("Premature two-cell attempt does not execute success"), Visits(QuestBindings::SuccessElement), 0);
+    TestEqual(TEXT("Acceptance takes precedence over the required count"), Director->GetCurrentElementId(), FString(*NarrativeIds.TerminalRequiredElement));
+    TestEqual(TEXT("Premature two-cell attempt does not execute success"), Visits(*NarrativeIds.SuccessElement), 0);
     TestEqual(TEXT("Premature attempts execute no world commands"), GateCommands, 0);
-    Arcweave->SetVariable(QuestBindings::PowerCellsAttribute, TEXT("0"));
+    Arcweave->SetVariable(*NarrativeIds.PowerCellsAttribute, TEXT("0"));
 
     TestTrue(TEXT("Pickup before acceptance executes its authored denial"), AttemptPickup(TEXT("cell_a")));
-    TestEqual(TEXT("Pickup uses its dedicated prerequisite response"), Director->GetCurrentElementId(), FString(QuestBindings::PickupTerminalRequiredElement));
+    TestEqual(TEXT("Pickup uses its dedicated prerequisite response"), Director->GetCurrentElementId(), FString(*NarrativeIds.PickupTerminalRequiredElement));
     TestTrue(TEXT("Denied pickup is a valid narrative interaction"), Error.IsEmpty());
     TestEqual(TEXT("Denied pickup cannot increase the count"), Director->GetPowerCellCount(), 0);
-    TestEqual(TEXT("Denied pickup leaves the shared cell A available"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("false")));
-    TestEqual(TEXT("Denied pickup leaves the shared cell B available"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
+    TestEqual(TEXT("Denied pickup leaves the shared cell A available"), Variable(*NarrativeIds.CellACollectedAttribute), FString(TEXT("false")));
+    TestEqual(TEXT("Denied pickup leaves the shared cell B available"), Variable(*NarrativeIds.CellBCollectedAttribute), FString(TEXT("false")));
     TestFalse(TEXT("Denied pickup leaves the physical cell available"), Director->HasCollectedCell(TEXT("cell_a")));
     TestTrue(TEXT("Exit before power executes the authored denial"), ReachExit());
-    TestEqual(TEXT("Early exit reaches the denial element"), Director->GetCurrentElementId(), FString(QuestBindings::ExitDeniedElement));
+    TestEqual(TEXT("Early exit reaches the denial element"), Director->GetCurrentElementId(), FString(*NarrativeIds.ExitDeniedElement));
     TestFalse(TEXT("Early exit does not complete the task"), Director->IsQuestCompleted());
 
     TestTrue(TEXT("Terminal traverses the acceptance graph"), StartQuest());
     TestTrue(TEXT("Acceptance script changes quest.started"), Director->IsQuestStarted());
-    TestEqual(TEXT("Accepting the task ends at the terminal acceptance element"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalAcceptElement));
-    TestEqual(TEXT("Acceptance does not repeat the generator guidance"), Visits(QuestBindings::TerminalRequiredElement), 2);
+    TestEqual(TEXT("Accepting the task ends at the terminal acceptance element"), Director->GetCurrentElementId(), FString(*NarrativeIds.TerminalAcceptElement));
+    TestEqual(TEXT("Acceptance does not repeat the generator guidance"), Visits(*NarrativeIds.TerminalRequiredElement), 2);
     TestEqual(TEXT("Collecting objective renders current and required counts"), Director->GetObjective(), FString(TEXT("Collect power cells (0/2), then use the generator.")));
     TestTrue(TEXT("Repeated terminal interaction follows an authored response"), StartQuest());
-    TestEqual(TEXT("Repeat acceptance reaches its own response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalAcceptedElement));
-    TestEqual(TEXT("Repeat acceptance does not replay terminal acceptance"), Visits(QuestBindings::TerminalAcceptElement), 1);
+    TestEqual(TEXT("Repeat acceptance reaches its own response"), Director->GetCurrentElementId(), FString(*NarrativeIds.TerminalAcceptedElement));
+    TestEqual(TEXT("Repeat acceptance does not replay terminal acceptance"), Visits(*NarrativeIds.TerminalAcceptElement), 1);
 
     TestTrue(TEXT("Zero-cell generator attempt executes the missing-cell response"), AttemptGenerator());
-    TestEqual(TEXT("Zero cells select MissingCells"), Director->GetCurrentElementId(), FString(QuestBindings::MissingCellsElement));
+    TestEqual(TEXT("Zero cells select MissingCells"), Director->GetCurrentElementId(), FString(*NarrativeIds.MissingCellsElement));
     TestFalse(TEXT("Missing-cell response leaves world power off"), Director->IsPowerRestored());
     TestFalse(TEXT("Missing-cell response leaves the gate closed"), Director->IsGateOpen());
 
     TestTrue(TEXT("First accepted pickup executes the shared state and feedback element"), AttemptPickup(TEXT("cell_a")));
-    TestEqual(TEXT("Pickup Arcscript updates the shared narrative count"), Variable(QuestBindings::PowerCellsAttribute), FString(TEXT("1")));
-    TestEqual(TEXT("The first pickup marks shared cell A collected"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("true")));
-    TestEqual(TEXT("Collecting cell A leaves shared cell B available"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
+    TestEqual(TEXT("Pickup Arcscript updates the shared narrative count"), Variable(*NarrativeIds.PowerCellsAttribute), FString(TEXT("1")));
+    TestEqual(TEXT("The first pickup marks shared cell A collected"), Variable(*NarrativeIds.CellACollectedAttribute), FString(TEXT("true")));
+    TestEqual(TEXT("Collecting cell A leaves shared cell B available"), Variable(*NarrativeIds.CellBCollectedAttribute), FString(TEXT("false")));
     TestTrue(TEXT("The collected flag makes cell A unavailable"), Director->HasCollectedCell(TEXT("cell_a")));
     TestEqual(TEXT("Pickup feedback is rendered after the count update"), Director->GetStatus(), FString(TEXT("Collected a power cell (1/2).")));
-    TestEqual(TEXT("Pickup ends at its state and feedback node"), Director->GetCurrentElementId(), FString(QuestBindings::PickupActionElement));
-    TestEqual(TEXT("One cell keeps the collecting presentation"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationCollectingElement));
+    TestEqual(TEXT("Pickup ends at its state and feedback node"), Director->GetCurrentElementId(), FString(*NarrativeIds.PickupActionElement));
+    TestEqual(TEXT("One cell keeps the collecting presentation"), Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationCollectingElement));
     TestEqual(TEXT("Collecting objective updates with the current count"), Director->GetObjective(), FString(TEXT("Collect power cells (1/2), then use the generator.")));
     TestEqual(TEXT("Collecting a cell dispatches no engine commands"), GateCommands, 0);
     CheckCachedReads(TEXT("Collecting state"));
-    CheckPresentation(QuestBindings::PresentationCollectingElement);
+    CheckPresentation(*NarrativeIds.PresentationCollectingElement);
     if (!CheckOptionalQueries(TEXT("Collecting state"))) return false;
 
     TestTrue(TEXT("Duplicate pickup executes authored feedback"), AttemptPickup(TEXT("cell_a")));
-    TestEqual(TEXT("Duplicate uses the duplicate response"), Director->GetCurrentElementId(), FString(QuestBindings::DuplicatePickupElement));
+    TestEqual(TEXT("Duplicate uses the duplicate response"), Director->GetCurrentElementId(), FString(*NarrativeIds.DuplicatePickupElement));
     TestTrue(TEXT("Duplicate is not an integration error"), Error.IsEmpty());
     TestEqual(TEXT("Duplicate cannot increase the count"), Director->GetPowerCellCount(), 1);
-    TestEqual(TEXT("Duplicate preserves the shared cell A flag"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("true")));
-    TestEqual(TEXT("Duplicate cannot collect shared cell B"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
-    TestEqual(TEXT("Duplicate does not reenter the combined pickup node"), Visits(QuestBindings::PickupActionElement), 1);
-    Arcweave->SetVariable(QuestBindings::QuestStartedAttribute, TEXT("false"));
+    TestEqual(TEXT("Duplicate preserves the shared cell A flag"), Variable(*NarrativeIds.CellACollectedAttribute), FString(TEXT("true")));
+    TestEqual(TEXT("Duplicate cannot collect shared cell B"), Variable(*NarrativeIds.CellBCollectedAttribute), FString(TEXT("false")));
+    TestEqual(TEXT("Duplicate does not reenter the combined pickup node"), Visits(*NarrativeIds.PickupActionElement), 1);
+    Arcweave->SetVariable(*NarrativeIds.QuestStartedAttribute, TEXT("false"));
     TestTrue(TEXT("Duplicate detection takes precedence over quest acceptance"), AttemptPickup(TEXT("cell_a")));
     TestEqual(TEXT("The pickup branch checks shared collected state before acceptance"),
-        Director->GetCurrentElementId(), FString(QuestBindings::DuplicatePickupElement));
-    TestEqual(TEXT("Duplicate routing never repeats the pickup script"), Visits(QuestBindings::PickupActionElement), 1);
-    Arcweave->SetVariable(QuestBindings::QuestStartedAttribute, TEXT("true"));
+        Director->GetCurrentElementId(), FString(*NarrativeIds.DuplicatePickupElement));
+    TestEqual(TEXT("Duplicate routing never repeats the pickup script"), Visits(*NarrativeIds.PickupActionElement), 1);
+    Arcweave->SetVariable(*NarrativeIds.QuestStartedAttribute, TEXT("true"));
     TestTrue(TEXT("One-cell generator attempt reevaluates the condition"), AttemptGenerator());
-    TestEqual(TEXT("One cell still selects MissingCells"), Director->GetCurrentElementId(), FString(QuestBindings::MissingCellsElement));
+    TestEqual(TEXT("One cell still selects MissingCells"), Director->GetCurrentElementId(), FString(*NarrativeIds.MissingCellsElement));
 
     TestTrue(TEXT("Another duplicate request reads shared cell A state"), AttemptPickup(TEXT("cell_a")));
     TestTrue(TEXT("Second unique pickup reaches the requirement"), AttemptPickup(TEXT("cell_b")));
     TestEqual(TEXT("Both pickups are reflected in narrative state"), Director->GetPowerCellCount(), 2);
-    TestEqual(TEXT("The second pickup preserves shared cell A"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("true")));
-    TestEqual(TEXT("The second pickup marks shared cell B collected"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("true")));
+    TestEqual(TEXT("The second pickup preserves shared cell A"), Variable(*NarrativeIds.CellACollectedAttribute), FString(TEXT("true")));
+    TestEqual(TEXT("The second pickup marks shared cell B collected"), Variable(*NarrativeIds.CellBCollectedAttribute), FString(TEXT("true")));
     TestEqual(TEXT("Second pickup feedback reads the updated count"), Director->GetStatus(), FString(TEXT("Collected a power cell (2/2).")));
-    TestEqual(TEXT("Required count selects the authored ready presentation"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationReadyElement));
+    TestEqual(TEXT("Required count selects the authored ready presentation"), Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationReadyElement));
     TestEqual(TEXT("Ready objective is authored text"), Director->GetObjective(), FString(TEXT("Return to the generator and restore power.")));
     const FString ReadyPrompt = Director->GetUIText(TEXT("quest_ui.generator_prompt"));
     TestFalse(TEXT("Ready generator prompt is supplied by the graph"), ReadyPrompt.IsEmpty());
-    CheckPresentation(QuestBindings::PresentationReadyElement);
+    CheckPresentation(*NarrativeIds.PresentationReadyElement);
     if (!CheckOptionalQueries(TEXT("Ready state"))) return false;
 
     TestTrue(TEXT("Generator succeeds after the required pickups"), AttemptGenerator());
-    TestEqual(TEXT("Success follows the authored connection"), Director->GetCurrentElementId(), FString(QuestBindings::SuccessElement));
-    TestEqual(TEXT("Success updates the narrative power flag"), Variable(QuestBindings::PowerRestoredAttribute), FString(TEXT("true")));
+    TestEqual(TEXT("Success follows the authored connection"), Director->GetCurrentElementId(), FString(*NarrativeIds.SuccessElement));
+    TestEqual(TEXT("Success updates the narrative power flag"), Variable(*NarrativeIds.PowerRestoredAttribute), FString(TEXT("true")));
     TestTrue(TEXT("The authored quest.power_restored value turns world power on"), Director->IsPowerRestored());
     TestTrue(TEXT("open_gate opens the world gate"), Director->IsGateOpen());
     TestFalse(TEXT("Restoring power does not complete the task before reaching the exit"), Director->IsQuestCompleted());
-    TestEqual(TEXT("Completion variable remains false while the exit is available"), Variable(QuestBindings::QuestCompletedAttribute), FString(TEXT("false")));
-    TestEqual(TEXT("Power and completion select distinct presentation stages"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationPoweredElement));
+    TestEqual(TEXT("Completion variable remains false while the exit is available"), Variable(*NarrativeIds.QuestCompletedAttribute), FString(TEXT("false")));
+    TestEqual(TEXT("Power and completion select distinct presentation stages"), Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationPoweredElement));
     TestEqual(TEXT("Powered objective directs the player to the exit"), Director->GetObjective(), FString(TEXT("Power restored. Walk through the open gate.")));
     TestEqual(TEXT("Gate command runs once"), GateCommands, 1);
     CheckCachedReads(TEXT("Powered state"));
-    CheckPresentation(QuestBindings::PresentationPoweredElement);
+    CheckPresentation(*NarrativeIds.PresentationPoweredElement);
     if (!CheckOptionalQueries(TEXT("Powered state"))) return false;
 
     TestTrue(TEXT("Repeated generator use executes an authored already-online response"), AttemptGenerator());
-    TestEqual(TEXT("Repeated generator reaches AlreadyOnline"), Director->GetCurrentElementId(), FString(QuestBindings::AlreadyOnlineElement));
-    TestEqual(TEXT("Repeated generator does not reenter success"), Visits(QuestBindings::SuccessElement), 1);
+    TestEqual(TEXT("Repeated generator reaches AlreadyOnline"), Director->GetCurrentElementId(), FString(*NarrativeIds.AlreadyOnlineElement));
+    TestEqual(TEXT("Repeated generator does not reenter success"), Visits(*NarrativeIds.SuccessElement), 1);
     TestEqual(TEXT("Repeated generator does not reissue gate opening"), GateCommands, 1);
     TestTrue(TEXT("Terminal can describe the powered state"), StartQuest());
-    TestEqual(TEXT("Powered terminal uses its authored response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalPoweredElement));
+    TestEqual(TEXT("Powered terminal uses its authored response"), Director->GetCurrentElementId(), FString(*NarrativeIds.TerminalPoweredElement));
 
     TestTrue(TEXT("Reaching the exit executes the completion graph"), ReachExit());
     TestTrue(TEXT("Exit completion updates quest.completed"), Director->IsQuestCompleted());
-    TestEqual(TEXT("Only the completion node ends the quest"), Director->GetCurrentElementId(), FString(QuestBindings::CompletedElement));
-    TestEqual(TEXT("Completed presentation is distinct from powered"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationCompletedElement));
+    TestEqual(TEXT("Only the completion node ends the quest"), Director->GetCurrentElementId(), FString(*NarrativeIds.CompletedElement));
+    TestEqual(TEXT("Completed presentation is distinct from powered"), Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationCompletedElement));
     TestEqual(TEXT("Completed objective comes from the presentation node"), Director->GetObjective(), FString(TEXT("Task complete. You reached the exit.")));
-    TestEqual(TEXT("Completion node is visited once"), Visits(QuestBindings::CompletedElement), 1);
+    TestEqual(TEXT("Completion node is visited once"), Visits(*NarrativeIds.CompletedElement), 1);
     TestTrue(TEXT("Repeated exit entry executes authored feedback"), ReachExit());
-    TestEqual(TEXT("Repeated exit reaches its own response"), Director->GetCurrentElementId(), FString(QuestBindings::ExitAlreadyCompletedElement));
-    TestEqual(TEXT("Repeated exit does not replay the completion node"), Visits(QuestBindings::CompletedElement), 1);
+    TestEqual(TEXT("Repeated exit reaches its own response"), Director->GetCurrentElementId(), FString(*NarrativeIds.ExitAlreadyCompletedElement));
+    TestEqual(TEXT("Repeated exit does not replay the completion node"), Visits(*NarrativeIds.CompletedElement), 1);
     TestTrue(TEXT("Terminal can describe the completed state"), StartQuest());
-    TestEqual(TEXT("Completed terminal uses its authored response"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalCompletedElement));
+    TestEqual(TEXT("Completed terminal uses its authored response"), Director->GetCurrentElementId(), FString(*NarrativeIds.TerminalCompletedElement));
     CheckCachedReads(TEXT("Completed state"));
-    CheckPresentation(QuestBindings::PresentationCompletedElement);
+    CheckPresentation(*NarrativeIds.PresentationCompletedElement);
     CheckUIValues(TEXT("Completed state"));
     if (!CheckOptionalQueries(TEXT("Completed state"))) return false;
     const FArcweaveProjectData ForwardCompletedState = Arcweave->GetArcweaveProjectData();
@@ -779,7 +781,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
                 AfterUnknown.CurrentVars.FindChecked(Pair.Key).Value, Pair.Value.Value);
         }
     }
-    CheckPresentation(QuestBindings::PresentationCompletedElement);
+    CheckPresentation(*NarrativeIds.PresentationCompletedElement);
 
     // Runtime UI changes become visible at the same event boundary as the presentation graph.
     const FString StationNameVariableId = UIVariableIds.FindChecked(TEXT("hud.station_name"));
@@ -797,7 +799,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("A runtime UI change preserves the authored variable default"),
         UpdatedUIState.CurrentVars.FindChecked(StationNameVariableId).DefaultValue, AuthoredUI.FindChecked(TEXT("hud.station_name")));
     const FArcweaveComponentData* UpdatedUIComponent = UpdatedUIState.Components.FindByPredicate(
-        [](const FArcweaveComponentData& Component) { return Component.Id == QuestBindings::HUDTextComponent; });
+        [&NarrativeIds](const FArcweaveComponentData& Component) { return Component.Id == *NarrativeIds.HUDTextComponent; });
     if (!TestNotNull(TEXT("The UI component remains available after a runtime change"), UpdatedUIComponent)) return false;
     const FArcweaveAttributeData* AuthoredStationAttribute = UpdatedUIComponent->Attributes.FindByPredicate(
         [&StationNameVariableId](const FArcweaveAttributeData& Attribute) { return Attribute.Id == StationNameVariableId; });
@@ -811,13 +813,13 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Restart cannot replay the gate command"), GateCommands, 1);
 
     // Changing the authored requirement changes both the branch result and its displayed count.
-    Arcweave->SetVariable(QuestBindings::RequiredPowerCellsAttribute, TEXT("1"));
+    Arcweave->SetVariable(*NarrativeIds.RequiredPowerCellsAttribute, TEXT("1"));
     TestTrue(TEXT("One-cell variant still begins through the terminal graph"), StartQuest());
     TestEqual(TEXT("Required count getter reads the authored variable"), Director->GetRequiredPowerCellCount(), 1);
     TestEqual(TEXT("Objective renders the changed requirement"), Director->GetObjective(), FString(TEXT("Collect power cells (0/1), then use the generator.")));
     TestTrue(TEXT("One-cell variant allows either physical cell"), AttemptPickup(TEXT("cell_b")));
     TestEqual(TEXT("Pickup feedback renders the changed requirement"), Director->GetStatus(), FString(TEXT("Collected a power cell (1/1).")));
-    TestEqual(TEXT("One pickup now selects Ready"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationReadyElement));
+    TestEqual(TEXT("One pickup now selects Ready"), Director->GetPresentationElementId(), FString(*NarrativeIds.PresentationReadyElement));
     TestEqual(TEXT("One-cell readiness selects the same authored interaction prompt"), Director->GetUIText(TEXT("quest_ui.generator_prompt")), ReadyPrompt);
     TestTrue(TEXT("One-cell variant still handles duplicate feedback"), AttemptPickup(TEXT("cell_b")));
     TestEqual(TEXT("Duplicate preserves the one-cell requirement state"), Director->GetPowerCellCount(), 1);
@@ -830,7 +832,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("One-cell exit marks completion"), Director->IsQuestCompleted());
     TestEqual(TEXT("Each session issues exactly one gate command"), GateCommands, 2);
     CheckCachedReads(TEXT("One-cell completed state"));
-    CheckPresentation(QuestBindings::PresentationCompletedElement);
+    CheckPresentation(*NarrativeIds.PresentationCompletedElement);
 
     TestTrue(TEXT("A completed quest still routes duplicate pickup feedback through its pickup branch"), AttemptPickup(TEXT("cell_b")));
     TestEqual(TEXT("The completed duplicate leaves inventory unchanged"), Director->GetPowerCellCount(), 1);
@@ -850,14 +852,14 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     }
     const auto CheckPresentationRefresh = [this, Director, Arcweave, &Error, &CheckPresentation,
         &CheckCachedReads, &GateCommands, &PresentationChanges,
-        &UpdatedStationName, &UpdatedWorldLabel, &EventEntryId](const TCHAR* ExpectedLeaf, bool bStarted, bool bPowered,
+        &UpdatedStationName, &UpdatedWorldLabel, &EventEntryId, &NarrativeIds](const TCHAR* ExpectedLeaf, bool bStarted, bool bPowered,
         bool bCompleted, int32 Cells, int32 Required)
     {
-        Arcweave->SetVariable(QuestBindings::QuestStartedAttribute, bStarted ? TEXT("true") : TEXT("false"));
-        Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, bPowered ? TEXT("true") : TEXT("false"));
-        Arcweave->SetVariable(QuestBindings::QuestCompletedAttribute, bCompleted ? TEXT("true") : TEXT("false"));
-        Arcweave->SetVariable(QuestBindings::PowerCellsAttribute, FString::FromInt(Cells));
-        Arcweave->SetVariable(QuestBindings::RequiredPowerCellsAttribute, FString::FromInt(Required));
+        Arcweave->SetVariable(*NarrativeIds.QuestStartedAttribute, bStarted ? TEXT("true") : TEXT("false"));
+        Arcweave->SetVariable(*NarrativeIds.PowerRestoredAttribute, bPowered ? TEXT("true") : TEXT("false"));
+        Arcweave->SetVariable(*NarrativeIds.QuestCompletedAttribute, bCompleted ? TEXT("true") : TEXT("false"));
+        Arcweave->SetVariable(*NarrativeIds.PowerCellsAttribute, FString::FromInt(Cells));
+        Arcweave->SetVariable(*NarrativeIds.RequiredPowerCellsAttribute, FString::FromInt(Required));
         const FArcweaveProjectData Before = Arcweave->GetArcweaveProjectData();
         const FString Cursor = Director->GetCurrentElementId();
         const FString Status = Director->GetStatus();
@@ -903,30 +905,30 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         CheckCachedReads(TEXT("Presentation backtracking"));
         return true;
     };
-    if (!CheckPresentationRefresh(QuestBindings::PresentationCompletedElement, true, true, true, 2, 2)) return false;
-    if (!CheckPresentationRefresh(QuestBindings::PresentationCompletedElement, true, false, true, 2, 2)) return false;
-    if (!CheckPresentationRefresh(QuestBindings::PresentationPoweredElement, true, true, false, 2, 2)) return false;
-    if (!CheckPresentationRefresh(QuestBindings::PresentationUnacceptedElement, false, false, false, 0, 2)) return false;
-    if (!CheckPresentationRefresh(QuestBindings::PresentationReadyElement, true, false, false, 2, 2)) return false;
-    if (!CheckPresentationRefresh(QuestBindings::PresentationCollectingElement, true, false, false, 1, 2)) return false;
-    if (!CheckPresentationRefresh(QuestBindings::PresentationReadyElement, true, false, false, 1, 1)) return false;
+    if (!CheckPresentationRefresh(*NarrativeIds.PresentationCompletedElement, true, true, true, 2, 2)) return false;
+    if (!CheckPresentationRefresh(*NarrativeIds.PresentationCompletedElement, true, false, true, 2, 2)) return false;
+    if (!CheckPresentationRefresh(*NarrativeIds.PresentationPoweredElement, true, true, false, 2, 2)) return false;
+    if (!CheckPresentationRefresh(*NarrativeIds.PresentationUnacceptedElement, false, false, false, 0, 2)) return false;
+    if (!CheckPresentationRefresh(*NarrativeIds.PresentationReadyElement, true, false, false, 2, 2)) return false;
+    if (!CheckPresentationRefresh(*NarrativeIds.PresentationCollectingElement, true, false, false, 1, 2)) return false;
+    if (!CheckPresentationRefresh(*NarrativeIds.PresentationReadyElement, true, false, false, 1, 1)) return false;
     if (!CheckRestart()) return false;
 
     // Power is narrative state; changing it does not imply the separate gate-opening action.
     const int32 CommandsBeforePowerChange = GateCommands;
-    Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("true"));
+    Arcweave->SetVariable(*NarrativeIds.PowerRestoredAttribute, TEXT("true"));
     TestTrue(TEXT("SetVariable immediately updates the power getter without an engine command"), Director->IsPowerRestored());
     TestFalse(TEXT("Changing the power attribute alone leaves the native gate closed"), Director->IsGateOpen());
     TestTrue(TEXT("A normal terminal interaction refreshes the changed power state"), StartQuest());
-    TestEqual(TEXT("The terminal reads the scoped power state"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalPoweredElement));
-    CheckPresentation(QuestBindings::PresentationPoweredElement);
-    TestEqual(TEXT("An external power change never runs generator success"), Visits(QuestBindings::SuccessElement), 0);
+    TestEqual(TEXT("The terminal reads the scoped power state"), Director->GetCurrentElementId(), FString(*NarrativeIds.TerminalPoweredElement));
+    CheckPresentation(*NarrativeIds.PresentationPoweredElement);
+    TestEqual(TEXT("An external power change never runs generator success"), Visits(*NarrativeIds.SuccessElement), 0);
     TestEqual(TEXT("Refreshing external power changes dispatches no engine commands"), GateCommands, CommandsBeforePowerChange);
     TestFalse(TEXT("The gate still requires its own authored action"), Director->IsGateOpen());
-    Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("false"));
+    Arcweave->SetVariable(*NarrativeIds.PowerRestoredAttribute, TEXT("false"));
     TestFalse(TEXT("Clearing the power attribute immediately clears the power getter"), Director->IsPowerRestored());
     TestTrue(TEXT("The next terminal interaction refreshes the unpowered state"), StartQuest());
-    CheckPresentation(QuestBindings::PresentationCollectingElement);
+    CheckPresentation(*NarrativeIds.PresentationCollectingElement);
     TestFalse(TEXT("A normal refresh does not resurrect stale native power"), Director->IsPowerRestored());
     TestEqual(TEXT("Clearing external power also dispatches no engine commands"), GateCommands, CommandsBeforePowerChange);
     if (!CheckRestart()) return false;
@@ -935,16 +937,16 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     const FArcweaveProjectData BeforeCellChanges = Arcweave->GetArcweaveProjectData();
     const int32 CommandsBeforeCellChanges = GateCommands;
     TestFalse(TEXT("An unknown cell identity has no collected state"), Director->HasCollectedCell(TEXT("unknown_cell")));
-    Arcweave->SetVariable(QuestBindings::CellACollectedAttribute, TEXT("true"));
+    Arcweave->SetVariable(*NarrativeIds.CellACollectedAttribute, TEXT("true"));
     TestTrue(TEXT("Setting cell A's flag immediately makes it unavailable"), Director->HasCollectedCell(TEXT("cell_a")));
     TestFalse(TEXT("Setting cell A's flag leaves cell B available"), Director->HasCollectedCell(TEXT("cell_b")));
     TestEqual(TEXT("A collected flag alone does not rerun the inventory increment"), Director->GetPowerCellCount(), 0);
-    Arcweave->SetVariable(QuestBindings::CellACollectedAttribute, TEXT("false"));
-    Arcweave->SetVariable(QuestBindings::CellBCollectedAttribute, TEXT("true"));
+    Arcweave->SetVariable(*NarrativeIds.CellACollectedAttribute, TEXT("false"));
+    Arcweave->SetVariable(*NarrativeIds.CellBCollectedAttribute, TEXT("true"));
     TestFalse(TEXT("Clearing cell A's flag immediately makes it available"), Director->HasCollectedCell(TEXT("cell_a")));
     TestTrue(TEXT("Cell B availability follows its own flag"), Director->HasCollectedCell(TEXT("cell_b")));
     TestFalse(TEXT("An unknown cell cannot inherit cell B's collected flag"), Director->HasCollectedCell(TEXT("unknown_cell")));
-    Arcweave->SetVariable(QuestBindings::CellBCollectedAttribute, TEXT("false"));
+    Arcweave->SetVariable(*NarrativeIds.CellBCollectedAttribute, TEXT("false"));
     TestFalse(TEXT("Clearing cell B's flag makes it available again"), Director->HasCollectedCell(TEXT("cell_b")));
     TestTrue(TEXT("Changing pickup flags does not execute narrative nodes"),
         BeforeCellChanges.Visits.OrderIndependentCompareEqual(Arcweave->GetArcweaveProjectData().Visits));
@@ -954,12 +956,12 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     // Both physical item identities exercise the same authored pickup rule in either order.
     const int32 CommandsBeforeReverseGate = GateCommands;
     TestTrue(TEXT("Cell B before acceptance uses the same authored denial"), AttemptPickup(TEXT("cell_b")));
-    TestEqual(TEXT("Denied cell B leaves its shared flag available"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
+    TestEqual(TEXT("Denied cell B leaves its shared flag available"), Variable(*NarrativeIds.CellBCollectedAttribute), FString(TEXT("false")));
     TestTrue(TEXT("The reverse-order session begins through the terminal"), StartQuest());
     TestTrue(TEXT("The reverse-order session collects cell B first"), AttemptPickup(TEXT("cell_b")));
     TestEqual(TEXT("Cell B first advances the shared inventory once"), Director->GetPowerCellCount(), 1);
-    TestEqual(TEXT("Cell B first leaves cell A available"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("false")));
-    TestEqual(TEXT("Cell B first sets its shared flag"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("true")));
+    TestEqual(TEXT("Cell B first leaves cell A available"), Variable(*NarrativeIds.CellACollectedAttribute), FString(TEXT("false")));
+    TestEqual(TEXT("Cell B first sets its shared flag"), Variable(*NarrativeIds.CellBCollectedAttribute), FString(TEXT("true")));
     TestTrue(TEXT("Cell B duplicate uses the shared-state branch"), AttemptPickup(TEXT("cell_b")));
     TestEqual(TEXT("Cell B duplicate cannot increment inventory"), Director->GetPowerCellCount(), 1);
     TestTrue(TEXT("The reverse-order session then collects cell A"), AttemptPickup(TEXT("cell_a")));
@@ -967,7 +969,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Reverse-order pickups make cell A unavailable"), Director->HasCollectedCell(TEXT("cell_a")));
     TestTrue(TEXT("Reverse-order pickups make cell B unavailable"), Director->HasCollectedCell(TEXT("cell_b")));
     TestEqual(TEXT("Reverse-order pickups dispatch no engine commands"), GateCommands, CommandsBeforeReverseGate);
-    CheckPresentation(QuestBindings::PresentationReadyElement);
+    CheckPresentation(*NarrativeIds.PresentationReadyElement);
     TestTrue(TEXT("The reverse-order session restores power"), AttemptGenerator());
     TestTrue(TEXT("The reverse-order session completes at the exit"), ReachExit());
     TestTrue(TEXT("The reverse-order terminal reports completion"), StartQuest());

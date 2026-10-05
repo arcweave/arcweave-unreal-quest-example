@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("Editor", "Game", "Test", "WorldTest", "Map", "Package", "Play")][string]$Task = "Editor",
+    [ValidateSet("Editor", "Game", "Test", "WorldTest", "Package", "Play")][string]$Task = "Editor",
     [string]$EngineRoot = "C:\Program Files\Epic Games\UE_5.6",
     [string]$CompilerVersion = "14.38.33130",
     [string]$TestFilter = "",
@@ -52,11 +52,6 @@ if ($Task -eq "Test" -or $Task -eq "WorldTest") {
     Write-Output "Automation: $Passed passed ($($Summary.succeededWithWarnings) with warnings), $($Summary.failed) failed. Report: $Report"
     if ($Summary.failed -gt 0 -or $Passed -eq 0 -or $Summary.notRun -gt 0) { exit 1 }
     exit 0
-}
-if ($Task -eq "Map") {
-    $MapScript = Join-Path $PSScriptRoot "create-map.py"
-    & $Editor $Project -unattended -NullRHI -nosplash -nosound -nop4 -NoLiveCoding -run=pythonscript "-script=$MapScript" "-abslog=$Log" -stdout -FullStdOutLogOutput
-    exit $LASTEXITCODE
 }
 if ($Task -eq "Package") {
     & (Join-Path $EngineRoot "Engine\Build\BatchFiles\RunUAT.bat") BuildCookRun "-project=$Project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$OutputDirectory" -utf8output "-UbtArgs=-CompilerVersion=$CompilerVersion -NoHotReloadFromIDE" "-AdditionalCookerOptions=-NullRHI -RenderOffscreen" 2>&1 | Tee-Object -FilePath $Log
