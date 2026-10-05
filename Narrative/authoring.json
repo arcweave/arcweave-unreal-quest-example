@@ -412,7 +412,7 @@
     "connections": {
         "35020249-1368-47c3-a8ca-358dce19746d": {
             "type": "Bezier",
-            "theme": "orange",
+            "theme": "default",
             "sourceid": "f6c4d07b-b123-45ec-992a-0b6c6333ae91",
             "targetid": "10be7825-974e-4306-b8e4-d2bbc63486dd",
             "sourceFace": "right",
@@ -430,13 +430,13 @@
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
-            "theme": "purple",
+            "theme": "default",
             "targetType": "elements",
             "label": null
         },
         "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8": {
             "type": "Bezier",
-            "theme": "green",
+            "theme": "default",
             "sourceid": "2f225626-b228-4606-9cdf-a0a2729a640f",
             "targetid": "bfc100c0-7b99-4404-a71c-c1b42b102c02",
             "sourceFace": "right",
@@ -454,7 +454,7 @@
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
-            "theme": "cyan",
+            "theme": "default",
             "targetType": "branches",
             "label": null
         },
@@ -514,7 +514,7 @@
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
-            "theme": "cyan",
+            "theme": "default",
             "targetType": "elements",
             "label": null
         },
@@ -526,7 +526,7 @@
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
-            "theme": "green",
+            "theme": "default",
             "targetType": "elements",
             "label": null
         },
@@ -562,7 +562,7 @@
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
-            "theme": "cyan",
+            "theme": "default",
             "targetType": "branches",
             "label": null
         },
@@ -574,7 +574,7 @@
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
-            "theme": "green",
+            "theme": "default",
             "targetType": "jumpers",
             "labelWidth": 230,
             "label": "<p>Choose another interaction<\/p>"
@@ -623,7 +623,7 @@
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
-            "theme": "cyan",
+            "theme": "default",
             "targetType": "branches",
             "label": null
         },
@@ -654,7 +654,7 @@
         },
         "9babcdd5-8018-44a0-a11b-e776ec3119b9": {
             "sourceType": "elements",
-            "labelLocation": 0.3,
+            "labelLocation": 0.4939380679132,
             "sourceid": "12c92fd1-be9a-40c9-9bc3-1d6f5573ee9a",
             "targetid": "f65d0040-815d-4df2-8fb8-073e2d6619b2",
             "sourceFace": "right",
@@ -662,7 +662,6 @@
             "type": "Bezier",
             "theme": "default",
             "targetType": "jumpers",
-            "labelWidth": 230,
             "label": "<p>Choose another interaction<\/p>"
         },
         "f5e66850-01c1-403f-afe2-8cb7c9a437e2": {
@@ -746,7 +745,7 @@
             "sourceFace": "right",
             "targetFace": "left",
             "type": "Bezier",
-            "theme": "cyan",
+            "theme": "default",
             "targetType": "branches",
             "label": null
         },
