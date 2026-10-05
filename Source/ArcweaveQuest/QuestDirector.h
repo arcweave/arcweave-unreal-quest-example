@@ -33,7 +33,7 @@ public:
     bool IsQuestCompleted() const;
     bool IsPowerRestored() const;
     bool IsGateOpen() const { return bGateOpen; }
-    bool HasCollectedCell(FName CellId) const { return CollectedCells.Contains(CellId); }
+    bool HasCollectedCell(FName CellId) const;
     int32 GetPowerCellCount() const;
     int32 GetRequiredPowerCellCount() const;
     FString GetObjective() const { return Objective; }
@@ -68,9 +68,6 @@ private:
     UArcweaveSubsystem* Arcweave = nullptr;
 
     TMap<FName, TFunction<void()>> CommandHandlers;
-    // Applied physical pickup effects; narrative collection state lives in Arcweave.
-    TSet<FName> CollectedCells;
-    FName PendingCellId;
     FString CurrentElementId;
     FString PresentationEntryId;
     FString PresentationElementId;

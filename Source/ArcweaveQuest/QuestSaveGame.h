@@ -12,14 +12,12 @@ class ARCWEAVEQUEST_API UQuestSaveGame : public USaveGame
     GENERATED_BODY()
 
 public:
+    // Unreal omits default-valued properties; keep 1 so legacy saves without this field stay version 1.
     UPROPERTY(SaveGame)
     int32 FormatVersion = 1;
 
     UPROPERTY(SaveGame)
     FArcweaveRuntimeState ArcweaveState;
-
-    UPROPERTY(SaveGame)
-    TSet<FName> CollectedCells;
 
     UPROPERTY(SaveGame)
     bool bGateOpen = false;

@@ -180,7 +180,7 @@ public:
             CellA = InteractAt(TEXT("cell_a"));
             if (!CellA.IsValid()) return true;
             Test.TestEqual(TEXT("Actual cell A pickup updates the narrative variable"), Director->GetPowerCellCount(), 1);
-            Test.TestEqual(TEXT("Actual cell A pickup ends at the combined action and feedback element"),
+            Test.TestEqual(TEXT("Actual cell A pickup ends at the state and feedback element"),
                 Director->GetCurrentElementId(), FString(QuestBindings::PickupActionElement));
             Test.TestEqual(TEXT("Actual cell A pickup updates its shared collected flag"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("true")));
             Test.TestEqual(TEXT("Actual cell A pickup leaves cell B available in the narrative"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
@@ -203,7 +203,7 @@ public:
             CellB = InteractAt(TEXT("cell_b"));
             if (!CellB.IsValid()) return true;
             Test.TestEqual(TEXT("Actual cell B pickup updates the narrative variable"), Director->GetPowerCellCount(), 2);
-            Test.TestEqual(TEXT("Actual cell B pickup reuses the combined action and feedback element"),
+            Test.TestEqual(TEXT("Actual cell B pickup reuses the state and feedback element"),
                 Director->GetCurrentElementId(), FString(QuestBindings::PickupActionElement));
             Test.TestEqual(TEXT("Actual cell B pickup updates its shared collected flag"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("true")));
             Test.TestEqual(TEXT("The second world pickup immediately selects the ready objective"),
@@ -366,6 +366,21 @@ public:
             {
                 Test.TestEqual(TEXT("World fixtures return to their unpowered intensity from the scoped value"), Light.Key->Intensity, Light.Value);
             }
+            // The same refresh path applies externally changed pickup flags to the real actors.
+            Arcweave->SetVariable(QuestBindings::CellACollectedAttribute, TEXT("true"));
+            if (!InteractAt(TEXT("terminal"))) return true;
+            Test.TestTrue(TEXT("A normal world refresh hides cell A from its Arcweave flag"), CellA->IsHidden());
+            Test.TestFalse(TEXT("An externally collected cell A stops colliding"), CellA->GetActorEnableCollision());
+            Test.TestFalse(TEXT("Changing cell A's flag leaves cell B visible"), CellB->IsHidden());
+            Arcweave->SetVariable(QuestBindings::CellACollectedAttribute, TEXT("false"));
+            Arcweave->SetVariable(QuestBindings::CellBCollectedAttribute, TEXT("true"));
+            if (!InteractAt(TEXT("terminal"))) return true;
+            Test.TestFalse(TEXT("Clearing cell A's flag makes its world actor visible again"), CellA->IsHidden());
+            Test.TestTrue(TEXT("Clearing cell A's flag restores collision"), CellA->GetActorEnableCollision());
+            Test.TestTrue(TEXT("Cell B's own flag hides its world actor"), CellB->IsHidden());
+            Test.TestFalse(TEXT("An externally collected cell B stops colliding"), CellB->GetActorEnableCollision());
+            Test.TestEqual(TEXT("External flag refresh does not run a pickup script"), Visits(QuestBindings::PickupActionElement), 0);
+            Test.TestEqual(TEXT("External flag refresh does not change inventory"), Director->GetPowerCellCount(), 0);
             FString Error;
             if (!Test.TestTrue(TEXT("The externally changed state also resets through normal restart"), Director->StartNewGame(Error)))
             {

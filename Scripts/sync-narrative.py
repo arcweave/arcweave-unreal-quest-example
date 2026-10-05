@@ -66,7 +66,7 @@ STATE_COMPONENTS = {
 }
 SCOPED_FIELDS.update({scope: {item[0] for item in attributes.values()}
                       for scope, attributes in STATE_COMPONENTS.values()})
-COMMANDS = {"OpenGateComponent": "open_gate", "CollectCellComponent": "collect_cell"}
+COMMANDS = {"OpenGateComponent": "open_gate"}
 EVENT_ROUTES = {
     "use_terminal": "TerminalBranch",
     "collect_cell": "PickupBranch",
@@ -442,7 +442,7 @@ def validate_bindings(project, bindings):
             if value["type"] in {"boolean", "integer", "float"} or (value["type"] == "string" and value.get("plain")):
                 if (attribute_id not in scoped_attributes or attribute["cType"] != "components"
                         or attribute.get("cId") != scoped_attributes[attribute_id]):
-                    raise ValueError("Only the seven state values, twenty-six UI strings, and two game_event inputs may add scoped variables.")
+                    raise ValueError("Only the seven state values, twenty-seven UI strings, and two game_event inputs may add scoped variables.")
     state_ids = {bindings[name] for name in STATE_COMPONENTS}
     data_ids = ui_ids | state_ids | {event_component_id}
     for component_id, component in project["components"].items():
@@ -479,9 +479,8 @@ def validate_bindings(project, bindings):
             raise ValueError(f"The {name} custom ID no longer matches C++.")
     component_ids = {ident for ident, item in project["components"].items() if "children" not in item}
     if component_ids != data_ids | {bindings[name] for name in COMMANDS}:
-        raise ValueError("The sample requires eight data components and exactly the collect_cell and open_gate action components.")
+        raise ValueError("The sample requires nine data components and only the open_gate action component.")
     command_elements = {
-        bindings["PickupActionElement"]: {bindings["CollectCellComponent"]},
         bindings["SuccessElement"]: {bindings["OpenGateComponent"]},
     }
 
@@ -563,7 +562,7 @@ def validate_bindings(project, bindings):
             raise ValueError("State, UI, and game_event components must remain standalone data, not attached gameplay commands.")
         expected = command_elements.get(ident, set())
         if set(components) != expected or len(components) != len(expected):
-            raise ValueError("Only PickupAction may collect a cell; only Success may open the gate.")
+            raise ValueError("Only Success may reference the open_gate action component.")
     branch_conditions = {}
     condition_outputs = {}
     for connection_id, connection in project["connections"].items():
@@ -708,7 +707,7 @@ def validate_bindings(project, bindings):
     lane_ids = {name: reachable({bindings[name]}, event_entry) for name in EVENT_LANES}
     for name, current in lane_ids.items():
         if name != "PickupBranch" and bindings["PickupActionElement"] in current:
-            raise ValueError("Only the pickup event supplies the physical identity needed by collect_cell.")
+            raise ValueError("Only the pickup event supplies the cell identity needed to update collected state.")
     for name, current in lane_ids.items():
         if any(current.intersection(other) for other_name, other in lane_ids.items() if other_name != name):
             raise ValueError("Separate world-event lanes must not execute one another or share automatic paths.")

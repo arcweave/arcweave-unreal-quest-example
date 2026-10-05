@@ -9,7 +9,6 @@ namespace QuestBindings
     inline constexpr const TCHAR* MissingCellsElement = TEXT("10be7825-974e-4306-b8e4-d2bbc63486dd");
     inline constexpr const TCHAR* OpenGateComponent = TEXT("80c7c42c-bb19-4065-8afa-7cd5b54776fc");
     inline constexpr const TCHAR* TerminalRequiredElement = TEXT("05d919db-a991-45b7-b20f-db02dbd6f307");
-    inline constexpr const TCHAR* CollectCellComponent = TEXT("06f4de3e-a022-472e-a2f9-bd73ee5875ee");
     inline constexpr const TCHAR* DuplicatePickupElement = TEXT("35f2414d-8156-474e-98d3-eaf74211d45b");
     inline constexpr const TCHAR* HUDTextComponent = TEXT("06e4e920-e844-4509-9891-18e05d39f48b");
     inline constexpr const TCHAR* WorldTextComponent = TEXT("db3ac52b-3cc2-4a1b-86c8-2d2cd5903573");

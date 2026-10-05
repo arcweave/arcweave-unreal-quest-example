@@ -1,41 +1,43 @@
 # Local verification
 
-Verified on 2026-10-05 with Unreal Engine 5.6.1, Visual Studio 2022 / MSVC 14.38.33130, and Windows SDK 10.0.26100.0. The sample pins [plugin v2.2.0](https://github.com/arcweave/arcweave-unreal-plugin/releases/tag/v2.2.0) at `1eb60cdcd0ebbefe14d92f996481f603397e13a4`. Its release tree matches the tested preparation commit exactly.
+Verified on 2026-10-05 with Unreal Engine 5.6.1, Visual Studio 2022 / MSVC 14.38.33130, and Windows SDK 10.0.26100.0. The sample pins [plugin v2.2.0](https://github.com/arcweave/arcweave-unreal-plugin/releases/tag/v2.2.0) at `1eb60cdcd0ebbefe14d92f996481f603397e13a4`.
 
-The isolated project's Development Editor build and Win64 Development package passed. The actual project's DLLs were rebuilt after its editor closed. The tested package is installed in `Builds/Windows`; all 57 installed files match their tested hashes, and existing saves and local project settings were preserved.
+The isolated project's Development Editor build and Win64 Development package passed after removing the duplicate pickup command/state. The tested package is installed in `Builds/Windows`; all 57 installed files match their tested hashes. The actual project's editor DLL was also rebuilt after the editor closed. Existing saves and local project settings were preserved.
 
 ## Native checks
 
 | Check | Result / report |
 | --- | --- |
-| `Arcweave.Project` | All four tests passed without warnings; `Report-Test-20261005-111739` |
-| `ArcweaveQuest.Flow` | Passed; `Report-Test-20261005-111823` |
-| `ArcweaveQuest.Persistence` | Passed; `Report-Test-20261005-111914` |
-| Packaged `ArcweaveQuest.SaveLoadWorld` | Passed; `Report-WorldTest-20261005-112229` |
+| `ArcweaveQuest.Flow` | Passed; `Report-Test-20261005-132122` |
+| `ArcweaveQuest.Persistence` | Passed; `Report-Test-20261005-132152` |
+| Packaged `ArcweaveQuest.World` | Passed; `Report-WorldTest-20261005-132300` |
+| Packaged `ArcweaveQuest.SaveLoadWorld` | Passed; `Report-WorldTest-20261005-132313` |
+| `ArcweaveQuest.SaveSession` — write process | Passed; `Report-Test-20261005-132322` |
+| `ArcweaveQuest.SaveSession` — read process | Passed; `Report-Test-20261005-132336` |
 
-The plugin checks cover starting-element discovery, runtime snapshots, component/board variables, and import failures. The sample checks cover the shared narrative flow and 36-variable UI/state model, disk saves and rejected loads, F5/F9 input routing, actual pickup visibility/collision, gate and lighting restoration, player pose, and exit overlaps without replaying quest events. The sample retains the plugin's existing cover/condition warnings; there are no test failures.
+These checks cover accepted and denied pickups, duplicates, reverse pickup order, restart, actual actor visibility/collision, and external changes to each collected flag. Persistence checks restore those flags without running pickup scripts, reject legacy saves whose default version field is omitted by Unreal, and preserve the separately authored gate action. The packaged save/load check exercises F5/F9 input, player pose, HUD, lighting, gate state, and exit overlaps. All six runs passed with warnings and no failures.
 
-Both sample notices and all four plugin license/notice files are present as loose packaged files and match their source bytes. No credentials are required by the game or these native tests.
+The plugin itself is unchanged. Its four `Arcweave.Project` tests passed during release preparation (`Report-Test-20261005-111739`), alongside verification of the packaged sample and dependency license notices.
 
 ## Narrative and import checks
 
-- **256 Python checks** pass for narrative structure, defaults, query restrictions, import consistency, project selection, and synchronized exports.
-- **Three PowerShell fixtures** pass for build-script routing and automation-report handling without Unreal. GitHub Actions runs these offline checks on Windows.
-- The directly uploadable `Narrative/import.json` passes the actual frontend `JsonImportHandler.formatData()` with zero content errors or normalization logs.
-- Both browser-normalized and API-normalized imports pass the backend integrity checker with zero errors. Starting element, graph IDs, component custom IDs, locales, and layout are preserved.
+- **256 Python checks** pass for narrative structure, defaults, command placement, query restrictions, import consistency, and synchronized exports.
+- Comparing the live exports before and after the change confirms that the Arcscript, conditions, connections, starting element, and existing variable attributes are unchanged.
+- The only action is now **Open gate**, with a rich-text **Description** that adds no runtime variable. Pickup visibility follows `cell_a.collected` and `cell_b.collected`.
+- Runtime, authoring, and uploadable import exports are generated together. The project retains one board, 22 elements, six branches, 23 conditions with one output each, 49 connections, twelve jumpers, and **36 runtime variables**.
 
-The live graph is unchanged: one board, 22 elements, six branches, 23 conditions with one output each, 49 connections, and twelve jumpers. Adding `hud.controls` brings the runtime to seven state variables, 27 UI strings, and two event inputs. `TerminalAcceptElement` names the terminal-acceptance binding; the real starting element remains the station menu.
+The current Unreal export SHA-256 is `308e314e402d260863d70595dcba36567744b16102b3c9880607c44b41b1188d`. All export checksums are recorded in `Narrative/project.json`. The sample now explicitly writes save format 2; earlier checkpoints require a fresh save.
 
-The refreshed Unreal export SHA-256 is `28b25533d5e98a112cf68bcd06d8e99bb80556cc3c745913be8e5f705f82e26b`. Runtime, authoring, and uploadable import exports are generated together and recorded in `Narrative/project.json`. Changed narrative content invalidates older checkpoints.
+The full frontend `JsonImportHandler.formatData()` and backend integrity checks passed during publication preparation with zero errors. This update rechecks the bundled import through the Python suite. The three unchanged PowerShell build-script fixtures also passed during publication preparation and run in GitHub Actions.
 
-## Screenshots and public access
+## Screenshots and browser coverage
 
-The [gameplay screenshot](images/gameplay.png) was captured from the running game after accepting the task, collecting both cells, and restoring power. It uses offscreen rendering at 1920×1080 and shows the actual HUD, authored controls, lighting, and open gate state.
+The [gameplay screenshot](images/gameplay.png) and [board overview](images/arcweave-board.png) are from publication validation. Gameplay appearance and board paths are unchanged; the current board removes the pickup action reference shown in that earlier overview. A fresh browser screenshot could not be captured because the collaborative preview snapshot failed.
 
-The [board screenshot](images/arcweave-board.png) comes from the live Arcweave project. Its public design view was verified with no signed-in user. Public Play Mode also loaded anonymously; generator guidance before acceptance and terminal acceptance were checked. The browser host disconnected before the remainder of that browser playthrough, so this pass does not claim a new complete browser run. Native Flow coverage checks the unchanged quest paths.
+Publication validation confirmed anonymous access to the public design view and Play Mode, generator guidance before acceptance, and terminal acceptance. This update verifies the changed component metadata through the API and the quest behavior through native automation; it does not claim a new browser playthrough.
 
 ## Repeating the checks
 
-See [development commands](development.md#native-automation). Automation and cooking use `-NullRHI -RenderOffscreen`; the gameplay screenshot uses rendering enabled with `-RenderOffscreen`. These results cover the Windows single-player sample, not multiplayer or VR/mobile targets.
+See [development commands](development.md#native-automation). Automation and cooking use `-NullRHI -RenderOffscreen`, so no game window opens. These results cover the Windows single-player sample.
 
-Logs, JSON/HTML reports, import evidence, packaged-license checks, and installed hashes are under `Saved/Validation/Publication-20261005`, excluded from Git. Earlier save/load and keyboard-regression reports remain under `Saved/Validation/SaveLoad-20261005` and `Saved/Validation/CheckpointInput-20261005`.
+Current logs, reports, graph comparison, and installed hashes are under `Saved/Validation/PickupState-20261005`, excluded from Git. Earlier plugin, import, screenshot, and license evidence remains under `Saved/Validation/Publication-20261005`.

@@ -23,8 +23,6 @@ struct FQuestCheckpointObservation
     FString Objective;
     FString Status;
     bool bGateOpen;
-    bool bCellACollected;
-    bool bCellBCollected;
 };
 
 FQuestCheckpointObservation ObserveCheckpoint(const UQuestDirector& Director)
@@ -46,8 +44,6 @@ FQuestCheckpointObservation ObserveCheckpoint(const UQuestDirector& Director)
     Result.Objective = Director.GetObjective();
     Result.Status = Director.GetStatus();
     Result.bGateOpen = Director.IsGateOpen();
-    Result.bCellACollected = Director.HasCollectedCell(TEXT("cell_a"));
-    Result.bCellBCollected = Director.HasCollectedCell(TEXT("cell_b"));
     return Result;
 }
 
@@ -85,8 +81,10 @@ void CheckCheckpoint(FAutomationTestBase& Test, const FString& Stage,
     Test.TestEqual(Prefix + TEXT("resolved objective"), Director.GetObjective(), Expected.Objective);
     Test.TestEqual(Prefix + TEXT("resolved interaction feedback"), Director.GetStatus(), Expected.Status);
     Test.TestEqual(Prefix + TEXT("applied gate effect"), Director.IsGateOpen(), Expected.bGateOpen);
-    Test.TestEqual(Prefix + TEXT("applied cell A effect"), Director.HasCollectedCell(TEXT("cell_a")), Expected.bCellACollected);
-    Test.TestEqual(Prefix + TEXT("applied cell B effect"), Director.HasCollectedCell(TEXT("cell_b")), Expected.bCellBCollected);
+    Test.TestEqual(Prefix + TEXT("cell A availability follows its saved Arcweave flag"), Director.HasCollectedCell(TEXT("cell_a")),
+        Expected.Narrative.CurrentVars.FindChecked(QuestBindings::CellACollectedAttribute).Value == TEXT("true"));
+    Test.TestEqual(Prefix + TEXT("cell B availability follows its saved Arcweave flag"), Director.HasCollectedCell(TEXT("cell_b")),
+        Expected.Narrative.CurrentVars.FindChecked(QuestBindings::CellBCollectedAttribute).Value == TEXT("true"));
 }
 
 /** Only removes slots created by this test, including on an assertion failure. */
@@ -135,15 +133,12 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
     int32 GameplayCommands = 0;
     const auto ObserveCommands = [&GameplayCommands](UQuestDirector* Target)
     {
-        for (const FName Command : {FName(TEXT("open_gate")), FName(TEXT("collect_cell"))})
+        const TFunction<void()> Original = Target->CommandHandlers.FindChecked(TEXT("open_gate"));
+        Target->CommandHandlers.Add(TEXT("open_gate"), [&GameplayCommands, Original]
         {
-            const TFunction<void()> Original = Target->CommandHandlers.FindChecked(Command);
-            Target->CommandHandlers.Add(Command, [&GameplayCommands, Original]
-            {
-                ++GameplayCommands;
-                Original();
-            });
-        }
+            ++GameplayCommands;
+            Original();
+        });
     };
     ObserveCommands(Director);
 
@@ -239,14 +234,19 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
 
     UQuestSaveGame* InvalidVersion = Cast<UQuestSaveGame>(UGameplayStatics::LoadGameFromSlot(OneCellSlot, 0));
     if (!TestNotNull(TEXT("Reload the unmodified checkpoint for the format case"), InvalidVersion)) return false;
+    TestEqual(TEXT("The current sample save format has no duplicated pickup state"), InvalidVersion->FormatVersion, 2);
+    // Version 1 matches the class default and may be omitted by Unreal's delta serialization.
+    InvalidVersion->FormatVersion = 1;
+    if (!TestTrue(TEXT("Write a checkpoint using the old duplicated-pickup save format"), UGameplayStatics::SaveGameToSlot(InvalidVersion, InvalidSlot, 0))) return false;
+    CheckRejectedLoad(InvalidSlot, TEXT("save_ui.incompatible_save"), TEXT("Legacy pickup save format"));
     InvalidVersion->FormatVersion = 99;
     if (!TestTrue(TEXT("Write an unsupported sample save version"), UGameplayStatics::SaveGameToSlot(InvalidVersion, InvalidSlot, 0))) return false;
     CheckRejectedLoad(InvalidSlot, TEXT("save_ui.incompatible_save"), TEXT("Unsupported save format"));
 
     UQuestSaveGame* InvalidWorld = Cast<UQuestSaveGame>(UGameplayStatics::LoadGameFromSlot(OneCellSlot, 0));
     if (!TestNotNull(TEXT("Reload the checkpoint for invalid world data"), InvalidWorld)) return false;
-    InvalidWorld->CollectedCells.Add(TEXT("unknown_cell"));
-    if (!TestTrue(TEXT("Write a checkpoint with an unknown pickup"), UGameplayStatics::SaveGameToSlot(InvalidWorld, InvalidSlot, 0))) return false;
+    InvalidWorld->CurrentElementId = TEXT("unknown_element");
+    if (!TestTrue(TEXT("Write a checkpoint with an unknown gameplay cursor"), UGameplayStatics::SaveGameToSlot(InvalidWorld, InvalidSlot, 0))) return false;
     CheckRejectedLoad(InvalidSlot, TEXT("save_ui.load_failed"), TEXT("Invalid game-owned state"));
 
     UQuestSaveGame* InvalidNarrative = Cast<UQuestSaveGame>(UGameplayStatics::LoadGameFromSlot(OneCellSlot, 0));
@@ -272,14 +272,19 @@ bool FArcweaveQuestSaveLoadTest::RunTest(const FString& Parameters)
         Arcweave->GetArcweaveProjectData().Visits.FindChecked(QuestBindings::PickupActionElement),
         OneCell.Narrative.Visits.FindChecked(QuestBindings::PickupActionElement) + 1);
 
-    // Physical effects are saved independently of narrative variables. External power
-    // updates must not cause LoadCheckpoint to invent a gate-opening command.
+    // Gate effects are saved independently, while pickups derive from Arcweave flags.
+    // External state updates must not cause LoadCheckpoint to invent gameplay commands.
     if (!TestTrue(TEXT("Start a session with externally provided power"), Director->StartNewGame(Error))) return false;
     Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("true"));
+    Arcweave->SetVariable(QuestBindings::CellACollectedAttribute, TEXT("true"));
     if (!TestTrue(TEXT("Refresh the powered presentation without the generator action"), Director->StartQuest(Error))) return false;
     const FQuestCheckpointObservation ExternalPower = ObserveCheckpoint(*Director);
     TestTrue(TEXT("The external milestone supplies power"), Director->IsPowerRestored());
     TestFalse(TEXT("The separate gate action has not occurred"), ExternalPower.bGateOpen);
+    TestTrue(TEXT("The external collected flag controls cell A availability"), Director->HasCollectedCell(TEXT("cell_a")));
+    TestFalse(TEXT("The external flag leaves cell B available"), Director->HasCollectedCell(TEXT("cell_b")));
+    TestEqual(TEXT("The external collected flag requires no pickup element replay"),
+        ExternalPower.Narrative.Visits.FindChecked(QuestBindings::PickupActionElement), 0);
     if (!TestTrue(TEXT("Save narrative power and its separately closed world gate"),
         Director->SaveCheckpoint(PoweredSlot, SavedTransform, SavedControl, Error))) return false;
     if (!RestoreAndCheck(CompletedSlot, Completed, TEXT("Move from external power to a completed checkpoint"))) return false;
@@ -331,7 +336,7 @@ bool FArcweaveQuestSaveSessionTest::RunTest(const FString& Parameters)
         if (!TestTrue(TEXT("The new process restores the previous process's save"), bLoaded)) return false;
         TestEqual(TEXT("Reader restores one cell"), Director->GetPowerCellCount(), 1);
         TestTrue(TEXT("Reader restores acceptance"), Director->IsQuestStarted());
-        TestTrue(TEXT("Reader restores the applied cell B pickup"), Director->HasCollectedCell(TEXT("cell_b")));
+        TestTrue(TEXT("Reader derives cell B availability from the saved flag"), Director->HasCollectedCell(TEXT("cell_b")));
         TestFalse(TEXT("Reader keeps cell A available"), Director->HasCollectedCell(TEXT("cell_a")));
         TestFalse(TEXT("Reader keeps the gate closed"), Director->IsGateOpen());
         TestEqual(TEXT("Reader restores the resolved objective"), Director->GetObjective(), Saved->Objective);
