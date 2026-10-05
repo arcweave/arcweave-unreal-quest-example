@@ -7,27 +7,42 @@
         "name": "Root",
         "root": true,
         "children": [
-          "b031a811-813e-45a6-8d7f-30c0e4e46eac",
-          "a9ad17ae-15e4-49b7-aff7-7df07bc1f5a2"
+          "b031a811-813e-45a6-8d7f-30c0e4e46eac"
         ]
       },
       "b031a811-813e-45a6-8d7f-30c0e4e46eac": {
-        "name": "01 · World event flows",
+        "name": "Restore power · playable quest",
         "notes": [
           "6c069694-7fea-4980-b59d-d9dc2c857cc4",
           "e1d06b05-73ac-4040-97d1-04a6f8091204",
           "b7583d4b-fa40-4507-9057-7d2538281cc6",
           "63297b78-e94e-4676-9e36-7dbdb9b02061",
           "567ce162-983d-43ba-b0d6-409dce845e18",
-          "8a1702ae-b5fe-44cb-bacd-97868065a17c"
+          "8a1702ae-b5fe-44cb-bacd-97868065a17c",
+          "c2b03497-1971-4bd0-815e-1025fae44a13",
+          "8bea571f-426b-463c-81a7-d54c50c3855f"
         ],
-        "jumpers": [],
+        "jumpers": [
+          "07cfcf34-77e3-4f10-bd89-089c7d781baa",
+          "a8ab6e66-0283-456c-a481-48e305b3caea",
+          "09723e37-9162-4652-9919-b6fa5f36dfa7",
+          "de810c6c-0e95-4291-a5dd-0465b9329e24",
+          "56c1fc5e-90ba-4dab-a12b-587dcbf4c4b5",
+          "d60ee1ae-646c-4cef-8a4c-1b2fa4869430",
+          "7841550a-3630-4291-a28d-64748f6301a9",
+          "cfce673f-9067-41b2-932c-e11cbbba5a29",
+          "f65d0040-815d-4df2-8fb8-073e2d6619b2",
+          "caee8569-9df3-43ec-a438-92da918de1ec",
+          "3c170fe1-dc83-4d4a-87e5-32dfc02643df",
+          "3aabf650-0f2a-4f48-80f5-ef93e16cecd2"
+        ],
         "branches": [
           "e110b153-2cfa-4294-adcc-e4b14cd0aef3",
           "270da112-6a6e-466e-b090-d0c0bb7c74ee",
           "fabbd4d2-3d23-41de-b66a-7f819fe7723e",
           "5a5c96ae-ef6f-421e-b2da-efca55bc5bc3",
-          "e025a541-5646-496a-bb27-4bde51e34596"
+          "e025a541-5646-496a-bb27-4bde51e34596",
+          "82527135-0d06-4109-a594-733eff9f09c1"
         ],
         "customId": "restore_power_quest",
         "elements": [
@@ -37,7 +52,6 @@
           "05d919db-a991-45b7-b20f-db02dbd6f307",
           "76724a0b-9935-4c27-9941-90c63f3a795c",
           "35f2414d-8156-474e-98d3-eaf74211d45b",
-          "6af8cc14-6034-4e97-ab3f-6ebbdc207161",
           "f2d75b83-f348-4b58-8190-b68d119db86d",
           "2689f5bc-f257-4b93-8d03-16760617ef62",
           "41df4d86-d079-4785-a22a-013597633640",
@@ -46,7 +60,14 @@
           "469d524b-9a3e-41b4-9f94-67a17246b608",
           "988b8226-23eb-4990-b481-19cd7cd3145c",
           "12c92fd1-be9a-40c9-9bc3-1d6f5573ee9a",
-          "961efa28-f033-44aa-ae8f-25bcb9a8e3e1"
+          "961efa28-f033-44aa-ae8f-25bcb9a8e3e1",
+          "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+          "82aad47c-b3de-45af-93b7-f83c76cf7344",
+          "3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0",
+          "2562dfc6-156c-425d-a9d3-3ae7796d594b",
+          "903c2f59-6079-49a6-b099-83a9ab0e8091",
+          "a3cd505b-7878-42cf-9523-063ffb62eb58",
+          "660c9cc9-512d-4248-b565-26eb1216177d"
         ],
         "attributes": null,
         "connections": [
@@ -69,152 +90,170 @@
           "03ee20e5-f8ab-4395-85e6-7b1c354db75e",
           "8af468c1-2caa-4337-a820-c3473a67368e",
           "2ade2c20-8e24-4d9d-8c98-8738e5c595c3",
-          "b06807ec-d45c-4751-9548-8b1fda1f9da2"
-        ]
-      },
-      "a9ad17ae-15e4-49b7-aff7-7df07bc1f5a2": {
-        "connections": [
-          "9c12295b-eedf-4ffc-88e3-14d3b68db577",
-          "cc38c1c6-ac22-4f84-9b6a-504c9f229da3",
-          "ded4ebaf-f02c-42e7-ba16-51f3605afe1e",
-          "616ab008-c762-4ae5-b5b5-9dc42ce4c307",
-          "634f7d62-b92c-4017-8611-2f775a54ff05",
-          "8097bcd1-3a2c-4151-a7fe-149f63f71533",
-          "b782ed46-246d-4c30-aa99-73753c446c1e",
-          "e58f809d-92d9-43b1-b49a-4a522f5ecaba"
-        ],
-        "elements": [
-          "7be79d97-39d8-4179-ad71-4b60b4ee62c8",
-          "13031eea-0fa8-4721-ac16-8a583906a6ae",
-          "09438fc8-be1d-4f8a-adad-30170999ca60",
-          "172fb20d-be4b-40f7-acec-fb22e76afe50",
-          "825244f4-6345-4314-b731-1f378ae010a1",
-          "b87fd479-2ae1-4201-aaae-a738b8b53f99",
-          "a21dc333-37fa-4de2-9213-0acfbfff4811"
-        ],
-        "jumpers": [],
-        "name": "02 · Objectives and interface",
-        "branches": [
-          "3cd93c4b-0dbb-47b0-9335-f36e3a27af08",
-          "6562a23b-ba75-455b-9cba-119f77f7dd80"
-        ],
-        "customId": "quest_presentation",
-        "notes": [
-          "617a47ca-5627-4dd4-a761-e4e9436af53c"
+          "b06807ec-d45c-4751-9548-8b1fda1f9da2",
+          "82b38a8a-e6ec-4d1f-82c1-397c616c9bd6",
+          "b8efc6d6-693c-4a4b-a88d-714601afbecc",
+          "b2887056-7cba-4136-b7b5-06070de76ede",
+          "153c112e-4d03-4d53-a329-9e4414280c69",
+          "d5ffccab-0083-495e-b69a-124298a1d100",
+          "79dfcf7f-d765-4c35-a091-e2c4fce94e95",
+          "27a3b224-c7fd-47d7-a4de-e9e26ff0c149",
+          "d6bcdedf-3dd0-4d3e-bdfe-ece309441e0b",
+          "41245d97-81d4-4857-849c-02895783844a",
+          "7ae2eea9-275c-4739-a233-3b497f456910",
+          "1f8c9ff9-21aa-4880-924b-76abdb696ef5",
+          "dc6b5643-1c9b-44c7-8821-00cc1807a6db",
+          "626372c7-1302-4658-a5df-a5630fdf1583",
+          "8a2a9df2-b367-4178-8c1d-84f2ad3f6c04",
+          "62967cbe-88a2-4bd7-958a-6689ad10fbe7",
+          "1c9e907a-0cbb-434e-9878-54dfe87ed293",
+          "31a718c4-aa21-4b8a-a29f-423f4c22ebce",
+          "b986e560-4139-4ea2-80ac-93795a81ec3a",
+          "3b7e83e5-707e-4124-87ef-be501f7bd93f",
+          "9babcdd5-8018-44a0-a11b-e776ec3119b9",
+          "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16",
+          "3cfa09a5-67c6-4f71-9b90-198dba4032cd",
+          "978971a0-7003-489d-ac39-07aef2601576",
+          "ce30ad8d-5408-45c4-943a-4262e397177a",
+          "e84d28c5-e54b-47ea-a415-88aecc7858e7",
+          "55d0bee6-ac69-4107-aee3-7eb3bb836878",
+          "dbb25391-1885-4453-afe5-8d36f974b5c4",
+          "36cb5374-8ee0-4a33-8401-87eb9dc41143",
+          "f5e66850-01c1-403f-afe2-8cb7c9a437e2"
         ]
       }
     },
     "notes": {
       "6c069694-7fea-4980-b59d-d9dc2c857cc4": {
         "theme": "purple",
-        "content": "<p><strong>WORLD EVENTS</strong></p><p>One entry routes terminal, pickup, generator, and exit interactions. Each flow ends at its response. Keep one output per condition.</p>",
+        "content": "<p><strong>RESTORE POWER · ONE PLAYABLE QUEST</strong></p><p>Start at Station. Check inventory or objectives through the two query jumpers, or choose a physical interaction. Ordinary responses return directly to Station. The powered exit ends the playthrough. All condition rows have one output.</p>",
         "x": 6800,
-        "y": 7400,
-        "width": 5100,
+        "y": 7500,
+        "width": 11500,
         "height": 360,
         "autoHeight": true
       },
       "e1d06b05-73ac-4040-97d1-04a6f8091204": {
         "theme": "purple",
-        "content": "<p><strong>TRY A FLOW</strong></p><p>In Play Mode, set game_event.type and game_event.cell_already_collected in the Debugger, then run Handle world event. Unreal supplies pickup counts and world actions.</p>",
-        "x": 6780,
-        "y": 10260,
-        "width": 701,
+        "content": "<p><strong>START HERE · PLAY MODE AND UNREAL</strong></p><p>Two query choices use jumpers and leave game_event unchanged. Five gameplay labels set type and cell_id, then share the event router. Unreal injects these inputs, selects the branch connection, and refreshes its HUD after each event.</p>",
+        "x": 8720,
+        "y": 9200,
+        "width": 720,
         "height": 184,
         "autoHeight": true
       },
       "b7583d4b-fa40-4507-9057-7d2538281cc6": {
         "theme": "purple",
         "content": "<p><strong>TERMINAL · use_terminal</strong></p><p>Accept the task once. Later visits show quest progress.</p>",
-        "x": 9600,
-        "y": 8780,
-        "width": 501,
+        "x": 11360,
+        "y": 8180,
+        "width": 520,
         "height": 106,
         "autoHeight": true
       },
       "63297b78-e94e-4676-9e36-7dbdb9b02061": {
         "theme": "purple",
         "content": "<p><strong>GENERATOR · check_generator</strong></p><p>Restore power after accepting the task and collecting enough cells. Then reach the exit.</p>",
-        "x": 9660,
-        "y": 11060,
-        "width": 441,
+        "x": 11360,
+        "y": 11150,
+        "width": 530,
         "height": 127,
         "autoHeight": true
       },
       "567ce162-983d-43ba-b0d6-409dce845e18": {
         "theme": "purple",
-        "content": "<p><strong>PICKUP · collect_cell</strong></p><p>Check duplicates, then task acceptance. Unreal collects the cell before the next element displays the updated count.</p>",
-        "x": 9620,
-        "y": 9860,
-        "width": 501,
+        "content": "<p><strong>PICKUP · collect_cell</strong></p><p>cell_id identifies cell_a or cell_b. Check its collected flag, then task acceptance. The accepted element marks the cell, increments inventory, and shows the new count. The collect_cell reference applies the physical Unreal effect afterward.</p>",
+        "x": 11360,
+        "y": 9590,
+        "width": 650,
         "height": 148,
         "autoHeight": true
       },
-      "617a47ca-5627-4dd4-a761-e4e9436af53c": {
+      "c2b03497-1971-4bd0-815e-1025fae44a13": {
         "theme": "purple",
-        "content": "<p><strong>OBJECTIVES AND UI</strong></p><p>Reset quest_ui defaults, then override only the fields that change. The final element supplies the objective.</p><p>Keep one Arcscript statement per code block. Shared HUD and world text live in UI components.</p>",
-        "x": 8500,
-        "y": 8850,
-        "width": 4900,
-        "height": 320,
+        "content": "<p><strong>OPTIONAL OBJECTIVES · AUTOMATIC UNREAL HUD</strong></p><p>Station's Check current objective jumper enters this section. Reset quest_ui, apply shared powered overrides, then select the current objective and return to Station. Quest progress and event inputs are unchanged.</p><p>Unreal refreshes this same section automatically after every interaction, including the final exit. Use one Arcscript statement per code block.</p>",
+        "x": 14650,
+        "y": 8500,
+        "width": 2950,
+        "height": 250,
         "autoHeight": true
       },
       "8a1702ae-b5fe-44cb-bacd-97868065a17c": {
         "theme": "purple",
         "content": "<p><strong>EXIT · enter_exit</strong></p><p>Entering the powered exit completes the task. Repeat entry only shows feedback.</p>",
-        "x": 9820,
-        "y": 12180,
-        "width": 361,
+        "x": 11360,
+        "y": 12600,
+        "width": 530,
         "height": 106,
-        "autoHeight": false
+        "autoHeight": true
+      },
+      "8bea571f-426b-463c-81a7-d54c50c3855f": {
+        "theme": "purple",
+        "content": "<p><strong>OPTIONAL INVENTORY</strong></p><p>Station's Check inventory jumper displays the carried power-cell count. This query only reads state and returns to Station. It does not collect a cell, change event inputs, or advance the quest.</p>",
+        "x": 14650,
+        "y": 11450,
+        "width": 1100,
+        "height": 160,
+        "autoHeight": true
       }
     },
     "elements": {
       "10be7825-974e-4306-b8e4-d2bbc63486dd": {
         "theme": "orange",
-        "outputs": [],
+        "outputs": [
+          "dc6b5643-1c9b-44c7-8821-00cc1807a6db"
+        ],
         "components": [],
-        "x": 10620,
-        "y": 11740,
+        "x": 12500,
+        "y": 12180,
         "width": 360,
         "height": 170,
         "autoHeight": true
       },
-      "825244f4-6345-4314-b731-1f378ae010a1": {
+      "903c2f59-6079-49a6-b099-83a9ab0e8091": {
         "theme": "orange",
-        "attributes": [],
-        "x": 10600,
-        "y": 10700,
+        "outputs": [
+          "ce30ad8d-5408-45c4-943a-4262e397177a"
+        ],
+        "x": 16500,
+        "y": 10620,
         "width": 430,
         "height": 180,
         "autoHeight": true
       },
       "bfc100c0-7b99-4404-a71c-c1b42b102c02": {
         "theme": "green",
-        "outputs": [],
+        "outputs": [
+          "1f8c9ff9-21aa-4880-924b-76abdb696ef5"
+        ],
         "components": [
           "80c7c42c-bb19-4065-8afa-7cd5b54776fc"
         ],
-        "x": 10620,
-        "y": 11380,
+        "x": 12500,
+        "y": 11840,
         "width": 360,
         "height": 170,
         "autoHeight": true
       },
       "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7": {
         "theme": "cyan",
-        "outputs": [],
+        "outputs": [
+          "7ae2eea9-275c-4739-a233-3b497f456910"
+        ],
         "components": [],
-        "x": 10600,
-        "y": 9260,
+        "x": 12500,
+        "y": 9220,
         "width": 360,
         "height": 170,
         "autoHeight": true
       },
       "05d919db-a991-45b7-b20f-db02dbd6f307": {
         "theme": "purple",
-        "x": 10620,
-        "y": 11080,
+        "outputs": [
+          "626372c7-1302-4658-a5df-a5630fdf1583"
+        ],
+        "x": 12500,
+        "y": 11520,
         "width": 360,
         "height": 170,
         "autoHeight": true
@@ -222,126 +261,158 @@
       "76724a0b-9935-4c27-9941-90c63f3a795c": {
         "theme": "cyan",
         "outputs": [
-          "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9"
+          "36cb5374-8ee0-4a33-8401-87eb9dc41143",
+          "f5e66850-01c1-403f-afe2-8cb7c9a437e2",
+          "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9",
+          "79dfcf7f-d765-4c35-a091-e2c4fce94e95",
+          "27a3b224-c7fd-47d7-a4de-e9e26ff0c149",
+          "d6bcdedf-3dd0-4d3e-bdfe-ece309441e0b",
+          "41245d97-81d4-4857-849c-02895783844a"
         ],
-        "x": 7100,
-        "y": 10620,
-        "width": 420,
-        "height": 150,
-        "autoHeight": true
+        "x": 8660,
+        "y": 9860,
+        "width": 470,
+        "height": 721,
+        "autoHeight": false
       },
-      "09438fc8-be1d-4f8a-adad-30170999ca60": {
+      "3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0": {
         "theme": "green",
-        "attributes": [],
-        "x": 12020,
-        "y": 10140,
+        "outputs": [
+          "3cfa09a5-67c6-4f71-9b90-198dba4032cd"
+        ],
+        "x": 16500,
+        "y": 9540,
         "width": 430,
         "height": 180,
         "autoHeight": true
       },
-      "a21dc333-37fa-4de2-9213-0acfbfff4811": {
+      "961efa28-f033-44aa-ae8f-25bcb9a8e3e1": {
         "theme": "green",
-        "outputs": [
-          "8097bcd1-3a2c-4151-a7fe-149f63f71533"
-        ],
-        "x": 10580,
-        "y": 9880,
-        "width": 501,
-        "height": 290,
+        "outputs": [],
+        "x": 12500,
+        "y": 12680,
+        "width": 370,
+        "height": 150,
         "autoHeight": true
       },
       "35f2414d-8156-474e-98d3-eaf74211d45b": {
         "theme": "orange",
-        "x": 10600,
-        "y": 9880,
+        "outputs": [
+          "8a2a9df2-b367-4178-8c1d-84f2ad3f6c04"
+        ],
+        "x": 12500,
+        "y": 9810,
         "width": 370,
         "height": 150,
         "autoHeight": true
       },
-      "172fb20d-be4b-40f7-acec-fb22e76afe50": {
+      "2562dfc6-156c-425d-a9d3-3ae7796d594b": {
         "theme": "purple",
-        "attributes": [],
-        "x": 10600,
-        "y": 10340,
+        "outputs": [
+          "978971a0-7003-489d-ac39-07aef2601576"
+        ],
+        "x": 16500,
+        "y": 10050,
         "width": 430,
         "height": 180,
         "autoHeight": true
       },
-      "7be79d97-39d8-4179-ad71-4b60b4ee62c8": {
+      "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f": {
         "theme": "cyan",
-        "outputs": [
-          "634f7d62-b92c-4017-8611-2f775a54ff05"
-        ],
         "attributes": [
-          "e0147f3d-6b80-4752-bb0d-6183862aa38e"
+          "9c0d147a-2403-475d-a0bd-d7ce9c6a075f"
         ],
-        "x": 9000,
-        "y": 10280,
+        "outputs": [
+          "d5ffccab-0083-495e-b69a-124298a1d100"
+        ],
+        "x": 14700,
+        "y": 10040,
         "width": 430,
         "height": 434,
         "autoHeight": true
       },
-      "b87fd479-2ae1-4201-aaae-a738b8b53f99": {
+      "a3cd505b-7878-42cf-9523-063ffb62eb58": {
         "theme": "gold",
-        "attributes": [],
-        "x": 10600,
-        "y": 11000,
+        "outputs": [
+          "e84d28c5-e54b-47ea-a415-88aecc7858e7"
+        ],
+        "x": 16500,
+        "y": 11100,
         "width": 430,
         "height": 180,
         "autoHeight": true
       },
-      "6af8cc14-6034-4e97-ab3f-6ebbdc207161": {
+      "82aad47c-b3de-45af-93b7-f83c76cf7344": {
         "theme": "green",
-        "x": 11300,
-        "y": 10480,
-        "width": 370,
-        "height": 150,
+        "outputs": [
+          "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16"
+        ],
+        "x": 16500,
+        "y": 9160,
+        "width": 430,
+        "height": 180,
         "autoHeight": true
       },
       "f2d75b83-f348-4b58-8190-b68d119db86d": {
         "theme": "green",
-        "x": 10720,
-        "y": 12540,
+        "outputs": [],
+        "x": 12500,
+        "y": 13000,
         "width": 370,
         "height": 150,
         "autoHeight": true
       },
       "2689f5bc-f257-4b93-8d03-16760617ef62": {
         "theme": "cyan",
-        "x": 10600,
-        "y": 9040,
+        "outputs": [
+          "62967cbe-88a2-4bd7-958a-6689ad10fbe7"
+        ],
+        "x": 12500,
+        "y": 8940,
         "width": 370,
         "height": 150,
         "autoHeight": true
       },
       "41df4d86-d079-4785-a22a-013597633640": {
         "theme": "green",
-        "x": 10600,
-        "y": 8840,
+        "outputs": [
+          "1c9e907a-0cbb-434e-9878-54dfe87ed293"
+        ],
+        "x": 12500,
+        "y": 8660,
         "width": 370,
         "height": 150,
         "autoHeight": true
       },
       "c80115f9-8323-42c8-b514-6d7895ad6852": {
         "theme": "green",
-        "x": 10600,
-        "y": 8660,
+        "outputs": [
+          "31a718c4-aa21-4b8a-a29f-423f4c22ebce"
+        ],
+        "x": 12500,
+        "y": 8380,
         "width": 370,
         "height": 150,
         "autoHeight": true
       },
       "f0fd0f64-ef53-446f-a43b-63746394bba0": {
         "theme": "green",
-        "x": 10620,
-        "y": 10780,
+        "outputs": [
+          "b986e560-4139-4ea2-80ac-93795a81ec3a"
+        ],
+        "x": 12500,
+        "y": 11240,
         "width": 370,
         "height": 150,
         "autoHeight": true
       },
       "469d524b-9a3e-41b4-9f94-67a17246b608": {
         "theme": "purple",
-        "x": 10600,
-        "y": 10180,
+        "outputs": [
+          "3b7e83e5-707e-4124-87ef-be501f7bd93f"
+        ],
+        "x": 12500,
+        "y": 10100,
         "width": 370,
         "height": 150,
         "autoHeight": true
@@ -354,39 +425,124 @@
         "outputs": [
           "cf1cba2c-37e7-445e-be8d-8074e4ee251a"
         ],
-        "x": 10600,
-        "y": 10480,
-        "width": 370,
+        "x": 12500,
+        "y": 10400,
+        "width": 480,
         "height": 150,
         "autoHeight": true
       },
       "12c92fd1-be9a-40c9-9bc3-1d6f5573ee9a": {
         "theme": "orange",
-        "x": 10720,
-        "y": 12840,
+        "outputs": [
+          "9babcdd5-8018-44a0-a11b-e776ec3119b9"
+        ],
+        "x": 12500,
+        "y": 13320,
         "width": 370,
         "height": 150,
         "autoHeight": true
       },
-      "961efa28-f033-44aa-ae8f-25bcb9a8e3e1": {
-        "theme": "green",
-        "x": 10720,
-        "y": 12240,
-        "width": 370,
-        "height": 150,
-        "autoHeight": true
-      },
-      "13031eea-0fa8-4721-ac16-8a583906a6ae": {
-        "theme": "green",
-        "attributes": [],
-        "x": 12020,
-        "y": 9840,
-        "width": 430,
+      "660c9cc9-512d-4248-b565-26eb1216177d": {
+        "theme": "cyan",
+        "attributes": [
+          "f2ac60e8-6174-4258-8202-27fa0133f6e9"
+        ],
+        "outputs": [
+          "dbb25391-1885-4453-afe5-8d36f974b5c4"
+        ],
+        "x": 14700,
+        "y": 11800,
+        "width": 470,
         "height": 180,
         "autoHeight": true
       }
     },
-    "jumpers": {},
+    "jumpers": {
+      "07cfcf34-77e3-4f10-bd89-089c7d781baa": {
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "height": 90,
+        "width": 240,
+        "x": 17150,
+        "y": 9200
+      },
+      "a8ab6e66-0283-456c-a481-48e305b3caea": {
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "height": 90,
+        "width": 240,
+        "x": 17150,
+        "y": 9580
+      },
+      "09723e37-9162-4652-9919-b6fa5f36dfa7": {
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "height": 90,
+        "width": 240,
+        "x": 17150,
+        "y": 10090
+      },
+      "de810c6c-0e95-4291-a5dd-0465b9329e24": {
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "height": 90,
+        "width": 240,
+        "x": 17150,
+        "y": 10660
+      },
+      "56c1fc5e-90ba-4dab-a12b-587dcbf4c4b5": {
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "height": 90,
+        "width": 240,
+        "x": 17150,
+        "y": 11140
+      },
+      "d60ee1ae-646c-4cef-8a4c-1b2fa4869430": {
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "height": 90,
+        "width": 290,
+        "x": 13400,
+        "y": 9020
+      },
+      "7841550a-3630-4291-a28d-64748f6301a9": {
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "height": 90,
+        "width": 290,
+        "x": 13400,
+        "y": 10300
+      },
+      "cfce673f-9067-41b2-932c-e11cbbba5a29": {
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "height": 90,
+        "width": 290,
+        "x": 13380,
+        "y": 11600
+      },
+      "f65d0040-815d-4df2-8fb8-073e2d6619b2": {
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "height": 90,
+        "width": 290,
+        "x": 13400,
+        "y": 12980
+      },
+      "caee8569-9df3-43ec-a438-92da918de1ec": {
+        "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "height": 90,
+        "width": 240,
+        "x": 15500,
+        "y": 11840
+      },
+      "3c170fe1-dc83-4d4a-87e5-32dfc02643df": {
+        "elementId": "660c9cc9-512d-4248-b565-26eb1216177d",
+        "height": 90,
+        "width": 310,
+        "x": 7500,
+        "y": 9950
+      },
+      "3aabf650-0f2a-4f48-80f5-ef93e16cecd2": {
+        "elementId": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "height": 90,
+        "width": 310,
+        "x": 7500,
+        "y": 10400
+      }
+    },
     "connections": {
       "35020249-1368-47c3-a8ca-358dce19746d": {
         "type": "Bezier",
@@ -533,14 +689,15 @@
       },
       "cf1cba2c-37e7-445e-be8d-8074e4ee251a": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
+        "labelLocation": 0.3,
         "sourceid": "988b8226-23eb-4990-b481-19cd7cd3145c",
-        "targetid": "6af8cc14-6034-4e97-ab3f-6ebbdc207161",
+        "targetid": "7841550a-3630-4291-a28d-64748f6301a9",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "green",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
       "001db9e3-0994-414e-aa9d-f0d8df03efd1": {
         "sourceType": "conditions",
@@ -586,103 +743,106 @@
         "theme": "cyan",
         "targetType": "branches"
       },
-      "9c12295b-eedf-4ffc-88e3-14d3b68db577": {
-        "sourceType": "conditions",
-        "labelLocation": 0.5,
-        "sourceid": "17f2cb78-ea25-451d-bb2b-36188d172e5d",
-        "targetid": "a21dc333-37fa-4de2-9213-0acfbfff4811",
+      "3b7e83e5-707e-4124-87ef-be501f7bd93f": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "469d524b-9a3e-41b4-9f94-67a17246b608",
+        "targetid": "7841550a-3630-4291-a28d-64748f6301a9",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
-      "634f7d62-b92c-4017-8611-2f775a54ff05": {
+      "3cfa09a5-67c6-4f71-9b90-198dba4032cd": {
         "sourceType": "elements",
         "labelLocation": 0.5,
-        "sourceid": "7be79d97-39d8-4179-ad71-4b60b4ee62c8",
-        "targetid": "3cd93c4b-0dbb-47b0-9335-f36e3a27af08",
-        "sourceFace": "right",
-        "targetFace": "left",
-        "type": "Bezier",
-        "theme": "cyan",
-        "targetType": "branches"
-      },
-      "cc38c1c6-ac22-4f84-9b6a-504c9f229da3": {
-        "sourceType": "conditions",
-        "labelLocation": 0.5,
-        "sourceid": "e181d4d1-2710-4adb-ac82-d842cdad12d4",
-        "targetid": "172fb20d-be4b-40f7-acec-fb22e76afe50",
+        "sourceid": "3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0",
+        "targetid": "a8ab6e66-0283-456c-a481-48e305b3caea",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
         "theme": "default",
-        "targetType": "elements"
+        "targetType": "jumpers"
       },
-      "ded4ebaf-f02c-42e7-ba16-51f3605afe1e": {
-        "sourceType": "conditions",
-        "labelLocation": 0.5,
-        "sourceid": "ed3028da-4dcc-46b5-a32e-8ee61b07d43f",
-        "targetid": "825244f4-6345-4314-b731-1f378ae010a1",
-        "sourceFace": "right",
-        "targetFace": "left",
-        "type": "Bezier",
-        "theme": "default",
-        "targetType": "elements"
-      },
-      "616ab008-c762-4ae5-b5b5-9dc42ce4c307": {
-        "sourceType": "conditions",
-        "labelLocation": 0.5,
-        "sourceid": "582cddb7-3336-47f0-99c1-968013d2a130",
-        "targetid": "b87fd479-2ae1-4201-aaae-a738b8b53f99",
-        "sourceFace": "right",
-        "targetFace": "left",
-        "type": "Bezier",
-        "theme": "default",
-        "targetType": "elements"
-      },
-      "8097bcd1-3a2c-4151-a7fe-149f63f71533": {
+      "9babcdd5-8018-44a0-a11b-e776ec3119b9": {
         "sourceType": "elements",
-        "labelLocation": 0.5,
-        "sourceid": "a21dc333-37fa-4de2-9213-0acfbfff4811",
-        "targetid": "6562a23b-ba75-455b-9cba-119f77f7dd80",
+        "labelLocation": 0.3,
+        "sourceid": "12c92fd1-be9a-40c9-9bc3-1d6f5573ee9a",
+        "targetid": "f65d0040-815d-4df2-8fb8-073e2d6619b2",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
-        "theme": "green",
-        "targetType": "branches"
+        "theme": "default",
+        "targetType": "jumpers",
+        "labelWidth": 230
       },
-      "b782ed46-246d-4c30-aa99-73753c446c1e": {
-        "sourceType": "conditions",
-        "labelLocation": 0.5,
-        "sourceid": "ee3c74da-7f14-4583-adba-f673ce574696",
-        "targetid": "13031eea-0fa8-4721-ac16-8a583906a6ae",
-        "sourceFace": "right",
-        "targetFace": "left",
-        "type": "Bezier",
-        "theme": "green",
-        "targetType": "elements"
-      },
-      "e58f809d-92d9-43b1-b49a-4a522f5ecaba": {
-        "sourceType": "conditions",
-        "labelLocation": 0.5,
-        "sourceid": "ee76d0f7-f2c1-40c5-aa7e-39cda4612fcf",
-        "targetid": "09438fc8-be1d-4f8a-adad-30170999ca60",
-        "sourceFace": "right",
-        "targetFace": "left",
-        "type": "Bezier",
-        "theme": "green",
-        "targetType": "elements"
-      },
-      "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9": {
+      "f5e66850-01c1-403f-afe2-8cb7c9a437e2": {
         "sourceType": "elements",
         "labelLocation": 0.5,
         "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
-        "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
+        "targetid": "3aabf650-0f2a-4f48-80f5-ef93e16cecd2",
+        "type": "Bezier",
+        "sourceFace": "left",
+        "targetFace": "right",
+        "labelWidth": 240,
+        "theme": "default",
+        "targetType": "jumpers"
+      },
+      "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16": {
+        "sourceType": "elements",
+        "labelLocation": 0.5,
+        "sourceid": "82aad47c-b3de-45af-93b7-f83c76cf7344",
+        "targetid": "07cfcf34-77e3-4f10-bd89-089c7d781baa",
         "sourceFace": "right",
         "targetFace": "left",
         "type": "Bezier",
-        "theme": "cyan",
+        "theme": "default",
+        "targetType": "jumpers"
+      },
+      "978971a0-7003-489d-ac39-07aef2601576": {
+        "sourceType": "elements",
+        "labelLocation": 0.5,
+        "sourceid": "2562dfc6-156c-425d-a9d3-3ae7796d594b",
+        "targetid": "09723e37-9162-4652-9919-b6fa5f36dfa7",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers"
+      },
+      "ce30ad8d-5408-45c4-943a-4262e397177a": {
+        "sourceType": "elements",
+        "labelLocation": 0.5,
+        "sourceid": "903c2f59-6079-49a6-b099-83a9ab0e8091",
+        "targetid": "de810c6c-0e95-4291-a5dd-0465b9329e24",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers"
+      },
+      "e84d28c5-e54b-47ea-a415-88aecc7858e7": {
+        "sourceType": "elements",
+        "labelLocation": 0.5,
+        "sourceid": "a3cd505b-7878-42cf-9523-063ffb62eb58",
+        "targetid": "56c1fc5e-90ba-4dab-a12b-587dcbf4c4b5",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers"
+      },
+      "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9": {
+        "sourceType": "elements",
+        "labelLocation": 0.64714954400312,
+        "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
+        "sourceFace": "top",
+        "targetFace": "top",
+        "type": "Bezier",
+        "theme": "default",
         "targetType": "branches"
       },
       "3b7e9da7-09f5-4541-a0b0-e1f6484403be": {
@@ -695,6 +855,248 @@
         "type": "Bezier",
         "theme": "cyan",
         "targetType": "branches"
+      },
+      "82b38a8a-e6ec-4d1f-82c1-397c616c9bd6": {
+        "sourceType": "conditions",
+        "labelLocation": 0.5,
+        "sourceid": "ce27fd0d-3342-4712-b62d-d52730ced795",
+        "targetid": "82aad47c-b3de-45af-93b7-f83c76cf7344",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "elements"
+      },
+      "b8efc6d6-693c-4a4b-a88d-714601afbecc": {
+        "sourceType": "conditions",
+        "labelLocation": 0.5,
+        "sourceid": "da9ad430-4148-4ade-90d5-41496e523d19",
+        "targetid": "2562dfc6-156c-425d-a9d3-3ae7796d594b",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "elements"
+      },
+      "b2887056-7cba-4136-b7b5-06070de76ede": {
+        "sourceType": "conditions",
+        "labelLocation": 0.5,
+        "sourceid": "51c6a840-f315-4f42-b5b9-fc6109b77e38",
+        "targetid": "903c2f59-6079-49a6-b099-83a9ab0e8091",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "elements"
+      },
+      "153c112e-4d03-4d53-a329-9e4414280c69": {
+        "sourceType": "conditions",
+        "labelLocation": 0.5,
+        "sourceid": "9f614a6b-d917-419f-b9c0-906337284257",
+        "targetid": "a3cd505b-7878-42cf-9523-063ffb62eb58",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "elements"
+      },
+      "d5ffccab-0083-495e-b69a-124298a1d100": {
+        "sourceType": "elements",
+        "labelLocation": 0.5,
+        "sourceid": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f",
+        "targetid": "82527135-0d06-4109-a594-733eff9f09c1",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "branches"
+      },
+      "b986e560-4139-4ea2-80ac-93795a81ec3a": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "f0fd0f64-ef53-446f-a43b-63746394bba0",
+        "targetid": "cfce673f-9067-41b2-932c-e11cbbba5a29",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers",
+        "labelWidth": 230
+      },
+      "31a718c4-aa21-4b8a-a29f-423f4c22ebce": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "c80115f9-8323-42c8-b514-6d7895ad6852",
+        "targetid": "d60ee1ae-646c-4cef-8a4c-1b2fa4869430",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers",
+        "labelWidth": 230
+      },
+      "1c9e907a-0cbb-434e-9878-54dfe87ed293": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "41df4d86-d079-4785-a22a-013597633640",
+        "targetid": "d60ee1ae-646c-4cef-8a4c-1b2fa4869430",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers",
+        "labelWidth": 230
+      },
+      "79dfcf7f-d765-4c35-a091-e2c4fce94e95": {
+        "sourceType": "elements",
+        "labelLocation": 0.28272611147537,
+        "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
+        "type": "Bezier",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "targetType": "branches",
+        "theme": "default"
+      },
+      "27a3b224-c7fd-47d7-a4de-e9e26ff0c149": {
+        "sourceType": "elements",
+        "labelLocation": 0.29013689303239,
+        "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
+        "type": "Bezier",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "targetType": "branches",
+        "theme": "default"
+      },
+      "d6bcdedf-3dd0-4d3e-bdfe-ece309441e0b": {
+        "sourceType": "elements",
+        "labelLocation": 0.28539559695107,
+        "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
+        "type": "Bezier",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "targetType": "branches",
+        "theme": "default"
+      },
+      "41245d97-81d4-4857-849c-02895783844a": {
+        "sourceType": "elements",
+        "labelLocation": 0.63079773094679,
+        "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "targetid": "e025a541-5646-496a-bb27-4bde51e34596",
+        "type": "Bezier",
+        "sourceFace": "bottom",
+        "targetFace": "bottom",
+        "targetType": "branches",
+        "theme": "default"
+      },
+      "7ae2eea9-275c-4739-a233-3b497f456910": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7",
+        "targetid": "d60ee1ae-646c-4cef-8a4c-1b2fa4869430",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers",
+        "labelWidth": 230
+      },
+      "1f8c9ff9-21aa-4880-924b-76abdb696ef5": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "bfc100c0-7b99-4404-a71c-c1b42b102c02",
+        "targetid": "cfce673f-9067-41b2-932c-e11cbbba5a29",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers",
+        "labelWidth": 230
+      },
+      "dc6b5643-1c9b-44c7-8821-00cc1807a6db": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "10be7825-974e-4306-b8e4-d2bbc63486dd",
+        "targetid": "cfce673f-9067-41b2-932c-e11cbbba5a29",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers",
+        "labelWidth": 230
+      },
+      "626372c7-1302-4658-a5df-a5630fdf1583": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "05d919db-a991-45b7-b20f-db02dbd6f307",
+        "targetid": "cfce673f-9067-41b2-932c-e11cbbba5a29",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers",
+        "labelWidth": 230
+      },
+      "8a2a9df2-b367-4178-8c1d-84f2ad3f6c04": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "35f2414d-8156-474e-98d3-eaf74211d45b",
+        "targetid": "7841550a-3630-4291-a28d-64748f6301a9",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers",
+        "labelWidth": 230
+      },
+      "55d0bee6-ac69-4107-aee3-7eb3bb836878": {
+        "sourceType": "conditions",
+        "labelLocation": 0.5,
+        "sourceid": "5675ffc9-4c7c-4779-8c5e-881d72fdb154",
+        "targetid": "3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "elements"
+      },
+      "36cb5374-8ee0-4a33-8401-87eb9dc41143": {
+        "sourceType": "elements",
+        "labelLocation": 0.5,
+        "sourceid": "76724a0b-9935-4c27-9941-90c63f3a795c",
+        "targetid": "3c170fe1-dc83-4d4a-87e5-32dfc02643df",
+        "type": "Bezier",
+        "sourceFace": "left",
+        "targetFace": "right",
+        "labelWidth": 240,
+        "theme": "default",
+        "targetType": "jumpers"
+      },
+      "62967cbe-88a2-4bd7-958a-6689ad10fbe7": {
+        "sourceType": "elements",
+        "labelLocation": 0.3,
+        "sourceid": "2689f5bc-f257-4b93-8d03-16760617ef62",
+        "targetid": "d60ee1ae-646c-4cef-8a4c-1b2fa4869430",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "type": "Bezier",
+        "theme": "default",
+        "targetType": "jumpers",
+        "labelWidth": 230
+      },
+      "dbb25391-1885-4453-afe5-8d36f974b5c4": {
+        "sourceType": "elements",
+        "labelLocation": 0.5,
+        "sourceid": "660c9cc9-512d-4248-b565-26eb1216177d",
+        "targetid": "caee8569-9df3-43ec-a438-92da918de1ec",
+        "type": "Bezier",
+        "sourceFace": "right",
+        "targetFace": "left",
+        "labelWidth": 240,
+        "theme": "default",
+        "targetType": "jumpers"
       }
     },
     "branches": {
@@ -708,8 +1110,8 @@
             "2f225626-b228-4606-9cdf-a0a2729a640f"
           ]
         },
-        "x": 9820,
-        "y": 11320
+        "x": 11400,
+        "y": 11660
       },
       "270da112-6a6e-466e-b090-d0c0bb7c74ee": {
         "conditions": {
@@ -721,8 +1123,8 @@
           ]
         },
         "theme": "gold",
-        "x": 9800,
-        "y": 9000
+        "x": 11400,
+        "y": 8770
       },
       "fabbd4d2-3d23-41de-b66a-7f819fe7723e": {
         "conditions": {
@@ -733,8 +1135,8 @@
           ]
         },
         "theme": "gold",
-        "x": 9800,
-        "y": 10160
+        "x": 11200,
+        "y": 10100
       },
       "5a5c96ae-ef6f-421e-b2da-efca55bc5bc3": {
         "conditions": {
@@ -745,30 +1147,22 @@
           ]
         },
         "theme": "gold",
-        "x": 9920,
-        "y": 12440
+        "x": 11400,
+        "y": 13100
       },
-      "3cd93c4b-0dbb-47b0-9335-f36e3a27af08": {
+      "82527135-0d06-4109-a594-733eff9f09c1": {
         "conditions": {
-          "ifCondition": "17f2cb78-ea25-451d-bb2b-36188d172e5d",
-          "elseCondition": "582cddb7-3336-47f0-99c1-968013d2a130",
+          "ifCondition": "ce27fd0d-3342-4712-b62d-d52730ced795",
+          "elseCondition": "9f614a6b-d917-419f-b9c0-906337284257",
           "elseIfConditions": [
-            "e181d4d1-2710-4adb-ac82-d842cdad12d4",
-            "ed3028da-4dcc-46b5-a32e-8ee61b07d43f"
+            "5675ffc9-4c7c-4779-8c5e-881d72fdb154",
+            "da9ad430-4148-4ade-90d5-41496e523d19",
+            "51c6a840-f315-4f42-b5b9-fc6109b77e38"
           ]
         },
         "theme": "gold",
-        "x": 9800,
-        "y": 10380
-      },
-      "6562a23b-ba75-455b-9cba-119f77f7dd80": {
-        "conditions": {
-          "ifCondition": "ee3c74da-7f14-4583-adba-f673ce574696",
-          "elseCondition": "ee76d0f7-f2c1-40c5-aa7e-39cda4612fcf"
-        },
-        "theme": "green",
-        "x": 11500,
-        "y": 9960
+        "x": 15500,
+        "y": 10100
       },
       "e025a541-5646-496a-bb27-4bde51e34596": {
         "conditions": {
@@ -780,8 +1174,8 @@
           ]
         },
         "theme": "gold",
-        "x": 7860,
-        "y": 10580
+        "x": 10200,
+        "y": 10100
       }
     },
     "contents": {
@@ -801,20 +1195,15 @@
       "35020249-1368-47c3-a8ca-358dce19746d": {
         "label": {
           "en": {
-            "text": "<p>Keep searching</p>"
+            "text": null
           }
         },
         "_status": {}
       },
-      "b87fd479-2ae1-4201-aaae-a738b8b53f99": {
-        "title": {
+      "31a718c4-aa21-4b8a-a29f-423f4c22ebce": {
+        "label": {
           "en": {
-            "text": "<p>Display · ready</p>"
-          }
-        },
-        "content": {
-          "en": {
-            "text": "<pre data-id=\"45afdb18-eb1f-4d6b-b23e-2096a69cadf9\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_prompt = \"Install cells and restore power\"</code></pre><p>Return to the generator and restore power.</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -822,7 +1211,7 @@
       "3b7e9da7-09f5-4541-a0b0-e1f6484403be": {
         "label": {
           "en": {
-            "text": "<p>Use terminal</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -838,7 +1227,7 @@
       "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8": {
         "label": {
           "en": {
-            "text": "<p>Enough power cells</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -859,7 +1248,7 @@
       "03ee20e5-f8ab-4395-85e6-7b1c354db75e": {
         "label": {
           "en": {
-            "text": "<p>Collect cell</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -901,7 +1290,7 @@
       "125db735-28b7-4f4c-9ff1-f3d61a086977": {
         "label": {
           "en": {
-            "text": "<p>Task not accepted</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -917,12 +1306,12 @@
       "76724a0b-9935-4c27-9941-90c63f3a795c": {
         "title": {
           "en": {
-            "text": "<p>Handle world event</p>"
+            "text": "<p>Station · choose an interaction</p>"
           }
         },
         "content": {
           "en": {
-            "text": "<p>Handling world event…</p>"
+            "text": "<pre data-id=\"2833baa2-ee20-4715-846a-488033bdd4fb\" spellcheck=\"false\"><code class=\"language-arcscript\">show(hud.station_name)</code></pre><p>Explore the station and restore power to open the exit. Check your inventory or current objective whenever you need, or choose an interaction.</p>"
           }
         },
         "_status": {}
@@ -938,7 +1327,7 @@
       "8af468c1-2caa-4337-a820-c3473a67368e": {
         "label": {
           "en": {
-            "text": "<p>Check generator</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -956,44 +1345,34 @@
         },
         "_status": {}
       },
-      "b782ed46-246d-4c30-aa99-73753c446c1e": {
+      "ce30ad8d-5408-45c4-943a-4262e397177a": {
         "label": {
           "en": {
-            "text": "<p>Task complete</p>"
+            "text": "<p>Back to station</p>"
           }
         },
         "_status": {}
       },
-      "7be79d97-39d8-4179-ad71-4b60b4ee62c8": {
-        "title": {
-          "en": {
-            "text": "<p>Refresh · objective and prompts</p>"
-          }
-        },
-        "content": {
-          "en": {
-            "text": "<p>Refreshing objective display.</p><pre data-id=\"24a909ea-6a84-4961-9deb-62639a8a0a7a\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.mission_heading)</code></pre><pre data-id=\"20f7e62b-ad85-4070-91fe-f6a8c9f71b8d\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.grid_status)</code></pre><pre data-id=\"9e1b4264-c4e8-4e8b-adba-c44ed3595792\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.terminal_prompt)</code></pre><pre data-id=\"c48e3e16-f25e-4f90-b360-59bef9520a02\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.cell_prompt)</code></pre><pre data-id=\"8cd63aa6-1e43-49de-9b89-46b1b48a0aa7\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_prompt)</code></pre><pre data-id=\"d95d4487-ebca-4987-9116-9c9ea8104ff5\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_label)</code></pre><pre data-id=\"b3af48d1-187b-40f7-a35b-951601fe7a54\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.gate_label)</code></pre>"
-          }
-        },
-        "_status": {}
-      },
-      "e58f809d-92d9-43b1-b49a-4a522f5ecaba": {
+      "8a2a9df2-b367-4178-8c1d-84f2ad3f6c04": {
         "label": {
           "en": {
-            "text": "<p>Power restored; exit ahead</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
       },
-      "6af8cc14-6034-4e97-ab3f-6ebbdc207161": {
-        "title": {
+      "e84d28c5-e54b-47ea-a415-88aecc7858e7": {
+        "label": {
           "en": {
-            "text": "<p>Pickup accepted · updated inventory</p>"
+            "text": "<p>Back to station</p>"
           }
         },
-        "content": {
+        "_status": {}
+      },
+      "626372c7-1302-4658-a5df-a5630fdf1583": {
+        "label": {
           "en": {
-            "text": "<pre data-id=\"f341b597-4df3-4678-9129-f8d9aadbe6ba\" spellcheck=\"false\"><code class=\"language-arcscript\">show(\"Collected a power cell (\", player.power_cells, \"/\", quest.required_power_cells, \").\")</code></pre>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1079,12 +1458,12 @@
       "988b8226-23eb-4990-b481-19cd7cd3145c": {
         "title": {
           "en": {
-            "text": "<p>World action · collect the focused cell</p>"
+            "text": "<p>Pickup accepted · collect the cell</p>"
           }
         },
         "content": {
           "en": {
-            "text": "<p>Collecting the power cell…</p>"
+            "text": "<pre data-id=\"cf22e68d-ef13-4880-b2b2-fc0212cdb7b7\" spellcheck=\"false\"><code class=\"language-arcscript\">if game_event.cell_id == \"cell_a\"</code></pre><pre data-id=\"15385699-e9f8-4dae-a322-850b9412f814\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">cell_a.collected = true</code></pre><pre data-id=\"eeda2a02-4ad3-4adc-98bb-a640e8b4b02f\" spellcheck=\"false\"><code class=\"language-arcscript\">else</code></pre><pre data-id=\"23ae268c-d858-4912-ba80-0383d19c5502\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">cell_b.collected = true</code></pre><pre data-id=\"332d1fcf-28b0-4111-b58e-ed36eb72fd36\" spellcheck=\"false\"><code class=\"language-arcscript\">endif</code></pre><pre data-id=\"b14bb3fd-ae62-4a24-b086-d6adb3017c45\" spellcheck=\"false\"><code class=\"language-arcscript\">player.power_cells += 1</code></pre><pre data-id=\"af12f933-bab0-429d-9f2b-1187b8523e93\" spellcheck=\"false\"><code class=\"language-arcscript\">show(\"Collected a power cell (\", player.power_cells, \"/\", quest.required_power_cells, \").\")</code></pre>"
           }
         },
         "_status": {}
@@ -1115,54 +1494,34 @@
         },
         "_status": {}
       },
-      "13031eea-0fa8-4721-ac16-8a583906a6ae": {
-        "title": {
+      "55d0bee6-ac69-4107-aee3-7eb3bb836878": {
+        "label": {
           "en": {
-            "text": "<p>Display · completed</p>"
-          }
-        },
-        "content": {
-          "en": {
-            "text": "<pre data-id=\"f3f383f4-b48f-4318-a2ce-3db829476df6\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.mission_heading = \"MISSION COMPLETE\"</code></pre><p>Task complete. You reached the exit.</p>"
+            "text": null
           }
         },
         "_status": {}
       },
-      "09438fc8-be1d-4f8a-adad-30170999ca60": {
-        "title": {
+      "36cb5374-8ee0-4a33-8401-87eb9dc41143": {
+        "label": {
           "en": {
-            "text": "<p>Display · powered</p>"
-          }
-        },
-        "content": {
-          "en": {
-            "text": "<p>Power restored. Walk through the open gate.</p>"
+            "text": "<p>Check inventory</p>"
           }
         },
         "_status": {}
       },
-      "172fb20d-be4b-40f7-acec-fb22e76afe50": {
-        "title": {
+      "62967cbe-88a2-4bd7-958a-6689ad10fbe7": {
+        "label": {
           "en": {
-            "text": "<p>Display · unaccepted</p>"
-          }
-        },
-        "content": {
-          "en": {
-            "text": "<pre data-id=\"088c3f7f-c477-46a8-9c02-78af7678b0b1\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.terminal_prompt = \"Read station terminal\"</code></pre><pre data-id=\"4798e1e6-e613-4284-9e5f-034290048417\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.cell_prompt = \"Read the station terminal first\"</code></pre><p>Use the terminal to begin.</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
       },
-      "825244f4-6345-4314-b731-1f378ae010a1": {
-        "title": {
+      "1c9e907a-0cbb-434e-9878-54dfe87ed293": {
+        "label": {
           "en": {
-            "text": "<p>Display · collecting</p>"
-          }
-        },
-        "content": {
-          "en": {
-            "text": "<pre data-id=\"66fde366-ab5b-4249-94ce-9a66900757fa\" spellcheck=\"false\"><code class=\"language-arcscript\">show(\"Collect power cells (\", player.power_cells, \"/\", quest.required_power_cells, \"), then use the generator.\")</code></pre>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1170,7 +1529,7 @@
       "445828a6-f158-4e76-bbb1-34351ca30e48": {
         "label": {
           "en": {
-            "text": "<p>Task complete</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1178,7 +1537,7 @@
       "3c3ab1e7-4dc5-473e-9c75-c436ead68314": {
         "label": {
           "en": {
-            "text": "<p>Exit available</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1186,7 +1545,7 @@
       "7cfc50ee-e91b-4134-b4b3-e1c7fe49418e": {
         "label": {
           "en": {
-            "text": "<p>Task accepted</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1194,7 +1553,7 @@
       "5ccb6af8-2cd3-4061-9443-8fe6c31e23e9": {
         "label": {
           "en": {
-            "text": "<p>Accept task</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1202,7 +1561,7 @@
       "b06807ec-d45c-4751-9548-8b1fda1f9da2": {
         "label": {
           "en": {
-            "text": "<p>Accept the task first</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1210,7 +1569,7 @@
       "7f315855-0c73-4087-bf3e-adbebfa82eae": {
         "label": {
           "en": {
-            "text": "<p>Already powered</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1218,7 +1577,7 @@
       "e7253f89-1829-4d47-a08b-30ea13c87b1d": {
         "label": {
           "en": {
-            "text": "<p>Cell already collected</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1226,7 +1585,7 @@
       "5491040d-2070-41f1-87d0-f50380a0560a": {
         "label": {
           "en": {
-            "text": "<p>Authorize collection</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1234,7 +1593,7 @@
       "2ade2c20-8e24-4d9d-8c98-8738e5c595c3": {
         "label": {
           "en": {
-            "text": "<p>Enter exit</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1242,7 +1601,7 @@
       "cf1cba2c-37e7-445e-be8d-8074e4ee251a": {
         "label": {
           "en": {
-            "text": "<p>After Unreal updates the cell count</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
@@ -1250,7 +1609,7 @@
       "001db9e3-0994-414e-aa9d-f0d8df03efd1": {
         "label": {
           "en": {
-            "text": "<p>Already complete</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1258,7 +1617,7 @@
       "bad0e004-b1c5-497f-89b0-f18585d4e881": {
         "label": {
           "en": {
-            "text": "<p>Confirm arrival</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1266,7 +1625,7 @@
       "d615dd01-51af-4054-a2e6-0150e6f7b06e": {
         "label": {
           "en": {
-            "text": "<p>No exit power</p>"
+            "text": null
           }
         },
         "_status": {}
@@ -1274,60 +1633,55 @@
       "5c4525c2-d6b1-4335-9b21-e3e5efeed2c9": {
         "label": {
           "en": {
-            "text": "<p>Route current interaction</p>"
+            "text": "<pre data-id=\"01709105-cfe6-4cf2-ac15-52a2fc67fcc2\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.type = \"use_terminal\"</code></pre><pre data-id=\"b190a225-7636-4b4c-897a-b3c868852394\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.cell_id = \"\"</code></pre><p>Use the terminal</p>"
           }
         },
         "_status": {}
       },
-      "9c12295b-eedf-4ffc-88e3-14d3b68db577": {
+      "3b7e83e5-707e-4124-87ef-be501f7bd93f": {
         "label": {
           "en": {
-            "text": "<p>Power online or task complete</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
       },
-      "a21dc333-37fa-4de2-9213-0acfbfff4811": {
-        "title": {
-          "en": {
-            "text": "<p>Display setup · power online</p>"
-          }
-        },
-        "content": {
-          "en": {
-            "text": "<p>Updating powered station display.</p><pre data-id=\"cd82bc7b-2d5d-4eb6-b63c-391c0a1b1615\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.grid_status = \"GRID ONLINE\"</code></pre><pre data-id=\"3ef11ffe-08de-478f-bd86-af3498793acf\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_prompt = \"Review running generator\"</code></pre><pre data-id=\"85fda233-ffe4-48ba-8de9-19133b772623\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_label = \"GENERATOR / ONLINE\"</code></pre><pre data-id=\"82c12dfc-2f8f-4e74-9597-02f407b3b749\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.gate_label = \"GATE 01 / ACCESS GRANTED\"</code></pre>"
-          }
-        },
-        "_status": {}
-      },
-      "cc38c1c6-ac22-4f84-9b6a-504c9f229da3": {
+      "b986e560-4139-4ea2-80ac-93795a81ec3a": {
         "label": {
           "en": {
-            "text": "<p>Task not accepted</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
       },
-      "ded4ebaf-f02c-42e7-ba16-51f3605afe1e": {
+      "9babcdd5-8018-44a0-a11b-e776ec3119b9": {
         "label": {
           "en": {
-            "text": "<p>Collecting cells</p>"
+            "text": "<p>Choose another interaction</p>"
           }
         },
         "_status": {}
       },
-      "616ab008-c762-4ae5-b5b5-9dc42ce4c307": {
+      "f5e66850-01c1-403f-afe2-8cb7c9a437e2": {
         "label": {
           "en": {
-            "text": "<p>Ready to restore power</p>"
+            "text": "<p>Check current objective</p>"
           }
         },
         "_status": {}
       },
-      "634f7d62-b92c-4017-8611-2f775a54ff05": {
+      "76c7c9e6-42f2-4d2c-a1a8-b762f35cad16": {
         "label": {
           "en": {
-            "text": "<p>Cache the selected display</p>"
+            "text": "<p>Back to station</p>"
+          }
+        },
+        "_status": {}
+      },
+      "3cfa09a5-67c6-4f71-9b90-198dba4032cd": {
+        "label": {
+          "en": {
+            "text": "<p>Back to station</p>"
           }
         },
         "_status": {}
@@ -1363,10 +1717,10 @@
         },
         "_status": {}
       },
-      "8097bcd1-3a2c-4151-a7fe-149f63f71533": {
+      "978971a0-7003-489d-ac39-07aef2601576": {
         "label": {
           "en": {
-            "text": "<p>Shared powered display applied</p>"
+            "text": "<p>Back to station</p>"
           }
         },
         "_status": {}
@@ -1396,6 +1750,217 @@
         "name": {
           "en": {
             "text": "Player"
+          }
+        },
+        "_status": {}
+      },
+      "8734a155-9d79-4acf-b340-6bbe667f5d7d": {
+        "name": {
+          "en": {
+            "text": "Cell A"
+          }
+        },
+        "_status": {}
+      },
+      "a5de1ba7-3d2b-48be-9175-b68c452fd845": {
+        "name": {
+          "en": {
+            "text": "Cell B"
+          }
+        },
+        "_status": {}
+      },
+      "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f": {
+        "title": {
+          "en": {
+            "text": "<p>Objectives · current task</p>"
+          }
+        },
+        "content": {
+          "en": {
+            "text": "<pre data-id=\"754ce166-353e-454f-8cac-6e1cc41e998d\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.mission_heading)</code></pre><pre data-id=\"facceca0-e9ec-46a6-b160-c56127a6443f\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.grid_status)</code></pre><pre data-id=\"6885a06e-8dfb-4fa4-97c1-e46628653338\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.terminal_prompt)</code></pre><pre data-id=\"612b96ba-0740-45c7-9f79-090108c9f10d\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.cell_prompt)</code></pre><pre data-id=\"67390a08-21b6-421b-aaf0-43d21bc3314c\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_prompt)</code></pre><pre data-id=\"fd256362-ac98-4d7f-b4f0-ad86ba5b3486\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.generator_label)</code></pre><pre data-id=\"842c6a58-d2bf-45da-8ab4-c5d1911708d0\" spellcheck=\"false\"><code class=\"language-arcscript\">reset(quest_ui.gate_label)</code></pre><pre data-id=\"34e1f0b6-0c85-40b2-96bc-f72b54694d43\" spellcheck=\"false\"><code class=\"language-arcscript\">if quest.completed || quest.power_restored</code></pre><pre data-id=\"09a402d4-ed6a-469a-8c24-4136590de272\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.grid_status = \"GRID ONLINE\"</code></pre><pre data-id=\"439a527d-6998-41d2-a87d-e1ac92d66bc8\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_prompt = \"Review running generator\"</code></pre><pre data-id=\"c499092f-e063-4c09-b4d0-e9731efa538a\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_label = \"GENERATOR / ONLINE\"</code></pre><pre data-id=\"cf1050f7-c80e-4a9c-a244-557f5d0df1cc\" style=\"margin-left: 20px;\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.gate_label = \"GATE 01 / ACCESS GRANTED\"</code></pre><pre data-id=\"36f21274-050e-4186-a68f-6e7cdd7a5096\" spellcheck=\"false\"><code class=\"language-arcscript\">endif</code></pre><pre data-id=\"9cdb7a61-5c0a-43b3-b513-ad07de60320d\" spellcheck=\"false\"><code class=\"language-arcscript\">show(quest_ui.mission_heading)</code></pre>"
+          }
+        },
+        "_status": {}
+      },
+      "82aad47c-b3de-45af-93b7-f83c76cf7344": {
+        "title": {
+          "en": {
+            "text": "<p>Display · completed</p>"
+          }
+        },
+        "content": {
+          "en": {
+            "text": "<pre data-id=\"3cd34aec-5fa9-4846-a792-81964091ed33\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.mission_heading = \"MISSION COMPLETE\"</code></pre><p>Task complete. You reached the exit.</p>"
+          }
+        },
+        "_status": {}
+      },
+      "3f4e193a-9fe6-4190-b1ea-1ee99e51a7d0": {
+        "title": {
+          "en": {
+            "text": "<p>Display · powered</p>"
+          }
+        },
+        "content": {
+          "en": {
+            "text": "<p>Power restored. Walk through the open gate.</p>"
+          }
+        },
+        "_status": {}
+      },
+      "2562dfc6-156c-425d-a9d3-3ae7796d594b": {
+        "title": {
+          "en": {
+            "text": "<p>Display · unaccepted</p>"
+          }
+        },
+        "content": {
+          "en": {
+            "text": "<pre data-id=\"2535a34a-4bf6-496f-bc45-449802ad55c4\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.terminal_prompt = \"Read station terminal\"</code></pre><pre data-id=\"8e7b7726-0cee-4acf-b3ce-bfd213f575d5\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.cell_prompt = \"Read the station terminal first\"</code></pre><p>Use the terminal to begin.</p>"
+          }
+        },
+        "_status": {}
+      },
+      "903c2f59-6079-49a6-b099-83a9ab0e8091": {
+        "title": {
+          "en": {
+            "text": "<p>Display · collecting</p>"
+          }
+        },
+        "content": {
+          "en": {
+            "text": "<pre data-id=\"81a7326e-8129-4b17-810c-9e3706f7f747\" spellcheck=\"false\"><code class=\"language-arcscript\">show(\"Collect power cells (\", player.power_cells, \"/\", quest.required_power_cells, \"), then use the generator.\")</code></pre>"
+          }
+        },
+        "_status": {}
+      },
+      "a3cd505b-7878-42cf-9523-063ffb62eb58": {
+        "title": {
+          "en": {
+            "text": "<p>Display · ready</p>"
+          }
+        },
+        "content": {
+          "en": {
+            "text": "<pre data-id=\"63051cc3-c57c-458f-a797-b560847c156b\" spellcheck=\"false\"><code class=\"language-arcscript\">quest_ui.generator_prompt = \"Install cells and restore power\"</code></pre><p>Return to the generator and restore power.</p>"
+          }
+        },
+        "_status": {}
+      },
+      "1f8c9ff9-21aa-4880-924b-76abdb696ef5": {
+        "label": {
+          "en": {
+            "text": "<p>Choose another interaction</p>"
+          }
+        },
+        "_status": {}
+      },
+      "82b38a8a-e6ec-4d1f-82c1-397c616c9bd6": {
+        "label": {
+          "en": {
+            "text": null
+          }
+        },
+        "_status": {}
+      },
+      "b8efc6d6-693c-4a4b-a88d-714601afbecc": {
+        "label": {
+          "en": {
+            "text": null
+          }
+        },
+        "_status": {}
+      },
+      "b2887056-7cba-4136-b7b5-06070de76ede": {
+        "label": {
+          "en": {
+            "text": null
+          }
+        },
+        "_status": {}
+      },
+      "153c112e-4d03-4d53-a329-9e4414280c69": {
+        "label": {
+          "en": {
+            "text": null
+          }
+        },
+        "_status": {}
+      },
+      "d5ffccab-0083-495e-b69a-124298a1d100": {
+        "label": {
+          "en": {
+            "text": "<p>See current objective</p>"
+          }
+        },
+        "_status": {}
+      },
+      "dc6b5643-1c9b-44c7-8821-00cc1807a6db": {
+        "label": {
+          "en": {
+            "text": "<p>Choose another interaction</p>"
+          }
+        },
+        "_status": {}
+      },
+      "7ae2eea9-275c-4739-a233-3b497f456910": {
+        "label": {
+          "en": {
+            "text": "<p>Choose another interaction</p>"
+          }
+        },
+        "_status": {}
+      },
+      "41245d97-81d4-4857-849c-02895783844a": {
+        "label": {
+          "en": {
+            "text": "<pre data-id=\"c4da3779-bb16-408f-ab61-89790024f10f\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.type = \"enter_exit\"</code></pre><pre data-id=\"71183117-38f7-4e42-9c14-b39d1ce341f8\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.cell_id = \"\"</code></pre><p>Enter the exit</p>"
+          }
+        },
+        "_status": {}
+      },
+      "79dfcf7f-d765-4c35-a091-e2c4fce94e95": {
+        "label": {
+          "en": {
+            "text": "<pre data-id=\"902637a7-6fea-4e15-af4b-e8cafaf359c4\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.type = \"collect_cell\"</code></pre><pre data-id=\"be5f7885-7c0e-4439-8362-4a91357a1604\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.cell_id = \"cell_a\"</code></pre><p>Collect cell A</p>"
+          }
+        },
+        "_status": {}
+      },
+      "27a3b224-c7fd-47d7-a4de-e9e26ff0c149": {
+        "label": {
+          "en": {
+            "text": "<pre data-id=\"18e663dd-0b10-41d1-8e83-bd9041fe9245\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.type = \"collect_cell\"</code></pre><pre data-id=\"e26fd6bb-1263-4d08-8097-f03be0c9bc2e\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.cell_id = \"cell_b\"</code></pre><p>Collect cell B</p>"
+          }
+        },
+        "_status": {}
+      },
+      "d6bcdedf-3dd0-4d3e-bdfe-ece309441e0b": {
+        "label": {
+          "en": {
+            "text": "<pre data-id=\"1cef964b-66c6-4480-9997-f0f2aac90b04\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.type = \"check_generator\"</code></pre><pre data-id=\"fe14a8e8-85d2-4c9d-bcc8-046d006972ee\" spellcheck=\"false\"><code class=\"language-arcscript\">game_event.cell_id = \"\"</code></pre><p>Check the generator</p>"
+          }
+        },
+        "_status": {}
+      },
+      "660c9cc9-512d-4248-b565-26eb1216177d": {
+        "title": {
+          "en": {
+            "text": "<p>Inventory · carried items</p>"
+          }
+        },
+        "content": {
+          "en": {
+            "text": "<pre data-id=\"9b799ba4-8722-4100-a258-7eab28a9d171\" spellcheck=\"false\"><code class=\"language-arcscript\">show(hud.cells_label, \": \", player.power_cells)</code></pre>"
+          }
+        },
+        "_status": {}
+      },
+      "dbb25391-1885-4453-afe5-8d36f974b5c4": {
+        "label": {
+          "en": {
+            "text": "<p>Back to station</p>"
           }
         },
         "_status": {}
@@ -1485,13 +2050,15 @@
         "customId": "game_event",
         "attributes": [
           "8ed8d440-99a2-49ed-9ed5-794e356827ac",
-          "7d1df7b7-0fdc-47bd-80aa-0374c9e43f04"
+          "a4b099e4-f7c4-4ba5-8d21-62e8ca2ae359"
         ]
       },
       "33cf89ec-ed95-4572-9467-0f298b8abe2d": {
         "children": [
           "a6aefedf-a182-40f1-afc6-eb6d2ef9509d",
-          "9978622e-a962-4237-a479-07b28cc0e97f"
+          "9978622e-a962-4237-a479-07b28cc0e97f",
+          "8734a155-9d79-4acf-b340-6bbe667f5d7d",
+          "a5de1ba7-3d2b-48be-9175-b68c452fd845"
         ]
       },
       "529901bb-a287-4b51-81a1-8f73c5c193af": {
@@ -1509,6 +2076,18 @@
         "customId": "player",
         "attributes": [
           "04344dba-b4a2-41a7-9b2e-e96f40c121eb"
+        ]
+      },
+      "8734a155-9d79-4acf-b340-6bbe667f5d7d": {
+        "customId": "cell_a",
+        "attributes": [
+          "00804dbc-96dd-4632-9c09-fd52d10d4b5a"
+        ]
+      },
+      "a5de1ba7-3d2b-48be-9175-b68c452fd845": {
+        "customId": "cell_b",
+        "attributes": [
+          "65bcb1a3-27dc-45ff-a494-a67b26587ccd"
         ]
       }
     },
@@ -1733,15 +2312,15 @@
         "cType": "components",
         "cId": "c6d692fd-c0f0-4045-9fe4-c69315169526"
       },
-      "7d1df7b7-0fdc-47bd-80aa-0374c9e43f04": {
-        "name": "cell_already_collected",
+      "9c0d147a-2403-475d-a0bd-d7ce9c6a075f": {
+        "name": "entry_point",
         "value": {
-          "data": false,
-          "type": "boolean"
+          "plain": true,
+          "type": "string",
+          "data": "objectives_ui"
         },
-        "customId": "cell_already_collected",
-        "cType": "components",
-        "cId": "c6d692fd-c0f0-4045-9fe4-c69315169526"
+        "cType": "elements",
+        "cId": "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f"
       },
       "04344dba-b4a2-41a7-9b2e-e96f40c121eb": {
         "name": "power_cells",
@@ -1793,15 +2372,46 @@
         "cType": "components",
         "cId": "9978622e-a962-4237-a479-07b28cc0e97f"
       },
-      "e0147f3d-6b80-4752-bb0d-6183862aa38e": {
+      "a4b099e4-f7c4-4ba5-8d21-62e8ca2ae359": {
+        "name": "cell_id",
+        "value": {
+          "plain": true,
+          "type": "string",
+          "data": null
+        },
+        "customId": "cell_id",
+        "cType": "components",
+        "cId": "c6d692fd-c0f0-4045-9fe4-c69315169526"
+      },
+      "00804dbc-96dd-4632-9c09-fd52d10d4b5a": {
+        "name": "collected",
+        "value": {
+          "data": false,
+          "type": "boolean"
+        },
+        "customId": "collected",
+        "cType": "components",
+        "cId": "8734a155-9d79-4acf-b340-6bbe667f5d7d"
+      },
+      "65bcb1a3-27dc-45ff-a494-a67b26587ccd": {
+        "name": "collected",
+        "value": {
+          "data": false,
+          "type": "boolean"
+        },
+        "customId": "collected",
+        "cType": "components",
+        "cId": "a5de1ba7-3d2b-48be-9175-b68c452fd845"
+      },
+      "f2ac60e8-6174-4258-8202-27fa0133f6e9": {
         "name": "entry_point",
         "value": {
           "plain": true,
           "type": "string",
-          "data": "objectives_ui"
+          "data": "inventory"
         },
         "cType": "elements",
-        "cId": "7be79d97-39d8-4179-ad71-4b60b4ee62c8"
+        "cId": "660c9cc9-512d-4248-b565-26eb1216177d"
       }
     },
     "assets": {
@@ -1850,7 +2460,7 @@
         "output": "125db735-28b7-4f4c-9ff1-f3d61a086977"
       },
       "feab59f4-adc6-4a46-a584-6ebfc74c6a0c": {
-        "script": "game_event.cell_already_collected",
+        "script": "(game_event.cell_id == \"cell_a\" && cell_a.collected) || (game_event.cell_id == \"cell_b\" && cell_b.collected)",
         "output": "e7253f89-1829-4d47-a08b-30ea13c87b1d"
       },
       "e0e8eaac-e08a-476d-afb6-9091d16703a5": {
@@ -1869,29 +2479,29 @@
         "script": "quest.power_restored",
         "output": "bad0e004-b1c5-497f-89b0-f18585d4e881"
       },
-      "17f2cb78-ea25-451d-bb2b-36188d172e5d": {
-        "script": "quest.completed || quest.power_restored",
-        "output": "9c12295b-eedf-4ffc-88e3-14d3b68db577"
-      },
-      "582cddb7-3336-47f0-99c1-968013d2a130": {
-        "script": null,
-        "output": "616ab008-c762-4ae5-b5b5-9dc42ce4c307"
-      },
-      "ee76d0f7-f2c1-40c5-aa7e-39cda4612fcf": {
-        "script": null,
-        "output": "e58f809d-92d9-43b1-b49a-4a522f5ecaba"
-      },
-      "e181d4d1-2710-4adb-ac82-d842cdad12d4": {
-        "script": "!quest.started",
-        "output": "cc38c1c6-ac22-4f84-9b6a-504c9f229da3"
-      },
-      "ed3028da-4dcc-46b5-a32e-8ee61b07d43f": {
+      "51c6a840-f315-4f42-b5b9-fc6109b77e38": {
         "script": "player.power_cells < quest.required_power_cells",
-        "output": "ded4ebaf-f02c-42e7-ba16-51f3605afe1e"
+        "output": "b2887056-7cba-4136-b7b5-06070de76ede"
       },
-      "ee3c74da-7f14-4583-adba-f673ce574696": {
+      "ce27fd0d-3342-4712-b62d-d52730ced795": {
         "script": "quest.completed",
-        "output": "b782ed46-246d-4c30-aa99-73753c446c1e"
+        "output": "82b38a8a-e6ec-4d1f-82c1-397c616c9bd6"
+      },
+      "5675ffc9-4c7c-4779-8c5e-881d72fdb154": {
+        "script": "quest.power_restored",
+        "output": "55d0bee6-ac69-4107-aee3-7eb3bb836878"
+      },
+      "da9ad430-4148-4ade-90d5-41496e523d19": {
+        "script": "!quest.started",
+        "output": "b8efc6d6-693c-4a4b-a88d-714601afbecc"
+      },
+      "9f614a6b-d917-419f-b9c0-906337284257": {
+        "script": null,
+        "output": "153c112e-4d03-4d53-a329-9e4414280c69"
+      },
+      "91b33bd2-a869-4dda-9b2d-86eebf566271": {
+        "script": "game_event.type == \"enter_exit\"",
+        "output": "2ade2c20-8e24-4d9d-8c98-8738e5c595c3"
       },
       "4217abbe-746f-43f2-a371-d23bb30a00d0": {
         "script": "game_event.type == \"use_terminal\"",
@@ -1908,10 +2518,6 @@
       "ebcaec9e-848f-4f57-a0db-171b2d212cd3": {
         "script": "game_event.type == \"check_generator\"",
         "output": "8af468c1-2caa-4337-a820-c3473a67368e"
-      },
-      "91b33bd2-a869-4dda-9b2d-86eebf566271": {
-        "script": "game_event.type == \"enter_exit\"",
-        "output": "2ade2c20-8e24-4d9d-8c98-8738e5c595c3"
       }
     },
     "locales": [

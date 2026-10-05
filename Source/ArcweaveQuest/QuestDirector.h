@@ -43,7 +43,7 @@ public:
 private:
     friend class FArcweaveQuestFlowTest;
 
-    bool RunEvent(const FString& EventType, FString& Error, bool bCellAlreadyCollected = false);
+    bool RunEvent(const FString& EventType, FString& Error, FName CellId = NAME_None);
     bool RunGraph(const FString& EntryElementId, bool bDispatchCommands,
         FArcweaveElementData& LastElement, FString& Error);
     bool RefreshPresentation(FString& Error);
@@ -57,6 +57,7 @@ private:
     UArcweaveSubsystem* Arcweave = nullptr;
 
     TMap<FName, TFunction<void()>> CommandHandlers;
+    // Applied physical pickup effects; narrative collection state lives in Arcweave.
     TSet<FName> CollectedCells;
     FName PendingCellId;
     FString CurrentElementId;
