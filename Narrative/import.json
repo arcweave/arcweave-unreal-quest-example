@@ -160,7 +160,7 @@
     },
     "567ce162-983d-43ba-b0d6-409dce845e18": {
       "theme": "purple",
-      "content": "<p><strong>PICKUP · collect_cell</strong></p><p>cell_id identifies cell_a or cell_b. Check its collected flag, then task acceptance. The accepted element marks the cell, increments inventory, and shows the new count. The collect_cell reference applies the physical Unreal effect afterward.</p>",
+      "content": "<p><strong>PICKUP · collect_cell</strong></p><p>cell_id identifies cell_a or cell_b. Check its collected flag, then task acceptance. The accepted element marks the cell, increments inventory, and shows the new count. Unreal reads each cell's collected flag to hide its pickup and disable collision, including after loading a checkpoint.</p>",
       "x": 11360,
       "y": 9590,
       "width": 650,
@@ -310,9 +310,9 @@
         "978971a0-7003-489d-ac39-07aef2601576"
       ],
       "x": 16500,
-      "y": 10050,
-      "width": 430,
-      "height": 180,
+      "y": 10060,
+      "width": 541,
+      "height": 194,
       "autoHeight": true
     },
     "3fe0ce72-bee3-4857-a5d6-66471e6d6e5f": {
@@ -417,9 +417,7 @@
     },
     "988b8226-23eb-4990-b481-19cd7cd3145c": {
       "theme": "gold",
-      "components": [
-        "06f4de3e-a022-472e-a2f9-bd73ee5875ee"
-      ],
+      "components": [],
       "outputs": [
         "cf1cba2c-37e7-445e-be8d-8074e4ee251a"
       ],
@@ -474,8 +472,8 @@
       "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
       "height": 90,
       "width": 240,
-      "x": 17150,
-      "y": 10090
+      "x": 17520,
+      "y": 10120
     },
     "de810c6c-0e95-4291-a5dd-0465b9329e24": {
       "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
@@ -516,8 +514,8 @@
       "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
       "height": 90,
       "width": 290,
-      "x": 13400,
-      "y": 12980
+      "x": 13360,
+      "y": 13340
     },
     "caee8569-9df3-43ec-a438-92da918de1ec": {
       "elementId": "76724a0b-9935-4c27-9941-90c63f3a795c",
@@ -544,7 +542,7 @@
   "connections": {
     "35020249-1368-47c3-a8ca-358dce19746d": {
       "type": "Bezier",
-      "theme": "orange",
+      "theme": "default",
       "sourceid": "f6c4d07b-b123-45ec-992a-0b6c6333ae91",
       "targetid": "10be7825-974e-4306-b8e4-d2bbc63486dd",
       "sourceFace": "right",
@@ -561,12 +559,12 @@
       "sourceFace": "right",
       "targetFace": "left",
       "type": "Bezier",
-      "theme": "purple",
+      "theme": "default",
       "targetType": "elements"
     },
     "9670de6b-0cd3-4e0e-9e2c-05497b6ea6a8": {
       "type": "Bezier",
-      "theme": "green",
+      "theme": "default",
       "sourceid": "2f225626-b228-4606-9cdf-a0a2729a640f",
       "targetid": "bfc100c0-7b99-4404-a71c-c1b42b102c02",
       "sourceFace": "right",
@@ -583,7 +581,7 @@
       "sourceFace": "right",
       "targetFace": "left",
       "type": "Bezier",
-      "theme": "cyan",
+      "theme": "default",
       "targetType": "branches"
     },
     "445828a6-f158-4e76-bbb1-34351ca30e48": {
@@ -638,7 +636,7 @@
       "sourceFace": "right",
       "targetFace": "left",
       "type": "Bezier",
-      "theme": "cyan",
+      "theme": "default",
       "targetType": "elements"
     },
     "7f315855-0c73-4087-bf3e-adbebfa82eae": {
@@ -649,7 +647,7 @@
       "sourceFace": "right",
       "targetFace": "left",
       "type": "Bezier",
-      "theme": "green",
+      "theme": "default",
       "targetType": "elements"
     },
     "e7253f89-1829-4d47-a08b-30ea13c87b1d": {
@@ -682,7 +680,7 @@
       "sourceFace": "right",
       "targetFace": "left",
       "type": "Bezier",
-      "theme": "cyan",
+      "theme": "default",
       "targetType": "branches"
     },
     "cf1cba2c-37e7-445e-be8d-8074e4ee251a": {
@@ -693,7 +691,7 @@
       "sourceFace": "right",
       "targetFace": "left",
       "type": "Bezier",
-      "theme": "green",
+      "theme": "default",
       "targetType": "jumpers",
       "labelWidth": 230
     },
@@ -738,7 +736,7 @@
       "sourceFace": "right",
       "targetFace": "left",
       "type": "Bezier",
-      "theme": "cyan",
+      "theme": "default",
       "targetType": "branches"
     },
     "3b7e83e5-707e-4124-87ef-be501f7bd93f": {
@@ -766,15 +764,14 @@
     },
     "9babcdd5-8018-44a0-a11b-e776ec3119b9": {
       "sourceType": "elements",
-      "labelLocation": 0.3,
+      "labelLocation": 0.4939380679132,
       "sourceid": "12c92fd1-be9a-40c9-9bc3-1d6f5573ee9a",
       "targetid": "f65d0040-815d-4df2-8fb8-073e2d6619b2",
       "sourceFace": "right",
       "targetFace": "left",
       "type": "Bezier",
       "theme": "default",
-      "targetType": "jumpers",
-      "labelWidth": 230
+      "targetType": "jumpers"
     },
     "f5e66850-01c1-403f-afe2-8cb7c9a437e2": {
       "sourceType": "elements",
@@ -851,7 +848,7 @@
       "sourceFace": "right",
       "targetFace": "left",
       "type": "Bezier",
-      "theme": "cyan",
+      "theme": "default",
       "targetType": "branches"
     },
     "82b38a8a-e6ec-4d1f-82c1-397c616c9bd6": {
@@ -1293,10 +1290,10 @@
       },
       "_status": {}
     },
-    "06f4de3e-a022-472e-a2f9-bd73ee5875ee": {
+    "1c5f80be-f89b-453e-af02-73047e80a587": {
       "name": {
         "en": {
-          "text": "Collect cell"
+          "text": "Save and load"
         }
       },
       "_status": {}
@@ -1962,14 +1959,6 @@
         }
       },
       "_status": {}
-    },
-    "1c5f80be-f89b-453e-af02-73047e80a587": {
-      "name": {
-        "en": {
-          "text": "Save and load"
-        }
-      },
-      "_status": {}
     }
   },
   "components": {
@@ -1984,7 +1973,9 @@
     },
     "80c7c42c-bb19-4065-8afa-7cd5b54776fc": {
       "customId": "open_gate",
-      "attributes": [],
+      "attributes": [
+        "b246d733-e1d2-4875-ab99-c860072faf58"
+      ],
       "assets": {
         "cover": {
           "type": "icon",
@@ -1999,15 +1990,29 @@
         "6c9b981f-563b-4dfd-af02-d97bf2e92a81",
         "3431c35c-5ff4-4f7d-a153-0ceb186178a3",
         "14eb1e2e-757b-4712-9b8b-a3c0512ddb2d"
-      ]
-    },
-    "06f4de3e-a022-472e-a2f9-bd73ee5875ee": {
-      "customId": "collect_cell",
-      "attributes": [],
+      ],
       "assets": {
         "cover": {
           "type": "icon",
-          "file": "sbed/battery-pack"
+          "file": "lorc/flying-flag"
+        }
+      }
+    },
+    "1c5f80be-f89b-453e-af02-73047e80a587": {
+      "customId": "save_ui",
+      "attributes": [
+        "b23571ef-2b8b-43aa-816b-c505621a4e82",
+        "24d08ef6-83eb-4d04-890a-f7df3d482ddc",
+        "abb30c43-b50c-4683-9c4f-c3f4bd324bfd",
+        "c9dcab7b-bddb-4713-9018-ebad24d27843",
+        "4fe4952e-5cf2-4203-aaf5-6ab227b5058b",
+        "01a69477-e07a-47a8-bcf0-f28871469e15",
+        "ddaf3a93-9ae6-4552-91bf-4d201e817245"
+      ],
+      "assets": {
+        "cover": {
+          "type": "icon",
+          "file": "delapouite/save"
         }
       }
     },
@@ -2021,7 +2026,13 @@
         "7fc1521c-a4e2-4f8c-a670-cf8972e6caf1",
         "84be1274-384c-40e0-9abe-b0983d4a258a",
         "ced25e29-377e-4215-85db-ce13f90af34b"
-      ]
+      ],
+      "assets": {
+        "cover": {
+          "type": "icon",
+          "file": "delapouite/plain-square"
+        }
+      }
     },
     "db068631-e0b6-47cd-a534-fa42111f70c3": {
       "children": [
@@ -2059,7 +2070,13 @@
       "attributes": [
         "8ed8d440-99a2-49ed-9ed5-794e356827ac",
         "a4b099e4-f7c4-4ba5-8d21-62e8ca2ae359"
-      ]
+      ],
+      "assets": {
+        "cover": {
+          "type": "icon",
+          "file": "delapouite/seven-pointed-star"
+        }
+      }
     },
     "33cf89ec-ed95-4572-9467-0f298b8abe2d": {
       "children": [
@@ -2076,7 +2093,6 @@
     },
     "5497b47e-322a-43c9-99c6-6907ae05ca3f": {
       "children": [
-        "06f4de3e-a022-472e-a2f9-bd73ee5875ee",
         "80c7c42c-bb19-4065-8afa-7cd5b54776fc"
       ]
     },
@@ -2090,25 +2106,25 @@
       "customId": "cell_a",
       "attributes": [
         "00804dbc-96dd-4632-9c09-fd52d10d4b5a"
-      ]
+      ],
+      "assets": {
+        "cover": {
+          "type": "icon",
+          "file": "sbed/battery-pack-alt"
+        }
+      }
     },
     "a5de1ba7-3d2b-48be-9175-b68c452fd845": {
       "customId": "cell_b",
       "attributes": [
         "65bcb1a3-27dc-45ff-a494-a67b26587ccd"
-      ]
-    },
-    "1c5f80be-f89b-453e-af02-73047e80a587": {
-      "customId": "save_ui",
-      "attributes": [
-        "b23571ef-2b8b-43aa-816b-c505621a4e82",
-        "24d08ef6-83eb-4d04-890a-f7df3d482ddc",
-        "abb30c43-b50c-4683-9c4f-c3f4bd324bfd",
-        "c9dcab7b-bddb-4713-9018-ebad24d27843",
-        "4fe4952e-5cf2-4203-aaf5-6ab227b5058b",
-        "01a69477-e07a-47a8-bcf0-f28871469e15",
-        "ddaf3a93-9ae6-4552-91bf-4d201e817245"
-      ]
+      ],
+      "assets": {
+        "cover": {
+          "type": "icon",
+          "file": "sbed/battery-pack-alt"
+        }
+      }
     }
   },
   "attributes": {
@@ -2520,6 +2536,16 @@
       "customId": "controls",
       "cType": "components",
       "cId": "06e4e920-e844-4509-9891-18e05d39f48b"
+    },
+    "b246d733-e1d2-4875-ab99-c860072faf58": {
+      "name": "Description",
+      "value": {
+        "plain": false,
+        "type": "string",
+        "data": "<p><strong>Unreal effect</strong></p><p>Opens the station exit gate through the sample's C++ command handler. Station lighting follows quest.power_restored separately.</p><p><strong>When to reference</strong></p><p>Reference this component on the successful generator activation element. The sample executes the element's Arcscript first, then dispatches its referenced action components using their custom IDs.</p><p><strong>Arcweave Play Mode</strong></p><p>The authored Arcscript and quest feedback still run. The physical gate movement is implemented in Unreal by the sample; this reference is not a built-in Arcscript command.</p>"
+      },
+      "cType": "components",
+      "cId": "80c7c42c-bb19-4065-8afa-7cd5b54776fc"
     }
   },
   "assets": {

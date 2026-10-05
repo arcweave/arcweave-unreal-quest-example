@@ -13,11 +13,6 @@ UQuestDirector::UQuestDirector()
 {
     // Arcweave decides when to request an action; these handlers implement its world effect.
     CommandHandlers.Add(TEXT("open_gate"), [this] { bGateOpen = true; });
-    CommandHandlers.Add(TEXT("collect_cell"), [this]
-    {
-        // Arcscript already updated inventory. This hides the collected world actor.
-        CollectedCells.Add(PendingCellId);
-    });
 }
 
 void UQuestDirector::Deinitialize()
@@ -41,8 +36,6 @@ bool UQuestDirector::StartNewGame(FString& Error)
         return RejectInteraction(TEXT("Could not load Content/ArcweaveExport/quest.json."), Error);
     }
 
-    CollectedCells.Reset();
-    PendingCellId = NAME_None;
     CurrentElementId.Empty();
     PresentationEntryId.Empty();
     PresentationElementId.Empty();
@@ -94,7 +87,8 @@ bool UQuestDirector::StartNewGame(FString& Error)
     }
     StateValues.Reset();
     for (const TCHAR* Id : {QuestBindings::QuestStartedAttribute, QuestBindings::QuestCompletedAttribute,
-        QuestBindings::PowerRestoredAttribute, QuestBindings::PowerCellsAttribute, QuestBindings::RequiredPowerCellsAttribute})
+        QuestBindings::PowerRestoredAttribute, QuestBindings::PowerCellsAttribute, QuestBindings::RequiredPowerCellsAttribute,
+        QuestBindings::CellACollectedAttribute, QuestBindings::CellBCollectedAttribute})
     {
         StateValues.Add(Id, Project.CurrentVars.FindChecked(Id).Value);
     }
@@ -120,10 +114,7 @@ bool UQuestDirector::StartQuest(FString& Error)
 bool UQuestDirector::CollectCell(FName CellId, FString& Error)
 {
     // Physical interactions and Play Mode choices supply the same authored cell identity.
-    PendingCellId = CellId;
-    const bool bResult = RunEvent(TEXT("collect_cell"), Error, CellId);
-    PendingCellId = NAME_None;
-    return bResult;
+    return RunEvent(TEXT("collect_cell"), Error, CellId);
 }
 
 bool UQuestDirector::TryRestorePower(FString& Error)
@@ -146,11 +137,11 @@ bool UQuestDirector::SaveCheckpoint(const FString& SlotName, const FTransform& P
     }
 
     UQuestSaveGame* Save = Cast<UQuestSaveGame>(UGameplayStatics::CreateSaveGameObject(UQuestSaveGame::StaticClass()));
+    Save->FormatVersion = 2;
     if (!Arcweave->CaptureState(Save->ArcweaveState, Error))
     {
         return RejectPersistence(TEXT("save_ui.save_failed"), Error, Error);
     }
-    Save->CollectedCells = CollectedCells;
     Save->bGateOpen = bGateOpen;
     Save->CurrentElementId = CurrentElementId;
     Save->PresentationElementId = PresentationElementId;
@@ -190,7 +181,7 @@ bool UQuestDirector::LoadCheckpoint(const FString& SlotName, FTransform& OutPlay
     {
         return RejectPersistence(TEXT("save_ui.load_failed"), Error, Error);
     }
-    if (Save->FormatVersion != 1 || Save->ArcweaveState.FormatVersion != CurrentState.FormatVersion
+    if (Save->FormatVersion != 2 || Save->ArcweaveState.FormatVersion != CurrentState.FormatVersion
         || Save->ArcweaveState.ProjectFingerprint != CurrentState.ProjectFingerprint)
     {
         return RejectPersistence(TEXT("save_ui.incompatible_save"),
@@ -215,13 +206,6 @@ bool UQuestDirector::LoadCheckpoint(const FString& SlotName, FTransform& OutPlay
     {
         return RejectPersistence(TEXT("save_ui.load_failed"), TEXT("The checkpoint contains invalid game state."), Error);
     }
-    for (FName CellId : Save->CollectedCells)
-    {
-        if (CellId != TEXT("cell_a") && CellId != TEXT("cell_b"))
-        {
-            return RejectPersistence(TEXT("save_ui.load_failed"), TEXT("The checkpoint contains an unknown world pickup."), Error);
-        }
-    }
     if (!Arcweave->RestoreState(Save->ArcweaveState, Error))
     {
         return RejectPersistence(TEXT("save_ui.load_failed"), Error, Error);
@@ -229,7 +213,6 @@ bool UQuestDirector::LoadCheckpoint(const FString& SlotName, FTransform& OutPlay
 
     // RestoreState refreshed the read caches. Restore resolved presentation and applied
     // effects directly; rerunning either graph would execute scripts and change visits.
-    CollectedCells = Save->CollectedCells;
     bGateOpen = Save->bGateOpen;
     CurrentElementId = Save->CurrentElementId;
     PresentationElementId = Save->PresentationElementId;
@@ -259,6 +242,17 @@ bool UQuestDirector::IsPowerRestored() const
 {
     return bProjectLoaded && StateValues.FindChecked(QuestBindings::PowerRestoredAttribute)
         .Equals(TEXT("true"), ESearchCase::CaseSensitive);
+}
+
+bool UQuestDirector::HasCollectedCell(FName CellId) const
+{
+    if (!bProjectLoaded)
+    {
+        return false;
+    }
+    const TCHAR* AttributeId = CellId == TEXT("cell_a") ? QuestBindings::CellACollectedAttribute
+        : CellId == TEXT("cell_b") ? QuestBindings::CellBCollectedAttribute : nullptr;
+    return AttributeId && StateValues.FindChecked(AttributeId).Equals(TEXT("true"), ESearchCase::CaseSensitive);
 }
 
 int32 UQuestDirector::GetPowerCellCount() const

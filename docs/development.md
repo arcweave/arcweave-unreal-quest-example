@@ -29,7 +29,7 @@ powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Map
 | Game-owned snapshot data | [QuestSaveGame.h](../Source/ArcweaveQuest/QuestSaveGame.h) |
 | Bound narrative IDs | [QuestBindings.h](../Source/ArcweaveQuest/QuestBindings.h) and [bindings.json](../Narrative/bindings.json) |
 
-`UQuestDirector` is sample code. It accesses the plugin with `GEngine->GetEngineSubsystem<UArcweaveSubsystem>()`. The plugin imports the project and evaluates Arcscript; the sample interprets referenced `collect_cell` and `open_gate` components as requests for native effects. See the [narrative guide](narrative.md) for the shared Play Mode/game flow, state ownership, entry discovery, and persistence contract.
+`UQuestDirector` is sample code. It accesses the plugin with `GEngine->GetEngineSubsystem<UArcweaveSubsystem>()`. The plugin imports the project and evaluates Arcscript; the sample interprets an `open_gate` component reference as a native gate command and reads collected flags to update pickup visibility. See the [narrative guide](narrative.md) for the shared Play Mode/game flow, state ownership, entry discovery, and persistence contract.
 
 Input mappings live in `Config/DefaultInput.ini`. It removes Unreal's inherited F5 shader-complexity and F9 screenshot debug bindings so they do not conflict with checkpoints. Restart an open editor after changing input configuration.
 

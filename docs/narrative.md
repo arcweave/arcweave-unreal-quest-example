@@ -2,7 +2,7 @@
 
 Explore the public [Restore Power — Unreal C++ Quest Sample](https://arcweave.com/app/project/MWEZgMb62g) or open [Play Mode](https://arcweave.com/app/project/MWEZgMb62g/play). To edit the narrative, import your own copy as described below. The bundled export runs locally without an API key.
 
-Arcweave owns quest progression, feedback, objectives, interaction prompts, station labels, and save/load interface text. Unreal supplies physical events and implements two authored world commands. The single **Restore power · playable quest** board contains the station menu, event router, four interaction lanes, inventory query, and objectives/UI path. The complete mission is playable in Arcweave Play Mode and drives the Unreal level from the same conditions and state changes. Four component folders separate **State**, interaction **Inputs**, engine **Actions**, and **UI** strings.
+Arcweave owns quest progression, feedback, objectives, interaction prompts, station labels, and save/load interface text. Unreal supplies physical events and implements the authored open-gate command. The single **Restore power · playable quest** board contains the station menu, event router, four interaction lanes, inventory query, and objectives/UI path. The complete mission is playable in Arcweave Play Mode and drives the Unreal level from the same conditions and state changes. Four component folders separate **State**, interaction **Inputs**, engine **Actions**, and **UI** strings.
 
 ![The shared Arcweave board with the station menu, interaction branches, and queries](images/arcweave-board.png)
 
@@ -70,7 +70,7 @@ All paths share one board. Four local return jumpers serve the terminal, pickup,
 
 The native world-event runner resolves its return jumper and stops **before** executing the station menu, or ends at a completed-exit element. `RunEvent` then calls `RefreshPresentation()` once in either case. Presentation also stops before executing the menu. Unreal's HUD therefore updates automatically after every interaction; it never requires selecting **Check inventory** or **Check current objective**. Play Mode returns control to the menu so the player can choose whether to check progress or interact again. Individual automatic paths remain acyclic up to the menu boundary.
 
-Collection progress is authored state, so Play Mode needs no replacement C++ handler: an accepted pickup marks its cell and increments the inventory in Arcscript. Engine action references handle physical collection and the gate when run in Unreal; Play Mode shows the authored outcomes without rendering those physical effects. There is no simulation flag, additional board, or separate preview copy of the quest state.
+Collection progress is authored state, so Play Mode needs no replacement C++ handler: an accepted pickup marks its cell and increments the inventory in Arcscript. Unreal reads the collected flags to hide pickups and uses an action reference to open the gate; Play Mode shows the authored outcomes without rendering those physical effects. There is no simulation flag, additional board, or separate preview copy of the quest state.
 
 ## World events
 
@@ -79,7 +79,7 @@ Unreal writes the two current interaction inputs on **Inputs → Game event**, t
 | Event router condition | Destination | Authored behavior |
 | --- | --- | --- |
 | **IF** `game_event.type == "use_terminal"` | `TerminalBranch` | Checks completed, powered, and accepted states in order. Otherwise, **Terminal · accept task** (`TerminalAcceptElement`) sets `quest.started = true`. Repeated interactions have their own feedback. |
-| **ELSE IF** `game_event.type == "collect_cell"` | `PickupBranch` | Checks the selected cell's shared collected state, then task acceptance. One accepted-pickup element marks that cell, increments `player.power_cells`, renders the updated count, and requests `collect_cell`. |
+| **ELSE IF** `game_event.type == "collect_cell"` | `PickupBranch` | Checks the selected cell's shared collected state, then task acceptance. One accepted-pickup element marks that cell, increments `player.power_cells`, renders the updated count, and lets Unreal update pickup visibility from the collected flag. |
 | **ELSE IF** `game_event.type == "check_generator"` | `GeneratorBranch` | Checks already powered, task not accepted, and sufficient cells in order. **Generator · restore power** (`SuccessElement`) sets `quest.power_restored = true` and requests `open_gate`. Unreal reflects that state in the station lighting. Other outcomes give guidance. |
 | **ELSE IF** `game_event.type == "enter_exit"` | `ExitBranch` | Gives repeat feedback if completed; sets `quest.completed = true` only when power is restored; otherwise denies exit. Successful and already-completed responses end Play Mode; a denied exit returns to Station. |
 
@@ -98,7 +98,7 @@ Every condition row has exactly **one outgoing connection**. The router’s `col
 | --- | --- |
 | **IF** the selected cell's `collected` flag is true | `DuplicatePickupElement`: “This power cell has already been collected.” |
 | **ELSE IF** `!quest.started` | `PickupTerminalRequiredElement`: “Use the terminal to accept the task first.” |
-| **ELSE** | `PickupActionElement`: updates the selected cell and inventory, displays the updated count, and requests `collect_cell`. |
+| **ELSE** | `PickupActionElement`: updates the selected cell and inventory, displays the updated count, and lets Unreal update pickup visibility from the collected flag. |
 
 The pickup condition compares `game_event.cell_id` with `cell_a` or `cell_b` and reads the corresponding component's `collected` flag. Arcweave owns the check order, collection permission, unique collection state, and response. Both new and repeated pickup requests use the same `collect_cell` event; there is no duplicate-cell event or externally supplied duplicate flag. Unreal's physical pickup IDs match those used by the two menu choices.
 
@@ -121,7 +121,7 @@ Keep the station menu selected as the project starting element in Arcweave. The 
 
 The generator condition is `player.power_cells >= quest.required_power_cells`. Before acceptance, the authored prerequisite wins even if enough cells are present. After power is restored, interacting again reaches an authored review response. Opening the gate does not complete the task: the player must enter the exit.
 
-`UQuestDirector::RunGraph` calls `TranspileObject` for each element, dispatches attached command components, then uses `GetIsTargetBranch` to resolve connections against current variables. It follows consecutive branches, so the event router can reach the terminal, pickup, generator, or exit condition branch directly. On an accepted pickup, `PickupActionElement` marks `cell_a.collected` or `cell_b.collected`, increments `player.power_cells`, and renders the count **before** C++ dispatches the attached `collect_cell` reference. Its handler records the physical pickup for the world to remove; it does not call `SetVariable` for the count. The final code block in that same element shows the updated inventory in both runtimes:
+`UQuestDirector::RunGraph` calls `TranspileObject` for each element, dispatches attached command components, then uses `GetIsTargetBranch` to resolve connections against current variables. It follows consecutive branches, so the event router can reach the terminal, pickup, generator, or exit condition branch directly. On an accepted pickup, `PickupActionElement` marks `cell_a.collected` or `cell_b.collected`, increments `player.power_cells`, and renders the count. When the interaction completes, Unreal reads the collected flags to hide the corresponding pickup and disable its collision. No pickup action reference or separate Unreal collection state is needed. The final code block shows the updated inventory in both runtimes:
 
 ```arcscript
 show("Collected a power cell (", player.power_cells, "/", quest.required_power_cells, ").")
@@ -129,7 +129,7 @@ show("Collected a power cell (", player.power_cells, "/", quest.required_power_c
 
 Every executed element has nonempty content because the bundled plugin cannot parse empty elements. Action elements contain their player-facing feedback alongside their Arcscript. In Play Mode, the accepted pickup shows the count immediately, then returns through the pickup group's station jumper. Choosing **Check current objective** enters presentation, whose authored **See current objective** continuation selects the objective. Branch-condition connections have no labels, preserving the menu choice's label as Play Mode follows the branch chain. The native runner does not replace event feedback with the menu or objective text when it reaches a boundary; the objective is published separately after its automatic presentation refresh.
 
-Command names are component **custom IDs** understood by this sample's C++ registry. They are not built-in Arcscript functions or Unreal Gameplay Tags. `collect_cell` belongs only on `PickupActionElement`, where Unreal has supplied a pending pickup identity. `open_gate` belongs only on `SuccessElement`. These two action components live in the **Actions** folder. Referencing one requests an engine operation; it does not prove the operation completed. Data components are not attached as commands.
+The **Actions** folder contains **Open gate**, custom ID `open_gate`, referenced only on `SuccessElement`. The sample's C++ command registry opens the physical gate after that element's Arcscript runs. Its rich-text **Description** attribute explains the effect, where to reference it, execution order, and Play Mode behavior. This is author documentation and adds no runtime variable. Command custom IDs are understood by this sample; they are not built-in Arcscript functions or Unreal Gameplay Tags. Data components remain standalone and are not attached as commands.
 
 ## State components
 
@@ -142,14 +142,14 @@ The **State** folder contains **Player** (custom ID `player`), **Restore power q
 | `quest.power_restored` | `false` | Arcweave records generator success; Unreal observes this value for station lighting. |
 | `quest.completed` | `false` | Arcweave records arrival at the powered exit. |
 | `quest.required_power_cells` | `2` | Authored configuration shared by generator conditions, objectives, and count feedback. |
-| `cell_a.collected` | `false` | Arcscript records whether cell A was collected; duplicate checks read this value in both runtimes. |
-| `cell_b.collected` | `false` | Arcscript records whether cell B was collected; duplicate checks read this value in both runtimes. |
+| `cell_a.collected` | `false` | Arcscript records whether cell A was collected; duplicate checks read this value in both runtimes, and Unreal uses it for pickup visibility and collision. |
+| `cell_b.collected` | `false` | Arcscript records whether cell B was collected; duplicate checks read this value in both runtimes, and Unreal uses it for pickup visibility and collision. |
 
-The director seeds a read cache of the five player/quest values from the imported project and subscribes once to the plugin's `OnArcweaveVariableChanged` delegate. Arcscript changes and `SetVariable` update the cache synchronously; repeated state getters do not copy the project or execute narrative code. `OnArcweaveStateRestored` reseeds the cache when loading a snapshot, because restoration does not emit variable-change events. The pickup branch reads the cell flags directly through Arcscript. Unreal keeps a set of collected physical IDs for world visibility, rather than using that set to decide narrative permission or write the inventory count. Restart reseeds authored defaults and clears physical collection state; subsystem shutdown removes the subscriptions. The cache never writes state back to Arcweave.
+The director seeds a read cache of all seven player, quest, and cell values from the imported project and subscribes once to the plugin's `OnArcweaveVariableChanged` delegate. Arcscript changes and `SetVariable` update the cache synchronously; repeated state getters do not copy the project or execute narrative code. `OnArcweaveStateRestored` reseeds the cache when loading a snapshot, because restoration does not emit variable-change events. The pickup branch and Unreal's `HasCollectedCell` read the same collected flags. After each interaction, restart, or load, the world applies those flags to pickup visibility and collision. The cache never writes state back to Arcweave.
 
-The scene and menu contain two pickups. Change `quest.required_power_cells` to `1` to try a shorter task; a target above `2` needs additional authored cell state and menu choices, as well as Unreal pickups. The UI components add twenty-seven scoped string variables and Game event adds two interaction inputs, giving the imported project **36 runtime variables** across nine data components. The two action components have no runtime variables.
+The scene and menu contain two pickups. Change `quest.required_power_cells` to `1` to try a shorter task; a target above `2` needs additional authored cell state and menu choices, as well as Unreal pickups. The UI components add twenty-seven scoped string variables and Game event adds two interaction inputs, giving the imported project **36 runtime variables** across nine data components. The Open gate action and its rich-text description add no runtime variables.
 
-Use a variable for a fact, configuration value, or text that Arcscript or Unreal reads. Use a referenced **Actions** component to request an engine operation at that point in the flow. Here, shared progression happens in Arcscript and action references apply its physical effects: `collect_cell` removes the accepted pickup in Unreal, while the authored cell flag and count make that same choice work in Play Mode. `quest.power_restored` is sufficient for the lighting state, so there is no separate restore-power command or mirrored C++ flag. The gate remains an explicit `open_gate` request, allowing its timing to be authored independently.
+Use a variable for a fact, configuration value, or text that Arcscript or Unreal reads. World objects can reflect that state directly: collected flags control pickup visibility and `quest.power_restored` controls station lighting. Use a referenced **Actions** component when the flow should explicitly request an engine operation at a particular point. The gate remains an `open_gate` request, allowing its timing to be authored independently.
 
 ```text
 Components
@@ -161,7 +161,6 @@ Components
 ├── Inputs
 │   └── Game event
 ├── Actions
-│   ├── Collect cell
 │   └── Open gate
 └── UI
     ├── HUD text
@@ -252,11 +251,11 @@ The plugin and sample have separate responsibilities:
 | Saved data | Owner |
 | --- | --- |
 | Every current component variable, including cell flags, UI strings, and event inputs; all visit counters; content fingerprint and snapshot format | Plugin `FArcweaveRuntimeState`, produced by `CaptureState` and consumed by `RestoreState`. |
-| Applied pickup IDs and gate state | Sample `UQuestSaveGame`, used to restore the physical effects of earlier `collect_cell` / `open_gate` commands. Station power is read from the restored `quest.power_restored` variable. |
+| Applied gate state | Sample `UQuestSaveGame`, used to restore the effect of the earlier `open_gate` command. Pickup visibility and station power come from the restored collected flags and `quest.power_restored`. |
 | Current response and objective element IDs, plus resolved objective and feedback text | Sample `UQuestSaveGame`, so loading does not need to execute either graph. |
 | Player transform and view rotation | Sample `UQuestSaveGame`, captured and applied by `AQuestGameMode`. |
 
-[`UQuestDirector::SaveCheckpoint`](../Source/ArcweaveQuest/QuestDirector.cpp) captures the plugin snapshot after the current interaction has finished, adds the game-owned values, and writes a [`UQuestSaveGame`](../Source/ArcweaveQuest/QuestSaveGame.h) with `UGameplayStatics::SaveGameToSlot`. The plugin itself does not write files or know the player's location, narrative cursor, or Unreal actors.
+[`UQuestDirector::SaveCheckpoint`](../Source/ArcweaveQuest/QuestDirector.cpp) captures the plugin snapshot after the current interaction has finished, adds the game-owned values, and writes a [`UQuestSaveGame`](../Source/ArcweaveQuest/QuestSaveGame.h) in sample save format 2 with `UGameplayStatics::SaveGameToSlot`. The plugin itself does not write files or know the player's location, narrative cursor, or Unreal actors.
 
 `LoadCheckpoint` reads the slot and checks its format, content fingerprint, and game-owned data before asking the plugin to restore the snapshot. The plugin validates all variables and visit counters before changing any state. Its `OnArcweaveStateRestored` delegate refreshes the director's state and text caches from the restored values; it does not issue ordinary variable-change notifications. The director then applies its saved cursors, resolved text, and world-effect state, and publishes the completed checkpoint. `AQuestGameMode::LoadCheckpoint` restores the player's pose, stops movement, and snaps pickup visibility, gate position/collision, and lighting to the restored state. Exit-trigger handling is suppressed during the restore so teleporting the player does not complete the quest again.
 
@@ -268,13 +267,13 @@ Snapshots require the same imported project content, not just the same Arcweave 
 
 ## Files and editing
 
-- `Narrative/bindings.json` and `Source/ArcweaveQuest/QuestBindings.h` identify the event-routing branch, interaction lanes, pickup branch, feedback/display leaves, four State components and their seven attributes, four UI components, Game event component and its two input attributes, and two command components used by C++ or its tests. The station menu comes from the export's `startingElement` field; the objectives/UI and inventory entries are marked by their `entry_point` metadata on the same board. None of these entries has a fixed binding, and no presentation-board binding is needed. Other conditions, connections, notes, and attributes retain their IDs in the graph without becoming C++ bindings.
+- `Narrative/bindings.json` and `Source/ArcweaveQuest/QuestBindings.h` identify the event-routing branch, interaction lanes, pickup branch, feedback/display leaves, four State components and their seven attributes, four UI components, Game event component and its two input attributes, and the Open gate command used by C++ or its tests. The station menu comes from the export's `startingElement` field; the objectives/UI and inventory entries are marked by their `entry_point` metadata on the same board. None of these entries has a fixed binding, and no presentation-board binding is needed. Other conditions, connections, notes, and attributes retain their IDs in the graph without becoming C++ bindings.
 - `Narrative/project.json` records the online project/workspace, export URLs, export time, and SHA-256 checksums. It contains no credential.
 - `Narrative/import.json` reproduces this graph and its board layout using the all-locales authoring export plus coordinates from the Unreal export. It is a directly uploadable, top-level project JSON file. Importing it creates a separate project; it does not update the linked one. The sync script regenerates it alongside the other exports.
 - `Narrative/authoring.json` is the actual Arcweave JSON API export. That endpoint omits coordinates.
 - `Content/ArcweaveExport/quest.json` is the actual Unreal API response, including its `project` envelope and layout. It is the only JSON file in that import directory.
 
-Keep the bound IDs, command and data-component custom IDs, event names, variable meanings, and two query entry markers when editing. Text, attribute defaults, conditions, notes, node positions, and internal automatic paths can change without adding C++ bindings. Keep the complete experience on one board. The menu's two query jumpers target the inventory and objectives/UI entries. Four event-group returns, one inventory return, and five objective returns target the current project starting element. Intended loops return from a single interaction or query to the menu; automatic paths before that boundary must remain acyclic. Only the starting menu has multiple outputs: two query jumpers followed by five interactions sharing a router. Other elements have one continuation, except the successful and already-completed exit elements, which end the playthrough. Each condition row has exactly one outgoing connection. Only the five interaction labels assign the two event inputs; query labels do not write variables. Leave branch-condition connection labels empty so they do not replace the selected interaction's text in Play Mode. Changing the event interface, supported commands, or query contracts requires corresponding C++ or validator changes.
+Keep the bound IDs, command and data-component custom IDs, event names, variable meanings, and two query entry markers when editing. Text, attribute defaults, conditions, notes, node positions, and internal automatic paths can change without adding C++ bindings. Keep the complete experience on one board. Keep every connection theme set to `default`. The menu's two query jumpers target the inventory and objectives/UI entries. Four event-group returns, one inventory return, and five objective returns target the current project starting element. Intended loops return from a single interaction or query to the menu; automatic paths before that boundary must remain acyclic. Only the starting menu has multiple outputs: two query jumpers followed by five interactions sharing a router. Other elements have one continuation, except the successful and already-completed exit elements, which end the playthrough. Each condition row has exactly one outgoing connection. Only the five interaction labels assign the two event inputs; query labels do not write variables. Leave branch-condition connection labels empty so they do not replace the selected interaction's text in Play Mode. Changing the event interface, supported commands, or query contracts requires corresponding C++ or validator changes.
 
 ## Refresh the bundled narrative
 

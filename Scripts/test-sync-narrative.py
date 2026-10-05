@@ -251,7 +251,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_restore_power_command_cannot_duplicate_quest_state(self):
         self.project["components"]["legacy-restore-power"] = {"customId": "restore_power"}
-        self.assert_invalid("exactly the collect_cell and open_gate action components")
+        self.assert_invalid("only the open_gate action component")
 
     def test_input_display_names_and_feedback_wording_can_change(self):
         self.project["components"][self.bindings["GameEventComponent"]]["name"] = "Interaction inputs"
@@ -536,8 +536,8 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Inventory query must be feedback only")
 
     def test_inventory_cannot_call_a_physical_command(self):
-        self.element("InventoryEntryElement")["components"] = [self.bindings["CollectCellComponent"]]
-        self.assert_invalid("Only PickupAction may collect a cell")
+        self.element("InventoryEntryElement")["components"] = [self.bindings["OpenGateComponent"]]
+        self.assert_invalid("Only Success may reference the open_gate")
 
     def test_inventory_must_return_to_station(self):
         self.return_jumper("InventoryEntryElement")["elementId"] = self.element_id("PresentationEntryElement")
@@ -787,7 +787,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_duplicate_feedback_cannot_emit_a_world_command(self):
         self.element("DuplicatePickupElement")["components"] = [self.bindings["OpenGateComponent"]]
-        self.assert_invalid("only Success may open the gate")
+        self.assert_invalid("Only Success may reference the open_gate")
 
     def test_duplicate_feedback_cannot_enter_another_lane(self):
         self.add_output("DuplicatePickupElement", "MissingCellsElement")
@@ -1016,8 +1016,8 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Presentation may only assign quest_ui fields")
 
     def test_display_command_is_rejected(self):
-        self.element("PresentationCollectingElement")["components"] = [self.bindings["CollectCellComponent"]]
-        self.assert_invalid("Only PickupAction")
+        self.element("PresentationCollectingElement")["components"] = [self.bindings["OpenGateComponent"]]
+        self.assert_invalid("Only Success may reference the open_gate")
 
     def test_display_condition_function_is_rejected(self):
         branch = self.project["branches"][self.bindings["PresentationBranch"]]
@@ -1229,14 +1229,14 @@ class NarrativeValidationTests(unittest.TestCase):
         owner = self.bindings["OpenGateComponent"]
         self.project["attributes"][extra] = dict(self.ui_attribute(), cId=owner, customId="debug_label")
         self.project["components"][owner]["attributes"] = [extra]
-        self.assert_invalid("Only the seven state values, twenty-six UI strings, and two game_event inputs may add scoped variables")
+        self.assert_invalid("Only the seven state values, twenty-seven UI strings, and two game_event inputs may add scoped variables")
 
     def test_additional_board_variable_is_rejected(self):
         extra = "5aa30329-45b8-42df-b65b-1e94f0a76a84"
         owner = self.bindings["Board"]
         self.project["attributes"][extra] = dict(self.ui_attribute(), cType="boards", cId=owner, customId="debug_label")
         self.project["boards"][owner]["attributes"] = [extra]
-        self.assert_invalid("Only the seven state values, twenty-six UI strings, and two game_event inputs may add scoped variables")
+        self.assert_invalid("Only the seven state values, twenty-seven UI strings, and two game_event inputs may add scoped variables")
 
     def test_ui_component_cannot_be_attached_as_a_command(self):
         for binding in SYNC.UI_COMPONENTS:
@@ -1619,27 +1619,27 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_collection_requires_pickup_event_context(self):
         self.generator_connection().update(targetid=self.bindings["PickupActionElement"], targetType="elements")
-        self.assert_invalid("Only the pickup event supplies the physical identity")
+        self.assert_invalid("Only the pickup event supplies the cell identity")
 
     def test_changed_command_custom_id_is_rejected(self):
-        self.project["components"][self.bindings["CollectCellComponent"]]["customId"] = "collect_other"
+        self.project["components"][self.bindings["OpenGateComponent"]]["customId"] = "open_other"
         self.assert_invalid("custom ID no longer matches")
 
-    def test_collection_command_on_terminal_is_rejected(self):
-        self.element("TerminalAcceptElement")["components"] = [self.bindings["CollectCellComponent"]]
-        self.assert_invalid("Only PickupAction")
+    def test_gate_command_on_terminal_is_rejected(self):
+        self.element("TerminalAcceptElement")["components"] = [self.bindings["OpenGateComponent"]]
+        self.assert_invalid("Only Success may reference the open_gate")
 
     def test_gate_command_on_shared_event_entry_is_rejected(self):
         self.element("EventEntryElement")["components"] = [self.bindings["OpenGateComponent"]]
-        self.assert_invalid("only Success may open the gate")
+        self.assert_invalid("Only Success may reference the open_gate")
 
     def test_gate_command_on_exit_is_rejected(self):
         self.element("CompletedElement")["components"] = [self.bindings["OpenGateComponent"]]
-        self.assert_invalid("only Success may open the gate")
+        self.assert_invalid("Only Success may reference the open_gate")
 
-    def test_missing_pickup_command_is_rejected(self):
-        self.element("PickupActionElement")["components"] = []
-        self.assert_invalid("Only PickupAction")
+    def test_missing_gate_command_is_rejected(self):
+        self.element("SuccessElement")["components"] = []
+        self.assert_invalid("Only Success may reference the open_gate")
 
     def test_empty_executable_entry_is_rejected(self):
         self.element("EventEntryElement")["content"] = None

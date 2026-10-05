@@ -21,6 +21,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     UQuestDirector* Director = NewObject<UQuestDirector>(GameInstance);
     UArcweaveSubsystem* Arcweave = GEngine->GetEngineSubsystem<UArcweaveSubsystem>();
     FString Error;
+    TestFalse(TEXT("A director without a loaded narrative has no collected cell"), Director->HasCollectedCell(TEXT("cell_a")));
     if (!TestTrue(TEXT("The pinned plugin loads and initializes the local narrative"), Director->StartNewGame(Error)))
     {
         AddError(Error);
@@ -350,46 +351,23 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     };
 
     int32 GateCommands = 0;
-    int32 PickupCommands = 0;
     int32 PresentationChanges = 0;
-    TestEqual(TEXT("Only collection and gate opening require engine command handlers"), Director->CommandHandlers.Num(), 2);
+    TestEqual(TEXT("Only gate opening requires an engine command handler"), Director->CommandHandlers.Num(), 1);
     const TFunction<void()> OpenGate = Director->CommandHandlers.FindChecked(TEXT("open_gate"));
-    const TFunction<void()> CollectCell = Director->CommandHandlers.FindChecked(TEXT("collect_cell"));
     Director->CommandHandlers.Add(TEXT("open_gate"), [this, Director, &GateCommands, OpenGate]
     {
         TestTrue(TEXT("The gate command observes the authored power milestone already set"), Director->IsPowerRestored());
         ++GateCommands;
         OpenGate();
     });
-    Director->CommandHandlers.Add(TEXT("collect_cell"), [this, Director, Arcweave, &PickupCommands, CollectCell]
-    {
-        const FArcweaveProjectData BeforeCommand = Arcweave->GetArcweaveProjectData();
-        const FString CellId = BeforeCommand.CurrentVars.FindChecked(QuestBindings::CellIdAttribute).Value;
-        const TCHAR* CollectedAttribute = CellId == TEXT("cell_a")
-            ? QuestBindings::CellACollectedAttribute : QuestBindings::CellBCollectedAttribute;
-        TestEqual(TEXT("The pickup command observes the shared collected flag already set by Arcscript"),
-            BeforeCommand.CurrentVars.FindChecked(CollectedAttribute).Value, FString(TEXT("true")));
-        TestEqual(TEXT("Arcscript increments the cached inventory exactly once before the physical command"),
-            Director->GetPowerCellCount(), Director->CollectedCells.Num() + 1);
-        TestEqual(TEXT("The pickup command runs from the same element that updated narrative state"),
-            Director->GetCurrentElementId(), FString(QuestBindings::PickupActionElement));
-        TestEqual(TEXT("The merged pickup element renders its updated count before the physical command"),
-            Director->GetStatus(), FString::Printf(TEXT("Collected a power cell (%d/%d)."),
-                Director->GetPowerCellCount(), Director->GetRequiredPowerCellCount()));
-        TestFalse(TEXT("The narrative pickup runs before hiding its physical cell"), Director->HasCollectedCell(FName(*CellId)));
-        ++PickupCommands;
-        CollectCell();
-        TestTrue(TEXT("The pickup command records the cell selected by the injected event"), Director->HasCollectedCell(FName(*CellId)));
-        const FArcweaveProjectData AfterCommand = Arcweave->GetArcweaveProjectData();
-        for (const auto& Pair : BeforeCommand.CurrentVars)
-        {
-            TestEqual(TEXT("The physical pickup command does not rewrite shared narrative state: ") + Pair.Key,
-                AfterCommand.CurrentVars.FindChecked(Pair.Key).Value, Pair.Value.Value);
-        }
-    });
-    Director->OnQuestChanged.AddLambda([this, Director, &PresentationChanges]
+    Director->OnQuestChanged.AddLambda([this, Director, Arcweave, &PresentationChanges]
     {
         ++PresentationChanges;
+        const FArcweaveProjectData State = Arcweave->GetArcweaveProjectData();
+        TestEqual(TEXT("World notification reads cell A from its authored flag"), Director->HasCollectedCell(TEXT("cell_a")),
+            State.CurrentVars.FindChecked(QuestBindings::CellACollectedAttribute).Value == TEXT("true"));
+        TestEqual(TEXT("World notification reads cell B from its authored flag"), Director->HasCollectedCell(TEXT("cell_b")),
+            State.CurrentVars.FindChecked(QuestBindings::CellBCollectedAttribute).Value == TEXT("true"));
         if (Director->IsQuestCompleted())
         {
             TestTrue(TEXT("Completed presentation also observes restored power"), Director->IsPowerRestored());
@@ -462,7 +440,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         return CheckEvent(TEXT("enter_exit"), [Director, &Error] { return Director->ReachExit(Error); });
     };
     const auto CheckCachedReads = [this, Director, Arcweave, &GateCommands,
-        &PickupCommands, &PresentationChanges, &UIVariableIds](const TCHAR* Stage)
+        &PresentationChanges, &UIVariableIds](const TCHAR* Stage)
     {
         const FArcweaveProjectData Before = Arcweave->GetArcweaveProjectData();
         const FString Cursor = Director->GetCurrentElementId();
@@ -474,7 +452,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         {
             Catalog.Add(Pair.Key, Director->GetUIText(Pair.Key));
         }
-        const int32 Commands = GateCommands + PickupCommands;
+        const int32 Commands = GateCommands;
         const int32 Notifications = PresentationChanges;
         for (int32 Read = 0; Read < 32; ++Read)
         {
@@ -487,6 +465,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
             Director->IsGateOpen();
             Director->IsQuestCompleted();
             Director->HasCollectedCell(TEXT("cell_a"));
+            Director->HasCollectedCell(TEXT("cell_b"));
             for (const auto& Pair : UIVariableIds)
             {
                 Director->GetUIText(Pair.Key);
@@ -504,7 +483,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
                 TestEqual(Prefix + TEXT("cached getters preserve variable ") + Pair.Key, Actual->Value, Pair.Value.Value);
             }
         }
-        TestEqual(Prefix + TEXT("cached getters do not dispatch commands"), GateCommands + PickupCommands, Commands);
+        TestEqual(Prefix + TEXT("cached getters do not dispatch commands"), GateCommands, Commands);
         TestEqual(Prefix + TEXT("cached getters do not notify presentation"), PresentationChanges, Notifications);
         TestEqual(Prefix + TEXT("gameplay cursor is unchanged"), Director->GetCurrentElementId(), Cursor);
         TestEqual(Prefix + TEXT("presentation cursor is unchanged"), Director->GetPresentationElementId(), Presentation);
@@ -516,7 +495,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TestEqual(Prefix + TEXT("status is unchanged"), Director->GetStatus(), Status);
     };
     const auto CheckOptionalQueries = [this, Director, Arcweave, &Error, &EventEntryId, &InventoryEntryId,
-        &Lanes, &GateCommands, &PickupCommands, &PresentationChanges](const TCHAR* Stage)
+        &Lanes, &GateCommands, &PresentationChanges](const TCHAR* Stage)
     {
         for (const FString& QueryId : {InventoryEntryId, Director->PresentationEntryId})
         {
@@ -528,8 +507,9 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
             const FString Objective = Director->GetObjective();
             const FString Presentation = Director->GetPresentationElementId();
             const bool bGateWasOpen = Director->IsGateOpen();
-            const TSet<FName> PhysicalCells = Director->CollectedCells;
-            const int32 Commands = GateCommands + PickupCommands;
+            const bool bCellACollected = Director->HasCollectedCell(TEXT("cell_a"));
+            const bool bCellBCollected = Director->HasCollectedCell(TEXT("cell_b"));
+            const int32 Commands = GateCommands;
             const int32 Notifications = PresentationChanges;
             FArcweaveElementData Result;
             if (!TestTrue(Prefix + TEXT("executes its separate authored flow"), Director->RunGraph(QueryId, false, Result, Error)))
@@ -565,11 +545,11 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
                 TestEqual(Prefix + TEXT("preserves the authored default: ") + Pair.Value.Name,
                     Actual.DefaultValue, Pair.Value.DefaultValue);
             }
-            TestEqual(Prefix + TEXT("does not dispatch physical commands"), GateCommands + PickupCommands, Commands);
+            TestEqual(Prefix + TEXT("does not dispatch physical commands"), GateCommands, Commands);
             TestEqual(Prefix + TEXT("does not publish a gameplay change"), PresentationChanges, Notifications);
             TestEqual(Prefix + TEXT("preserves the physical gate"), Director->IsGateOpen(), bGateWasOpen);
-            TestTrue(Prefix + TEXT("preserves the physical pickups"), Director->CollectedCells.Includes(PhysicalCells)
-                && PhysicalCells.Includes(Director->CollectedCells));
+            TestEqual(Prefix + TEXT("preserves cell A availability"), Director->HasCollectedCell(TEXT("cell_a")), bCellACollected);
+            TestEqual(Prefix + TEXT("preserves cell B availability"), Director->HasCollectedCell(TEXT("cell_b")), bCellBCollected);
             TestEqual(Prefix + TEXT("preserves the gameplay cursor"), Director->GetCurrentElementId(), Cursor);
             TestEqual(Prefix + TEXT("preserves interaction feedback"), Director->GetStatus(), Status);
             TestEqual(Prefix + TEXT("preserves the cached HUD objective"), Director->GetObjective(), Objective);
@@ -655,7 +635,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Authored acceptance requirement still applies with enough cells"), AttemptGenerator());
     TestEqual(TEXT("Acceptance takes precedence over the required count"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalRequiredElement));
     TestEqual(TEXT("Premature two-cell attempt does not execute success"), Visits(QuestBindings::SuccessElement), 0);
-    TestEqual(TEXT("Premature attempts execute no world commands"), GateCommands + PickupCommands, 0);
+    TestEqual(TEXT("Premature attempts execute no world commands"), GateCommands, 0);
     Arcweave->SetVariable(QuestBindings::PowerCellsAttribute, TEXT("0"));
 
     TestTrue(TEXT("Pickup before acceptance executes its authored denial"), AttemptPickup(TEXT("cell_a")));
@@ -665,7 +645,6 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Denied pickup leaves the shared cell A available"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("false")));
     TestEqual(TEXT("Denied pickup leaves the shared cell B available"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
     TestFalse(TEXT("Denied pickup leaves the physical cell available"), Director->HasCollectedCell(TEXT("cell_a")));
-    TestEqual(TEXT("Denied pickup does not dispatch collect_cell"), PickupCommands, 0);
     TestTrue(TEXT("Exit before power executes the authored denial"), ReachExit());
     TestEqual(TEXT("Early exit reaches the denial element"), Director->GetCurrentElementId(), FString(QuestBindings::ExitDeniedElement));
     TestFalse(TEXT("Early exit does not complete the task"), Director->IsQuestCompleted());
@@ -684,16 +663,16 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("Missing-cell response leaves world power off"), Director->IsPowerRestored());
     TestFalse(TEXT("Missing-cell response leaves the gate closed"), Director->IsGateOpen());
 
-    TestTrue(TEXT("First accepted pickup executes the shared state, feedback, and command element"), AttemptPickup(TEXT("cell_a")));
+    TestTrue(TEXT("First accepted pickup executes the shared state and feedback element"), AttemptPickup(TEXT("cell_a")));
     TestEqual(TEXT("Pickup Arcscript updates the shared narrative count"), Variable(QuestBindings::PowerCellsAttribute), FString(TEXT("1")));
     TestEqual(TEXT("The first pickup marks shared cell A collected"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("true")));
     TestEqual(TEXT("Collecting cell A leaves shared cell B available"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
-    TestTrue(TEXT("Pickup command records the physical cell"), Director->HasCollectedCell(TEXT("cell_a")));
+    TestTrue(TEXT("The collected flag makes cell A unavailable"), Director->HasCollectedCell(TEXT("cell_a")));
     TestEqual(TEXT("Pickup feedback is rendered after the count update"), Director->GetStatus(), FString(TEXT("Collected a power cell (1/2).")));
-    TestEqual(TEXT("Pickup ends at its combined action and feedback node"), Director->GetCurrentElementId(), FString(QuestBindings::PickupActionElement));
+    TestEqual(TEXT("Pickup ends at its state and feedback node"), Director->GetCurrentElementId(), FString(QuestBindings::PickupActionElement));
     TestEqual(TEXT("One cell keeps the collecting presentation"), Director->GetPresentationElementId(), FString(QuestBindings::PresentationCollectingElement));
     TestEqual(TEXT("Collecting objective updates with the current count"), Director->GetObjective(), FString(TEXT("Collect power cells (1/2), then use the generator.")));
-    TestEqual(TEXT("Exactly one physical pickup command was issued"), PickupCommands, 1);
+    TestEqual(TEXT("Collecting a cell dispatches no engine commands"), GateCommands, 0);
     CheckCachedReads(TEXT("Collecting state"));
     CheckPresentation(QuestBindings::PresentationCollectingElement);
     if (!CheckOptionalQueries(TEXT("Collecting state"))) return false;
@@ -704,13 +683,12 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Duplicate cannot increase the count"), Director->GetPowerCellCount(), 1);
     TestEqual(TEXT("Duplicate preserves the shared cell A flag"), Variable(QuestBindings::CellACollectedAttribute), FString(TEXT("true")));
     TestEqual(TEXT("Duplicate cannot collect shared cell B"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
-    TestEqual(TEXT("Duplicate cannot reissue collect_cell"), PickupCommands, 1);
     TestEqual(TEXT("Duplicate does not reenter the combined pickup node"), Visits(QuestBindings::PickupActionElement), 1);
     Arcweave->SetVariable(QuestBindings::QuestStartedAttribute, TEXT("false"));
     TestTrue(TEXT("Duplicate detection takes precedence over quest acceptance"), AttemptPickup(TEXT("cell_a")));
     TestEqual(TEXT("The pickup branch checks shared collected state before acceptance"),
         Director->GetCurrentElementId(), FString(QuestBindings::DuplicatePickupElement));
-    TestEqual(TEXT("Duplicate routing never repeats the pickup action"), PickupCommands, 1);
+    TestEqual(TEXT("Duplicate routing never repeats the pickup script"), Visits(QuestBindings::PickupActionElement), 1);
     Arcweave->SetVariable(QuestBindings::QuestStartedAttribute, TEXT("true"));
     TestTrue(TEXT("One-cell generator attempt reevaluates the condition"), AttemptGenerator());
     TestEqual(TEXT("One cell still selects MissingCells"), Director->GetCurrentElementId(), FString(QuestBindings::MissingCellsElement));
@@ -767,7 +745,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     const FArcweaveProjectData ForwardCompletedState = Arcweave->GetArcweaveProjectData();
 
     const FArcweaveProjectData BeforeUnknown = Arcweave->GetArcweaveProjectData();
-    const int32 CommandsBeforeUnknown = GateCommands + PickupCommands;
+    const int32 CommandsBeforeUnknown = GateCommands;
     const FString ObjectiveBeforeUnknown = Director->GetObjective();
     const FString PresentationBeforeUnknown = Director->GetPresentationElementId();
     TestFalse(TEXT("An unknown event reports an integration error when no router condition matches"),
@@ -777,7 +755,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("The integration error is surfaced in the interaction status"), Director->GetStatus(), Error);
     TestEqual(TEXT("Unknown input preserves the cached objective"), Director->GetObjective(), ObjectiveBeforeUnknown);
     TestEqual(TEXT("Unknown input preserves the presentation cursor"), Director->GetPresentationElementId(), PresentationBeforeUnknown);
-    TestEqual(TEXT("Unknown events dispatch no world commands"), GateCommands + PickupCommands, CommandsBeforeUnknown);
+    TestEqual(TEXT("Unknown events dispatch no world commands"), GateCommands, CommandsBeforeUnknown);
     TestTrue(TEXT("Unknown input preserves quest acceptance"), Director->IsQuestStarted());
     TestTrue(TEXT("Unknown input preserves quest completion"), Director->IsQuestCompleted());
     TestTrue(TEXT("Unknown input preserves the authored power state"), Director->IsPowerRestored());
@@ -830,7 +808,6 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     CheckCachedReads(TEXT("UI change refreshed"));
 
     if (!CheckRestart()) return false;
-    TestEqual(TEXT("Restart cannot replay pickup commands"), PickupCommands, 2);
     TestEqual(TEXT("Restart cannot replay the gate command"), GateCommands, 1);
 
     // Changing the authored requirement changes both the branch result and its displayed count.
@@ -844,7 +821,8 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("One-cell readiness selects the same authored interaction prompt"), Director->GetUIText(TEXT("quest_ui.generator_prompt")), ReadyPrompt);
     TestTrue(TEXT("One-cell variant still handles duplicate feedback"), AttemptPickup(TEXT("cell_b")));
     TestEqual(TEXT("Duplicate preserves the one-cell requirement state"), Director->GetPowerCellCount(), 1);
-    TestEqual(TEXT("Only one additional pickup command was dispatched"), PickupCommands, 3);
+    TestTrue(TEXT("The one-cell variant makes cell B unavailable"), Director->HasCollectedCell(TEXT("cell_b")));
+    TestFalse(TEXT("The one-cell variant leaves cell A available"), Director->HasCollectedCell(TEXT("cell_a")));
     TestTrue(TEXT("One-cell requirement permits power restoration"), AttemptGenerator());
     TestTrue(TEXT("One-cell variant opens the gate"), Director->IsGateOpen());
     TestFalse(TEXT("One-cell variant also waits for the exit to complete"), Director->IsQuestCompleted());
@@ -855,7 +833,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     CheckPresentation(QuestBindings::PresentationCompletedElement);
 
     TestTrue(TEXT("A completed quest still routes duplicate pickup feedback through its pickup branch"), AttemptPickup(TEXT("cell_b")));
-    TestEqual(TEXT("The completed duplicate leaves pickup commands unchanged"), PickupCommands, 3);
+    TestEqual(TEXT("The completed duplicate leaves inventory unchanged"), Director->GetPowerCellCount(), 1);
 
     // Presentation can be refreshed independently when external gameplay changes the quest state.
     // Static HUD/world overrides survive; quest_ui is rebuilt from its authored defaults each time.
@@ -871,7 +849,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         }
     }
     const auto CheckPresentationRefresh = [this, Director, Arcweave, &Error, &CheckPresentation,
-        &CheckCachedReads, &GateCommands, &PickupCommands, &PresentationChanges,
+        &CheckCachedReads, &GateCommands, &PresentationChanges,
         &UpdatedStationName, &UpdatedWorldLabel, &EventEntryId](const TCHAR* ExpectedLeaf, bool bStarted, bool bPowered,
         bool bCompleted, int32 Cells, int32 Required)
     {
@@ -889,7 +867,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         TestEqual(TEXT("The inventory getter immediately reads the changed player attribute"), Director->GetPowerCellCount(), Cells);
         TestEqual(TEXT("The requirement getter immediately reads the changed quest attribute"), Director->GetRequiredPowerCellCount(), Required);
         const bool bWorldGateOpen = Director->IsGateOpen();
-        const int32 Commands = GateCommands + PickupCommands;
+        const int32 Commands = GateCommands;
         const int32 Notifications = PresentationChanges;
         if (!TestTrue(TEXT("Arcscript refreshes the presentation graph"), Director->RefreshPresentation(Error)))
         {
@@ -913,7 +891,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
             TestEqual(TEXT("Presentation preserves each variable's authored default: ") + Pair.Value.Name,
                 Actual.DefaultValue, Pair.Value.DefaultValue);
         }
-        TestEqual(TEXT("Presentation never dispatches gameplay commands"), GateCommands + PickupCommands, Commands);
+        TestEqual(TEXT("Presentation never dispatches gameplay commands"), GateCommands, Commands);
         TestEqual(TEXT("Presentation refresh alone does not publish gameplay changes"), PresentationChanges, Notifications);
         TestEqual(TEXT("Presentation preserves the gameplay cursor"), Director->GetCurrentElementId(), Cursor);
         TestEqual(TEXT("Presentation preserves gameplay feedback"), Director->GetStatus(), Status);
@@ -935,7 +913,7 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     if (!CheckRestart()) return false;
 
     // Power is narrative state; changing it does not imply the separate gate-opening action.
-    const int32 CommandsBeforePowerChange = GateCommands + PickupCommands;
+    const int32 CommandsBeforePowerChange = GateCommands;
     Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("true"));
     TestTrue(TEXT("SetVariable immediately updates the power getter without an engine command"), Director->IsPowerRestored());
     TestFalse(TEXT("Changing the power attribute alone leaves the native gate closed"), Director->IsGateOpen());
@@ -943,22 +921,40 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("The terminal reads the scoped power state"), Director->GetCurrentElementId(), FString(QuestBindings::TerminalPoweredElement));
     CheckPresentation(QuestBindings::PresentationPoweredElement);
     TestEqual(TEXT("An external power change never runs generator success"), Visits(QuestBindings::SuccessElement), 0);
-    TestEqual(TEXT("Refreshing external power changes dispatches no engine commands"), GateCommands + PickupCommands, CommandsBeforePowerChange);
+    TestEqual(TEXT("Refreshing external power changes dispatches no engine commands"), GateCommands, CommandsBeforePowerChange);
     TestFalse(TEXT("The gate still requires its own authored action"), Director->IsGateOpen());
     Arcweave->SetVariable(QuestBindings::PowerRestoredAttribute, TEXT("false"));
     TestFalse(TEXT("Clearing the power attribute immediately clears the power getter"), Director->IsPowerRestored());
     TestTrue(TEXT("The next terminal interaction refreshes the unpowered state"), StartQuest());
     CheckPresentation(QuestBindings::PresentationCollectingElement);
     TestFalse(TEXT("A normal refresh does not resurrect stale native power"), Director->IsPowerRestored());
-    TestEqual(TEXT("Clearing external power also dispatches no engine commands"), GateCommands + PickupCommands, CommandsBeforePowerChange);
+    TestEqual(TEXT("Clearing external power also dispatches no engine commands"), GateCommands, CommandsBeforePowerChange);
     if (!CheckRestart()) return false;
 
+    // Pickup availability comes only from the two scoped flags, with no action or duplicated world state.
+    const FArcweaveProjectData BeforeCellChanges = Arcweave->GetArcweaveProjectData();
+    const int32 CommandsBeforeCellChanges = GateCommands;
+    TestFalse(TEXT("An unknown cell identity has no collected state"), Director->HasCollectedCell(TEXT("unknown_cell")));
+    Arcweave->SetVariable(QuestBindings::CellACollectedAttribute, TEXT("true"));
+    TestTrue(TEXT("Setting cell A's flag immediately makes it unavailable"), Director->HasCollectedCell(TEXT("cell_a")));
+    TestFalse(TEXT("Setting cell A's flag leaves cell B available"), Director->HasCollectedCell(TEXT("cell_b")));
+    TestEqual(TEXT("A collected flag alone does not rerun the inventory increment"), Director->GetPowerCellCount(), 0);
+    Arcweave->SetVariable(QuestBindings::CellACollectedAttribute, TEXT("false"));
+    Arcweave->SetVariable(QuestBindings::CellBCollectedAttribute, TEXT("true"));
+    TestFalse(TEXT("Clearing cell A's flag immediately makes it available"), Director->HasCollectedCell(TEXT("cell_a")));
+    TestTrue(TEXT("Cell B availability follows its own flag"), Director->HasCollectedCell(TEXT("cell_b")));
+    TestFalse(TEXT("An unknown cell cannot inherit cell B's collected flag"), Director->HasCollectedCell(TEXT("unknown_cell")));
+    Arcweave->SetVariable(QuestBindings::CellBCollectedAttribute, TEXT("false"));
+    TestFalse(TEXT("Clearing cell B's flag makes it available again"), Director->HasCollectedCell(TEXT("cell_b")));
+    TestTrue(TEXT("Changing pickup flags does not execute narrative nodes"),
+        BeforeCellChanges.Visits.OrderIndependentCompareEqual(Arcweave->GetArcweaveProjectData().Visits));
+    TestEqual(TEXT("Changing pickup flags dispatches no engine commands"), GateCommands, CommandsBeforeCellChanges);
+    CheckCachedReads(TEXT("Externally changed pickup flags"));
+
     // Both physical item identities exercise the same authored pickup rule in either order.
-    const int32 CommandsBeforeReversePickup = PickupCommands;
     const int32 CommandsBeforeReverseGate = GateCommands;
     TestTrue(TEXT("Cell B before acceptance uses the same authored denial"), AttemptPickup(TEXT("cell_b")));
     TestEqual(TEXT("Denied cell B leaves its shared flag available"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("false")));
-    TestEqual(TEXT("Denied cell B cannot issue a pickup command"), PickupCommands, CommandsBeforeReversePickup);
     TestTrue(TEXT("The reverse-order session begins through the terminal"), StartQuest());
     TestTrue(TEXT("The reverse-order session collects cell B first"), AttemptPickup(TEXT("cell_b")));
     TestEqual(TEXT("Cell B first advances the shared inventory once"), Director->GetPowerCellCount(), 1);
@@ -966,10 +962,11 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Cell B first sets its shared flag"), Variable(QuestBindings::CellBCollectedAttribute), FString(TEXT("true")));
     TestTrue(TEXT("Cell B duplicate uses the shared-state branch"), AttemptPickup(TEXT("cell_b")));
     TestEqual(TEXT("Cell B duplicate cannot increment inventory"), Director->GetPowerCellCount(), 1);
-    TestEqual(TEXT("Cell B duplicate cannot issue another command"), PickupCommands, CommandsBeforeReversePickup + 1);
     TestTrue(TEXT("The reverse-order session then collects cell A"), AttemptPickup(TEXT("cell_a")));
     TestEqual(TEXT("Reverse-order pickups reach the same inventory total"), Director->GetPowerCellCount(), 2);
-    TestEqual(TEXT("Reverse-order pickups use exactly two physical commands"), PickupCommands, CommandsBeforeReversePickup + 2);
+    TestTrue(TEXT("Reverse-order pickups make cell A unavailable"), Director->HasCollectedCell(TEXT("cell_a")));
+    TestTrue(TEXT("Reverse-order pickups make cell B unavailable"), Director->HasCollectedCell(TEXT("cell_b")));
+    TestEqual(TEXT("Reverse-order pickups dispatch no engine commands"), GateCommands, CommandsBeforeReverseGate);
     CheckPresentation(QuestBindings::PresentationReadyElement);
     TestTrue(TEXT("The reverse-order session restores power"), AttemptGenerator());
     TestTrue(TEXT("The reverse-order session completes at the exit"), ReachExit());
