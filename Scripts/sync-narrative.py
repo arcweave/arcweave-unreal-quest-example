@@ -3,6 +3,7 @@
 
 import argparse
 import ast
+import copy
 import hashlib
 import json
 import re
@@ -21,7 +22,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 HUD_FIELDS = {
-    "brand", "station_name", "mission_tagline", "cells_label", "station_footer",
+    "brand", "station_name", "mission_tagline", "cells_label", "station_footer", "controls",
 }
 WORLD_FIELDS = {
     "terminal_label", "cell_a_label", "cell_b_label", "sign_station",
@@ -78,7 +79,7 @@ MENU_EVENTS = {
 }
 EVENT_LANES = {
     "TerminalBranch": (
-        "StartElement", "TerminalAcceptedElement", "TerminalPoweredElement", "TerminalCompletedElement",
+        "TerminalAcceptElement", "TerminalAcceptedElement", "TerminalPoweredElement", "TerminalCompletedElement",
     ),
     "PickupBranch": (
         "DuplicatePickupElement", "PickupTerminalRequiredElement",
@@ -776,24 +777,25 @@ def validate_bindings(project, bindings):
                 validate_world_code_block(script)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--token-file", required=True, type=Path,
-        help="Path outside this repository to a file containing an Arcweave API key.",
-    )
-    args = parser.parse_args()
-    root = Path(__file__).resolve().parents[1]
-    token_path = args.token_file.expanduser().resolve()
-    if token_path.is_relative_to(root):
-        parser.error("Keep the token file outside this repository.")
+def make_import_project(localized, unreal_project):
+    # The all-locales JSON export preserves translations but omits board geometry.
+    # The Unreal export supplies the original layout for the web importer's graph.
+    result = copy.deepcopy(localized)
+    for collection in ("elements", "branches", "notes", "jumpers"):
+        for ident, item in result[collection].items():
+            for key in ("x", "y", "width", "height", "autoHeight"):
+                if key in unreal_project[collection][ident]:
+                    item[key] = unreal_project[collection][ident][key]
+    return result
 
+
+def sync_exports(root, token, project_hash=None):
     metadata_path = root / "Narrative/project.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     bindings = json.loads((root / "Narrative/bindings.json").read_text(encoding="utf-8"))
-    token = token_path.read_text(encoding="utf-8-sig").strip()
-    project_hash = urllib.parse.quote(metadata["projectHash"], safe="")
-    base_url = f"https://arcweave.com/api/v1/{project_hash}"
+    project_hash = project_hash or metadata["projectHash"]
+    encoded_hash = urllib.parse.quote(project_hash, safe="")
+    base_url = f"https://arcweave.com/api/v1/{encoded_hash}"
     opener = urllib.request.build_opener(NoRedirect())
 
     def download(export_format):
@@ -804,29 +806,62 @@ def main():
         with opener.open(request, timeout=30) as response:
             return response.read()
 
-    # Fetch and validate both exports before replacing either bundled file.
+    # Fetch and validate every export before replacing any bundled file.
     unreal_bytes = download("unreal")
     authoring_bytes = download("json")
+    localized_bytes = download("json?allLocales=true")
     unreal = json.loads(unreal_bytes)
     authoring = json.loads(authoring_bytes)
+    import_project = make_import_project(json.loads(localized_bytes), unreal["project"])
     validate_bindings(unreal["project"], bindings)
     validate_bindings(authoring, bindings)
+    validate_bindings(import_project, bindings)
+    import_bytes = (json.dumps(import_project, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
     unreal_path = root / "Content/ArcweaveExport/quest.json"
     authoring_path = root / "Narrative/authoring.json"
     unreal_path.parent.mkdir(parents=True, exist_ok=True)
     unreal_path.write_bytes(unreal_bytes)
     authoring_path.write_bytes(authoring_bytes)
+    (root / "Narrative/import.json").write_bytes(import_bytes)
+    if project_hash != metadata["projectHash"]:
+        # A copied project may live in a different workspace; the export does not identify it.
+        metadata.pop("workspaceHash", None)
+        metadata.pop("workspaceUrl", None)
+    metadata["name"] = authoring["name"]
+    metadata["projectHash"] = project_hash
+    metadata["projectUrl"] = f"https://arcweave.com/app/project/{encoded_hash}"
     metadata["exportedAt"] = datetime.now(timezone.utc).isoformat()
     metadata["unrealExportUrl"] = f"{base_url}/unreal"
     metadata["authoringExportUrl"] = f"{base_url}/json"
+    metadata["importExport"] = "import.json"
+    metadata["importExportUrl"] = f"{base_url}/json?allLocales=true"
     metadata["unrealSha256"] = hashlib.sha256(unreal_bytes).hexdigest()
     metadata["authoringSha256"] = hashlib.sha256(authoring_bytes).hexdigest()
+    metadata["importSha256"] = hashlib.sha256(import_bytes).hexdigest()
     metadata_path.write_text(
         json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    print(f"Updated Unreal and authoring exports for {metadata['projectHash']}.")
+    print(f"Updated Unreal, authoring, and uploadable import exports for {metadata['projectHash']}.")
     print(metadata["projectUrl"])
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--token-file", required=True, type=Path,
+        help="Path outside this repository to a file containing an Arcweave API key.",
+    )
+    parser.add_argument(
+        "--project", help="Project hash of your imported copy; saved as the default after a successful sync.",
+    )
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parents[1]
+    token_path = args.token_file.expanduser().resolve()
+    if token_path.is_relative_to(root):
+        parser.error("Keep the token file outside this repository.")
+    token = token_path.read_text(encoding="utf-8-sig").strip()
+    sync_exports(root, token, args.project)
 
 
 if __name__ == "__main__":

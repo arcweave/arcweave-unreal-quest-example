@@ -2,10 +2,17 @@
 """Offline regression checks: python3 Scripts/test-sync-narrative.py."""
 
 import copy
+import hashlib
 import importlib.util
+import io
 import json
+import shutil
+import tempfile
+import urllib.error
+from contextlib import redirect_stdout
 from html import escape
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from uuid import uuid4
 
@@ -22,7 +29,7 @@ class NarrativeValidationTests(unittest.TestCase):
         cls.bindings = json.loads((ROOT / "Narrative/bindings.json").read_text(encoding="utf-8"))
         cls.unreal = json.loads((ROOT / "Content/ArcweaveExport/quest.json").read_text(encoding="utf-8"))["project"]
         cls.authoring = json.loads((ROOT / "Narrative/authoring.json").read_text(encoding="utf-8"))
-        cls.localized = json.loads((ROOT / "Narrative/import.json").read_text(encoding="utf-8"))["project"]
+        cls.localized = json.loads((ROOT / "Narrative/import.json").read_text(encoding="utf-8"))
 
     def setUp(self):
         self.project = copy.deepcopy(self.unreal)
@@ -239,7 +246,7 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_state_components_are_data_not_referenced_commands(self):
         for binding in SYNC.STATE_COMPONENTS:
             with self.subTest(binding=binding):
-                self.element("StartElement")["components"] = [self.bindings[binding]]
+                self.element("TerminalAcceptElement")["components"] = [self.bindings[binding]]
                 self.assert_invalid("State, UI, and game_event components must remain standalone data")
 
     def test_restore_power_command_cannot_duplicate_quest_state(self):
@@ -262,7 +269,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.validate()
 
     def test_starting_element_must_be_shared_event_entry(self):
-        self.project["startingElement"] = self.bindings["StartElement"]
+        self.project["startingElement"] = self.bindings["TerminalAcceptElement"]
         with self.assertRaises(ValueError):
             self.validate()
 
@@ -1276,7 +1283,7 @@ class NarrativeValidationTests(unittest.TestCase):
         for name in ("powerCells", "questStarted", "powerRestored", "questCompleted", "requiredPowerCells"):
             for script in (f"show({name})", f"{name} = 1"):
                 with self.subTest(script=script):
-                    self.script("StartElement", script)
+                    self.script("TerminalAcceptElement", script)
                     self.assert_invalid("state fields instead of former global names")
 
     def test_world_conditions_cannot_use_former_global_names(self):
@@ -1285,15 +1292,15 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_localized_world_scripts_cannot_use_former_global_names(self):
         self.project = copy.deepcopy(self.localized)
-        self.localized_content("StartElement")["text"] = self.code_block("questStarted = true")
+        self.localized_content("TerminalAcceptElement")["text"] = self.code_block("questStarted = true")
         self.assert_invalid("state fields instead of former global names")
 
     def test_legacy_names_in_narrative_string_literals_are_not_variable_references(self):
-        self.script("StartElement", 'show("The old powerCells value", \'questStarted\', "powerRestored and questCompleted")')
+        self.script("TerminalAcceptElement", 'show("The old powerCells value", \'questStarted\', "powerRestored and questCompleted")')
         self.validate()
 
     def test_world_events_may_still_update_authored_ui_text(self):
-        self.element("StartElement")["content"] = (
+        self.element("TerminalAcceptElement")["content"] = (
             self.code_block('hud.station_name = "Powered outpost"')
             + self.code_block('world_text.sign_exit = "Exit open"'))
         self.validate()
@@ -1309,10 +1316,10 @@ class NarrativeValidationTests(unittest.TestCase):
                     with self.subTest(localized="contents" in export, statements=statements, separator=separator):
                         self.project = copy.deepcopy(export)
                         content = self.code_block(separator.join(statements))
-                        if "content" in self.element("StartElement"):
-                            self.element("StartElement")["content"] = content
+                        if "content" in self.element("TerminalAcceptElement"):
+                            self.element("TerminalAcceptElement")["content"] = content
                         else:
-                            self.localized_content("StartElement")["text"] = content
+                            self.localized_content("TerminalAcceptElement")["text"] = content
                         self.assert_invalid("Each world-event code block must contain exactly one statement")
 
     def test_world_statements_in_separate_blocks_are_allowed_in_all_exports(self):
@@ -1323,10 +1330,10 @@ class NarrativeValidationTests(unittest.TestCase):
         for export in (self.unreal, self.authoring, self.localized):
             with self.subTest(localized="contents" in export):
                 self.project = copy.deepcopy(export)
-                if "content" in self.element("StartElement"):
-                    self.element("StartElement")["content"] = content
+                if "content" in self.element("TerminalAcceptElement"):
+                    self.element("TerminalAcceptElement")["content"] = content
                 else:
-                    self.localized_content("StartElement")["text"] = content
+                    self.localized_content("TerminalAcceptElement")["text"] = content
                 self.validate()
 
     def test_world_statement_count_preserves_strings_and_multiline_calls(self):
@@ -1337,11 +1344,11 @@ class NarrativeValidationTests(unittest.TestCase):
             "player.power_cells += 1",
         ):
             with self.subTest(script=script):
-                self.script("StartElement", script)
+                self.script("TerminalAcceptElement", script)
                 self.validate()
 
     def test_world_control_flow_fragments_remain_allowed_in_separate_blocks(self):
-        self.element("StartElement")["content"] = "".join(self.code_block(script) for script in (
+        self.element("TerminalAcceptElement")["content"] = "".join(self.code_block(script) for script in (
             "if !quest.started && player.power_cells >= 0",
             "quest.started = true",
             "elseif quest.power_restored",
@@ -1355,19 +1362,19 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_world_control_flow_fragment_cannot_hide_another_statement(self):
         for fragment in ("if !quest.started", "elseif quest.power_restored", "else", "endif"):
             with self.subTest(fragment=fragment):
-                self.script("StartElement", fragment + "\nquest.started = true")
+                self.script("TerminalAcceptElement", fragment + "\nquest.started = true")
                 self.assert_invalid("Each world-event code block must contain exactly one statement")
 
     def test_world_statement_count_preserves_rich_text_element_references(self):
         mention = (f'<span class="mention mention-element" data-type="element" '
-                   f'data-id="{self.bindings["StartElement"]}">Terminal · accept task</span>')
-        self.element("StartElement")["content"] = f"<pre><code>show(visits({mention}))</code></pre>"
+                   f'data-id="{self.bindings["TerminalAcceptElement"]}">Terminal · accept task</span>')
+        self.element("TerminalAcceptElement")["content"] = f"<pre><code>show(visits({mention}))</code></pre>"
         self.validate()
 
     def test_world_reference_cannot_hide_another_statement_in_its_code_block(self):
         mention = (f'<span class="mention mention-element" data-type="element" '
-                   f'data-id="{self.bindings["StartElement"]}">Terminal · accept task</span>')
-        self.element("StartElement")["content"] = (
+                   f'data-id="{self.bindings["TerminalAcceptElement"]}">Terminal · accept task</span>')
+        self.element("TerminalAcceptElement")["content"] = (
             f"<pre><code>show(visits({mention}))\nquest.started = true</code></pre>")
         self.assert_invalid("Each world-event code block must contain exactly one statement")
 
@@ -1572,7 +1579,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("not a valid new-game default")
 
     def test_multiple_element_outputs_are_rejected(self):
-        outputs = self.element("StartElement")["outputs"]
+        outputs = self.element("TerminalAcceptElement")["outputs"]
         outputs.append(outputs[0])
         self.assert_invalid("at most one automatic output")
 
@@ -1619,7 +1626,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("custom ID no longer matches")
 
     def test_collection_command_on_terminal_is_rejected(self):
-        self.element("StartElement")["components"] = [self.bindings["CollectCellComponent"]]
+        self.element("TerminalAcceptElement")["components"] = [self.bindings["CollectCellComponent"]]
         self.assert_invalid("Only PickupAction")
 
     def test_gate_command_on_shared_event_entry_is_rejected(self):
@@ -1651,6 +1658,132 @@ class NarrativeValidationTests(unittest.TestCase):
         self.project = copy.deepcopy(self.localized)
         self.localized_content("PresentationCollectingElement")["text"] = "<pre><code>player.power_cells = 99</code></pre>"
         self.assert_invalid("Presentation may only assign quest_ui fields")
+
+
+class NarrativeSyncTests(unittest.TestCase):
+    FILES = (
+        "Content/ArcweaveExport/quest.json", "Narrative/authoring.json",
+        "Narrative/import.json", "Narrative/project.json", "Narrative/bindings.json",
+    )
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        for filename in self.FILES:
+            target = self.root / filename
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / filename, target)
+        self.unreal = json.loads((self.root / self.FILES[0]).read_text(encoding="utf-8"))
+        self.authoring = json.loads((self.root / self.FILES[1]).read_text(encoding="utf-8"))
+        self.localized = json.loads((self.root / self.FILES[2]).read_text(encoding="utf-8"))
+        # Match the API: localized exports omit layout; only the Unreal export carries it.
+        for collection in ("elements", "branches", "notes", "jumpers"):
+            for item in self.localized[collection].values():
+                for key in ("x", "y", "width", "height", "autoHeight"):
+                    item.pop(key, None)
+        self.requests = []
+
+    def snapshot(self):
+        return {filename: (self.root / filename).read_bytes() for filename in self.FILES}
+
+    def download(self, request, timeout):
+        self.requests.append(request)
+        suffix = request.full_url.rsplit("/", 1)[-1]
+        value = {"unreal": self.unreal, "json": self.authoring,
+                 "json?allLocales=true": self.localized}[suffix]
+        return io.BytesIO(json.dumps(value, ensure_ascii=False).encode("utf-8"))
+
+    def sync(self, project_hash=None, download=None):
+        with patch.object(SYNC.urllib.request, "build_opener") as build_opener:
+            build_opener.return_value.open.side_effect = download or self.download
+            with redirect_stdout(io.StringIO()):
+                SYNC.sync_exports(self.root, "fixture-token", project_hash)
+
+    def test_sync_updates_all_exports_and_digest_metadata_together(self):
+        controls = "aaa35a32-93ac-43fb-94a4-55e4f21ca8a3"
+        for project in (self.unreal["project"], self.authoring, self.localized):
+            project["attributes"][controls]["value"]["data"] = "Custom controls from Arcweave"
+        self.sync()
+        metadata = json.loads((self.root / "Narrative/project.json").read_text(encoding="utf-8"))
+        for filename, digest_key in zip(self.FILES[:3], ("unrealSha256", "authoringSha256", "importSha256")):
+            with self.subTest(filename=filename):
+                data = (self.root / filename).read_bytes()
+                project = json.loads(data)
+                project = project.get("project", project)
+                self.assertEqual(project["attributes"][controls]["value"]["data"], "Custom controls from Arcweave")
+                self.assertEqual(metadata[digest_key], hashlib.sha256(data).hexdigest())
+        self.assertEqual(metadata["importExport"], "import.json")
+        self.assertTrue(metadata["importExportUrl"].endswith("/json?allLocales=true"))
+        self.assertEqual(len(self.requests), 3)
+        self.assertTrue(all(request.headers["Authorization"] == "Bearer fixture-token" for request in self.requests))
+
+    def test_import_is_a_direct_graph_and_preserves_layout_and_translations(self):
+        entry = self.localized["startingElement"]
+        self.localized["locales"].append({"iso": "fr", "base": "en", "name": "French"})
+        self.localized["contents"][entry]["content"]["fr"] = {"text": "<p>Explorer la station.</p>"}
+        self.unreal["project"]["elements"][entry].update(x=120, y=-345, width=456, height=234, autoHeight=False)
+        before = copy.deepcopy(self.localized)
+        self.sync()
+        imported = json.loads((self.root / "Narrative/import.json").read_text(encoding="utf-8"))
+        self.assertNotIn("project", imported)
+        self.assertEqual(imported["locales"], self.localized["locales"])
+        self.assertEqual(imported["contents"], self.localized["contents"])
+        for collection in ("elements", "branches", "notes", "jumpers"):
+            for ident, item in self.unreal["project"][collection].items():
+                for key in ("x", "y", "width", "height", "autoHeight"):
+                    if key in item:
+                        self.assertEqual(imported[collection][ident][key], item[key])
+        self.assertEqual(self.localized, before)
+
+    def test_project_override_becomes_the_next_sync_default(self):
+        self.authoring["name"] = "My mission copy"
+        self.sync("MyProjectCopy")
+        metadata = json.loads((self.root / "Narrative/project.json").read_text(encoding="utf-8"))
+        self.assertEqual(metadata["projectHash"], "MyProjectCopy")
+        self.assertEqual(metadata["projectUrl"], "https://arcweave.com/app/project/MyProjectCopy")
+        self.assertEqual(metadata["name"], "My mission copy")
+        self.assertNotIn("workspaceHash", metadata)
+        self.assertNotIn("workspaceUrl", metadata)
+        for key in ("unrealExportUrl", "authoringExportUrl", "importExportUrl"):
+            self.assertTrue(metadata[key].startswith("https://arcweave.com/api/v1/MyProjectCopy/"))
+        self.sync()
+        self.assertEqual(len(self.requests), 6)
+        self.assertTrue(all("/MyProjectCopy/" in request.full_url for request in self.requests))
+
+    def test_same_project_sync_preserves_known_workspace(self):
+        before = json.loads((self.root / "Narrative/project.json").read_text(encoding="utf-8"))
+        self.sync()
+        after = json.loads((self.root / "Narrative/project.json").read_text(encoding="utf-8"))
+        for key in ("projectHash", "workspaceHash", "workspaceUrl"):
+            self.assertEqual(after[key], before[key])
+
+    def test_failed_final_download_leaves_all_exports_and_project_selection_unchanged(self):
+        before = self.snapshot()
+
+        def fail_final_request(request, timeout):
+            if request.full_url.endswith("?allLocales=true"):
+                raise urllib.error.URLError("Fixture network failure")
+            return self.download(request, timeout)
+
+        with self.assertRaises(urllib.error.URLError):
+            self.sync("MyProjectCopy", download=fail_final_request)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_invalid_import_leaves_all_exports_and_project_selection_unchanged(self):
+        before = self.snapshot()
+        bindings = json.loads((self.root / "Narrative/bindings.json").read_text(encoding="utf-8"))
+        self.localized["components"][bindings["HUDTextComponent"]]["customId"] = "wrong_scope"
+        with self.assertRaises(ValueError):
+            self.sync("MyProjectCopy")
+        self.assertEqual(self.snapshot(), before)
+
+    def test_bundled_import_matches_generated_snapshot(self):
+        imported = SYNC.make_import_project(self.localized, self.unreal["project"])
+        self.assertEqual(imported, json.loads((ROOT / "Narrative/import.json").read_text(encoding="utf-8")))
+        metadata = json.loads((ROOT / "Narrative/project.json").read_text(encoding="utf-8"))
+        for filename, digest_key in zip(self.FILES[:3], ("unrealSha256", "authoringSha256", "importSha256")):
+            self.assertEqual(metadata[digest_key], hashlib.sha256((ROOT / filename).read_bytes()).hexdigest())
 
 
 if __name__ == "__main__":

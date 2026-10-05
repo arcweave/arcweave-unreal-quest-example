@@ -1,6 +1,6 @@
 {
   "Board": "b031a811-813e-45a6-8d7f-30c0e4e46eac",
-  "StartElement": "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7",
+  "TerminalAcceptElement": "e60800d3-a5aa-49c4-9b9c-fb5f8c1c09e7",
   "SuccessElement": "bfc100c0-7b99-4404-a71c-c1b42b102c02",
   "MissingCellsElement": "10be7825-974e-4306-b8e4-d2bbc63486dd",
   "OpenGateComponent": "80c7c42c-bb19-4065-8afa-7cd5b54776fc",

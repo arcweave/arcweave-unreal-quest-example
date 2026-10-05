@@ -145,7 +145,7 @@ void AQuestHUD::DrawHUD()
             0.84f * S, bOnline ? Cyan : White);
     }
     DrawRect(Panel, Left, Canvas->ClipY - 48 * S, 588 * S, 28 * S);
-    Text(TEXT("WASD  MOVE     MOUSE  LOOK     E  INTERACT     R  RESTART"),
+    Text(Director->GetUIText(TEXT("hud.controls")),
         Left + 12 * S, Canvas->ClipY - 42 * S, 0.73f * S, Muted);
     Text(Director->GetUIText(TEXT("hud.station_footer")), Right - 297 * S, Canvas->ClipY - 42 * S, 0.68f * S, Muted);
 }
