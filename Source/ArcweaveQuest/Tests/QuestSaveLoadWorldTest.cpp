@@ -1,7 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "QuestCharacter.h"
-#include "QuestBindings.h"
+#include "QuestTestNarrative.h"
 #include "QuestDirector.h"
 #include "QuestGameMode.h"
 #include "QuestSaveGame.h"
@@ -82,6 +82,7 @@ public:
 
         case 1:
         {
+            if (!NarrativeIds.Resolve(Narrative(), Test)) return true;
             CheckCheckpointInput();
             FHitResult Hit;
             if (!Test.TestTrue(TEXT("The initial gate blocks the doorway"), TraceGate(Hit))) return true;
@@ -122,7 +123,7 @@ public:
             if (World->GetTimeSeconds() - PhaseStart < 0.1) return false;
             Test.TestTrue(TEXT("Real exit overlap completes the mission before saving"), Director->IsQuestCompleted());
             Test.TestEqual(TEXT("The completed checkpoint has one completion visit"),
-                Narrative().Visits.FindChecked(QuestBindings::CompletedElement), 1);
+                Narrative().Visits.FindChecked(*NarrativeIds.CompletedElement), 1);
             if (!Save(CompletedSlot, TEXT("Save the player inside the completed exit"))) return true;
             if (!LoadAndCheck(OneCellSlot, TEXT("Load one cell after completing the mission"))) return true;
             Test.TestFalse(TEXT("Loading the earlier save clears completion"), Director->IsQuestCompleted());
@@ -164,9 +165,9 @@ public:
             Test.TestTrue(TEXT("Restoring inside the exit never synthesizes an overlap event, even on later ticks"),
                 LastLoadedVisits.OrderIndependentCompareEqual(Narrative().Visits));
             Test.TestEqual(TEXT("Restoring at the exit does not run already-completed feedback"),
-                Narrative().Visits.FindChecked(QuestBindings::ExitAlreadyCompletedElement), 0);
+                Narrative().Visits.FindChecked(*NarrativeIds.ExitAlreadyCompletedElement), 0);
             Test.TestEqual(TEXT("Restoring at the exit keeps the saved gameplay cursor"),
-                Director->GetCurrentElementId(), FString(QuestBindings::CompletedElement));
+                Director->GetCurrentElementId(), FString(*NarrativeIds.CompletedElement));
             if (!LoadAndCheck(OneCellSlot, TEXT("Restore the earlier game again"))) return true;
             CellB = InteractAt(TEXT("cell_b"));
             if (!CellB.IsValid()) return true;
@@ -314,6 +315,7 @@ private:
     }
 
     FAutomationTestBase& Test;
+    FQuestTestNarrative NarrativeIds;
     TWeakObjectPtr<UWorld> World;
     TWeakObjectPtr<AQuestCharacter> Character;
     TWeakObjectPtr<AQuestGameMode> GameMode;

@@ -26,8 +26,8 @@ SPEC.loader.exec_module(SYNC)
 class NarrativeValidationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.bindings = json.loads((ROOT / "Narrative/bindings.json").read_text(encoding="utf-8"))
         cls.unreal = json.loads((ROOT / "Content/ArcweaveExport/quest.json").read_text(encoding="utf-8"))["project"]
+        cls.contract = SYNC.resolve_contract(cls.unreal)
         cls.authoring = json.loads((ROOT / "Narrative/authoring.json").read_text(encoding="utf-8"))
         cls.localized = json.loads((ROOT / "Narrative/import.json").read_text(encoding="utf-8"))
 
@@ -35,7 +35,9 @@ class NarrativeValidationTests(unittest.TestCase):
         self.project = copy.deepcopy(self.unreal)
 
     def validate(self):
-        SYNC.validate_bindings(self.project, self.bindings)
+        # Resolve expectations before mutations so invalid routes cannot redefine
+        # the outcomes or data objects that the regression is meant to check.
+        SYNC.validate_contract(self.project, self.contract)
 
     def assert_invalid(self, message):
         with self.assertRaisesRegex(ValueError, message):
@@ -46,12 +48,12 @@ class NarrativeValidationTests(unittest.TestCase):
             return self.project["startingElement"]
         if binding in {"PresentationEntryElement", "InventoryEntryElement"}:
             marker = "objectives_ui" if binding == "PresentationEntryElement" else "inventory"
-            board = self.project["boards"][self.bindings["Board"]]
+            board = self.project["boards"][self.contract["Board"]]
             return next(ident for ident in board["elements"]
                         if any(self.project["attributes"][key].get("name") == "entry_point"
                                and self.project["attributes"][key].get("value", {}).get("data") == marker
                                for key in self.project["elements"][ident].get("attributes", []) or []))
-        return self.bindings[binding]
+        return self.contract[binding]
 
     def presentation_marker(self):
         return next(self.project["attributes"][key]
@@ -62,17 +64,17 @@ class NarrativeValidationTests(unittest.TestCase):
         return self.project["elements"][self.element_id(binding)]
 
     def state_attribute(self, binding):
-        return self.project["attributes"][self.bindings[binding]]
+        return self.project["attributes"][self.contract[binding]]
 
     def ui_attribute(self, binding="HUDTextComponent"):
-        component = self.project["components"][self.bindings[binding]]
+        component = self.project["components"][self.contract[binding]]
         return self.project["attributes"][component["attributes"][0]]
 
     def generator_connection(self):
         return self.route_connection("GeneratorBranch", 0)
 
     def conditions(self, binding):
-        group = self.project["branches"][self.bindings[binding]]["conditions"]
+        group = self.project["branches"][self.contract[binding]]["conditions"]
         identifiers = [group["ifCondition"]] + (group.get("elseIfConditions", []) or [])
         if group.get("elseCondition"):
             identifiers.append(group["elseCondition"])
@@ -89,9 +91,9 @@ class NarrativeValidationTests(unittest.TestCase):
         }
         for previous in self.element(source_binding).get("outputs", []) or []:
             del self.project["connections"][previous]
-            self.project["boards"][self.bindings["Board"]]["connections"].remove(previous)
+            self.project["boards"][self.contract["Board"]]["connections"].remove(previous)
         self.element(source_binding)["outputs"] = [ident]
-        self.project["boards"][self.bindings["Board"]]["connections"].append(ident)
+        self.project["boards"][self.contract["Board"]]["connections"].append(ident)
 
     def localized_content(self, binding):
         locale = next(item["iso"] for item in self.project["locales"] if item["base"] is None)
@@ -104,7 +106,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.element(binding)["content"] = self.code_block(content)
 
     def entry_resets(self):
-        component = self.project["components"][self.bindings["QuestUIComponent"]]
+        component = self.project["components"][self.contract["QuestUIComponent"]]
         return [self.code_block(f'reset(quest_ui.{self.project["attributes"][key]["customId"]})')
                 for key in component["attributes"]]
 
@@ -149,12 +151,12 @@ class NarrativeValidationTests(unittest.TestCase):
                 + self.code_block(f'game_event.cell_id = "{cell_id}"'))
 
     def ui_folder(self):
-        ui_ids = {self.bindings[name] for name in SYNC.UI_COMPONENTS}
+        ui_ids = {self.contract[name] for name in SYNC.UI_COMPONENTS}
         return next(item for item in self.project["components"].values()
                     if set(item.get("children", [])) == ui_ids)
 
     def state_folder(self):
-        state_ids = {self.bindings[name] for name in SYNC.STATE_COMPONENTS}
+        state_ids = {self.contract[name] for name in SYNC.STATE_COMPONENTS}
         return next(item for item in self.project["components"].values()
                     if set(item.get("children", [])) == state_ids)
 
@@ -171,20 +173,95 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assertTrue(self.localized_content("EventEntryElement")["text"])
         self.validate()
 
+    def test_semantic_contract_validates_every_export(self):
+        for name, project in (("unreal", self.unreal), ("authoring", self.authoring), ("localized", self.localized)):
+            with self.subTest(export=name):
+                SYNC.validate_project(project)
+
+    def test_semantic_contract_accepts_rekeying_every_narrative_object(self):
+        identifiers = {ident for project in (self.unreal, self.authoring, self.localized)
+                       for collection, items in project.items() if isinstance(items, dict) for ident in items}
+        replacements = {ident: str(uuid4()) for ident in identifiers}
+        for name, project in (("unreal", self.unreal), ("authoring", self.authoring), ("localized", self.localized)):
+            with self.subTest(export=name):
+                encoded = json.dumps(project)
+                for original, replacement in replacements.items():
+                    encoded = encoded.replace(original, replacement)
+                rekeyed = json.loads(encoded)
+                self.assertEqual(SYNC.resolve_contract(rekeyed),
+                                 {name: replacements[ident] for name, ident in self.contract.items()})
+                SYNC.validate_project(rekeyed)
+
+    def test_semantic_components_require_unique_custom_ids(self):
+        player_id = self.contract["PlayerComponent"]
+        for change in ("missing", "duplicate"):
+            with self.subTest(change=change):
+                project = copy.deepcopy(self.unreal)
+                if change == "missing":
+                    del project["components"][player_id]["customId"]
+                else:
+                    project["components"][str(uuid4())] = copy.deepcopy(project["components"][player_id])
+                with self.assertRaisesRegex(ValueError, "exactly one component with custom ID 'player'"):
+                    SYNC.validate_project(project)
+
+    def test_semantic_attributes_require_unique_custom_ids_within_their_component(self):
+        attribute_id = self.contract["PowerCellsAttribute"]
+        for change in ("missing", "duplicate"):
+            with self.subTest(change=change):
+                project = copy.deepcopy(self.unreal)
+                if change == "missing":
+                    del project["attributes"][attribute_id]["customId"]
+                else:
+                    extra = str(uuid4())
+                    project["attributes"][extra] = copy.deepcopy(project["attributes"][attribute_id])
+                    project["components"][self.contract["PlayerComponent"]]["attributes"].append(extra)
+                with self.assertRaisesRegex(ValueError, "exactly one 'power_cells' attribute on 'player'"):
+                    SYNC.validate_project(project)
+
+    def test_semantic_outcomes_require_unique_authored_titles(self):
+        for change in ("missing", "duplicate"):
+            with self.subTest(change=change):
+                project = copy.deepcopy(self.unreal)
+                outcome = project["elements"][self.contract["TerminalAcceptElement"]]
+                if change == "missing":
+                    outcome["title"] = "<p>Different sample expectation</p>"
+                else:
+                    project["elements"][str(uuid4())] = copy.deepcopy(outcome)
+                with self.assertRaisesRegex(ValueError, "exactly one sample outcome titled 'Terminal · accept task'"):
+                    SYNC.validate_project(project)
+
+    def test_semantic_outcome_titles_allow_rich_text_formatting(self):
+        self.element("TerminalAcceptElement")["title"] = "<p><strong>Terminal · accept task</strong></p>"
+        SYNC.validate_project(self.project)
+
+    def test_semantic_lane_identity_does_not_follow_a_swapped_router_route(self):
+        first = self.route_connection("EventRouterBranch", 0)
+        third = self.route_connection("EventRouterBranch", 2)
+        first["targetid"], third["targetid"] = third["targetid"], first["targetid"]
+        with self.assertRaisesRegex(ValueError, "event router must select terminal"):
+            SYNC.validate_project(self.project)
+
+    def test_semantic_branch_discovery_requires_an_unambiguous_outcome(self):
+        extra = str(uuid4())
+        branch = self.project["branches"][self.contract["GeneratorBranch"]]
+        self.project["branches"][extra] = copy.deepcopy(branch)
+        with self.assertRaisesRegex(ValueError, "exactly one branch leading to 'Generator · missing cells'"):
+            SYNC.validate_project(self.project)
+
     def test_required_cell_count_can_be_tuned(self):
         self.state_attribute("RequiredPowerCellsAttribute")["value"]["data"] = 1
         self.validate()
 
     def test_state_display_names_can_change_without_affecting_scopes(self):
-        self.project["components"][self.bindings["PlayerComponent"]]["name"] = "Station visitor"
-        self.project["components"][self.bindings["QuestStateComponent"]]["name"] = "Power restoration"
+        self.project["components"][self.contract["PlayerComponent"]]["name"] = "Station visitor"
+        self.project["components"][self.contract["QuestStateComponent"]]["name"] = "Power restoration"
         self.state_attribute("PowerCellsAttribute")["name"] = "Collected cells"
         self.validate()
 
     def test_state_components_require_their_scopes(self):
         for binding in SYNC.STATE_COMPONENTS:
             with self.subTest(binding=binding):
-                component = self.project["components"][self.bindings[binding]]
+                component = self.project["components"][self.contract[binding]]
                 original = component["customId"]
                 component["customId"] = "other_state"
                 self.assert_invalid("data component must have its required custom ID")
@@ -193,7 +270,7 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_state_components_require_their_exact_bound_attributes(self):
         for binding in SYNC.STATE_COMPONENTS:
             with self.subTest(binding=binding):
-                attributes = self.project["components"][self.bindings[binding]]["attributes"]
+                attributes = self.project["components"][self.contract[binding]]["attributes"]
                 removed = attributes.pop()
                 self.assert_invalid("component must contain exactly its bound state attributes")
                 attributes.append(removed)
@@ -204,13 +281,13 @@ class NarrativeValidationTests(unittest.TestCase):
                 original = copy.deepcopy(self.state_attribute(binding))
                 for key, value in (
                     ("customId", "other_state"), ("cType", "boards"),
-                    ("cId", self.bindings["GameEventComponent"]),
+                    ("cId", self.contract["GameEventComponent"]),
                     ("value", {"type": "string", "data": "false", "plain": True}),
                 ):
                     with self.subTest(binding=binding, key=key):
-                        self.project["attributes"][self.bindings[binding]] = dict(original, **{key: value})
+                        self.project["attributes"][self.contract[binding]] = dict(original, **{key: value})
                         self.assert_invalid("state attribute must keep its bound owner, name, and type")
-                self.project["attributes"][self.bindings[binding]] = original
+                self.project["attributes"][self.contract[binding]] = original
 
     def test_state_attributes_require_importable_typed_data(self):
         for _, fields in SYNC.STATE_COMPONENTS.values():
@@ -240,13 +317,13 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_state_scope_cannot_be_duplicated(self):
         for scope, _ in SYNC.STATE_COMPONENTS.values():
             with self.subTest(scope=scope):
-                self.project["components"][self.bindings["OpenGateComponent"]]["customId"] = scope
+                self.project["components"][self.contract["OpenGateComponent"]]["customId"] = scope
                 self.assert_invalid("data component scopes must be unique")
 
     def test_state_components_are_data_not_referenced_commands(self):
         for binding in SYNC.STATE_COMPONENTS:
             with self.subTest(binding=binding):
-                self.element("TerminalAcceptElement")["components"] = [self.bindings[binding]]
+                self.element("TerminalAcceptElement")["components"] = [self.contract[binding]]
                 self.assert_invalid("State, UI, and game_event components must remain standalone data")
 
     def test_restore_power_command_cannot_duplicate_quest_state(self):
@@ -254,8 +331,8 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("only the open_gate action component")
 
     def test_input_display_names_and_feedback_wording_can_change(self):
-        self.project["components"][self.bindings["GameEventComponent"]]["name"] = "Interaction inputs"
-        self.project["attributes"][self.bindings["EventTypeAttribute"]]["name"] = "Requested interaction"
+        self.project["components"][self.contract["GameEventComponent"]]["name"] = "Interaction inputs"
+        self.project["attributes"][self.contract["EventTypeAttribute"]]["name"] = "Requested interaction"
         self.element("DuplicatePickupElement")["content"] = "<p>You have already collected this cell.</p>"
         self.validate()
 
@@ -264,17 +341,17 @@ class NarrativeValidationTests(unittest.TestCase):
         self.validate()
 
     def test_independent_event_routes_can_be_reordered(self):
-        group = self.project["branches"][self.bindings["EventRouterBranch"]]["conditions"]
+        group = self.project["branches"][self.contract["EventRouterBranch"]]["conditions"]
         group["ifCondition"], group["elseIfConditions"][1] = group["elseIfConditions"][1], group["ifCondition"]
         self.validate()
 
     def test_starting_element_must_be_shared_event_entry(self):
-        self.project["startingElement"] = self.bindings["TerminalAcceptElement"]
+        self.project["startingElement"] = self.contract["TerminalAcceptElement"]
         with self.assertRaises(ValueError):
             self.validate()
 
     def test_event_entry_can_be_rekeyed_without_changing_bindings(self):
-        self.assertNotIn("EventEntryElement", self.bindings)
+        self.assertNotIn("EventEntryElement", self.contract)
         for name, project in (("unreal", self.unreal), ("authoring", self.authoring), ("localized", self.localized)):
             with self.subTest(export=name):
                 original = project["startingElement"]
@@ -302,16 +379,16 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("starting element must identify an element on the world-event board")
 
     def test_starting_element_cannot_be_a_branch(self):
-        self.project["startingElement"] = self.bindings["EventRouterBranch"]
+        self.project["startingElement"] = self.contract["EventRouterBranch"]
         self.assert_invalid("starting element must identify an element on the world-event board")
 
     def test_starting_element_must_belong_to_world_board(self):
         entry = self.project["startingElement"]
-        self.project["boards"][self.bindings["Board"]]["elements"].remove(entry)
+        self.project["boards"][self.contract["Board"]]["elements"].remove(entry)
         self.assert_invalid("starting element must identify an element on the world-event board")
 
     def test_presentation_entry_and_marker_can_be_rekeyed_without_changing_bindings(self):
-        self.assertNotIn("PresentationEntryElement", self.bindings)
+        self.assertNotIn("PresentationEntryElement", self.contract)
         for name, project in (("unreal", self.unreal), ("authoring", self.authoring), ("localized", self.localized)):
             with self.subTest(export=name):
                 self.project = copy.deepcopy(project)
@@ -325,7 +402,7 @@ class NarrativeValidationTests(unittest.TestCase):
                 self.validate()
 
     def test_shared_board_display_name_and_custom_id_can_change(self):
-        board = self.project["boards"][self.bindings["Board"]]
+        board = self.project["boards"][self.contract["Board"]]
         board.update(name="Restore station power", customId="station_quest")
         self.validate()
 
@@ -376,9 +453,9 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_presentation_marker_requires_its_element_owner(self):
         for owner in (
-            {"cType": "elements", "cId": self.bindings["PresentationReadyElement"]},
+            {"cType": "elements", "cId": self.contract["PresentationReadyElement"]},
             {"cType": "elements", "cId": str(uuid4())},
-            {"cType": "components", "cId": self.bindings["QuestUIComponent"]},
+            {"cType": "components", "cId": self.contract["QuestUIComponent"]},
         ):
             with self.subTest(owner=owner):
                 self.presentation_marker().update(owner)
@@ -405,7 +482,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Presentation elements must not retain metadata besides the entry marker")
 
     def test_event_entry_cannot_bypass_router(self):
-        self.menu_connection().update(targetid=self.bindings["TerminalBranch"], targetType="branches")
+        self.menu_connection().update(targetid=self.contract["TerminalBranch"], targetType="branches")
         self.assert_invalid("shared world-event entry must connect directly to its routing branch")
 
     def test_menu_choices_can_be_reordered(self):
@@ -413,14 +490,14 @@ class NarrativeValidationTests(unittest.TestCase):
         self.validate()
 
     def test_inventory_entry_and_marker_need_no_uuid_bindings(self):
-        self.assertNotIn("InventoryEntryElement", self.bindings)
+        self.assertNotIn("InventoryEntryElement", self.contract)
         for project in (self.unreal, self.authoring, self.localized):
             with self.subTest(localized="contents" in project):
                 self.project = copy.deepcopy(project)
                 entry = self.element_id("InventoryEntryElement")
                 marker = self.element("InventoryEntryElement")["attributes"][0]
-                self.assertNotIn(entry, self.bindings.values())
-                self.assertNotIn(marker, self.bindings.values())
+                self.assertNotIn(entry, self.contract.values())
+                self.assertNotIn(marker, self.contract.values())
                 replacement = str(uuid4())
                 self.project = json.loads(json.dumps(project).replace(entry, replacement).replace(marker, str(uuid4())))
                 self.assertEqual(self.element_id("InventoryEntryElement"), replacement)
@@ -439,7 +516,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("must contain exactly one inventory entry marker")
 
     def test_inventory_marker_requires_a_plain_string_owned_by_its_entry(self):
-        for change in ({"cType": "components"}, {"cId": self.bindings["PlayerComponent"]},
+        for change in ({"cType": "components"}, {"cId": self.contract["PlayerComponent"]},
                        {"value": {"type": "string", "data": "inventory", "plain": False}}):
             with self.subTest(change=change):
                 self.project = copy.deepcopy(self.unreal)
@@ -491,7 +568,7 @@ class NarrativeValidationTests(unittest.TestCase):
         connection = self.query_connection()
         jumper = connection["targetid"]
         destination = self.project["jumpers"].pop(jumper)["elementId"]
-        self.project["boards"][self.bindings["Board"]]["jumpers"].remove(jumper)
+        self.project["boards"][self.contract["Board"]]["jumpers"].remove(jumper)
         connection.update(targetid=destination, targetType="elements")
         self.assert_invalid("plus two query jumpers")
 
@@ -502,7 +579,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.element("EventEntryElement")["outputs"].remove(output)
         del self.project["connections"][output]
         del self.project["jumpers"][jumper]
-        board = self.project["boards"][self.bindings["Board"]]
+        board = self.project["boards"][self.contract["Board"]]
         board["connections"].remove(output)
         board["jumpers"].remove(jumper)
         self.assert_invalid("plus two query jumpers")
@@ -514,7 +591,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_query_menu_cannot_dispatch_gameplay(self):
         jumper = self.query_connection()["targetid"]
-        self.project["jumpers"][jumper]["elementId"] = self.bindings["PickupActionElement"]
+        self.project["jumpers"][jumper]["elementId"] = self.contract["PickupActionElement"]
         self.assert_invalid("Menu query jumpers must target the inventory or objectives_ui entry")
 
     def test_inventory_content_can_read_the_shared_count(self):
@@ -536,7 +613,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Inventory query must be feedback only")
 
     def test_inventory_cannot_call_a_physical_command(self):
-        self.element("InventoryEntryElement")["components"] = [self.bindings["OpenGateComponent"]]
+        self.element("InventoryEntryElement")["components"] = [self.contract["OpenGateComponent"]]
         self.assert_invalid("Only Success may reference the open_gate")
 
     def test_inventory_must_return_to_station(self):
@@ -549,7 +626,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_inventory_cannot_enter_world_gameplay(self):
         self.return_connection("InventoryEntryElement").update(
-            targetid=self.bindings["PickupActionElement"], targetType="elements")
+            targetid=self.contract["PickupActionElement"], targetType="elements")
         self.assert_invalid("inventory query must use its own return jumper")
 
     def test_inventory_cannot_define_extra_metadata(self):
@@ -589,7 +666,7 @@ class NarrativeValidationTests(unittest.TestCase):
                        if self.project["connections"][ident]["targetType"] == "branches")
         self.element("EventEntryElement")["outputs"].remove(removed)
         del self.project["connections"][removed]
-        self.project["boards"][self.bindings["Board"]]["connections"].remove(removed)
+        self.project["boards"][self.contract["Board"]]["connections"].remove(removed)
         self.assert_invalid("routing branch with five menu choices")
 
     def test_menu_cannot_repeat_one_event_pair_instead_of_another(self):
@@ -686,7 +763,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Automatic connection labels must be feedback only")
 
     def test_event_route_cannot_select_another_interaction(self):
-        self.route_connection("EventRouterBranch", 0)["targetid"] = self.bindings["GeneratorBranch"]
+        self.route_connection("EventRouterBranch", 0)["targetid"] = self.contract["GeneratorBranch"]
         self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
 
     def test_event_router_has_no_startup_or_separate_duplicate_route(self):
@@ -700,28 +777,28 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
 
     def test_event_router_requires_all_four_interaction_routes(self):
-        group = self.project["branches"][self.bindings["EventRouterBranch"]]["conditions"]
+        group = self.project["branches"][self.contract["EventRouterBranch"]]["conditions"]
         removed = group["elseIfConditions"].pop(0)
         output = self.project["conditions"].pop(removed)["output"]
         del self.project["connections"][output]
-        self.project["boards"][self.bindings["Board"]]["connections"].remove(output)
+        self.project["boards"][self.contract["Board"]]["connections"].remove(output)
         self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
 
     def test_event_router_cannot_add_an_else_fallback(self):
-        group = self.project["branches"][self.bindings["EventRouterBranch"]]["conditions"]
+        group = self.project["branches"][self.contract["EventRouterBranch"]]["conditions"]
         condition = "496e1844-c29b-40c3-91a8-93d22f790efd"
         output = "11834d53-50e3-4350-ae59-cec3161688ab"
         group["elseCondition"] = condition
         self.project["conditions"][condition] = {"output": output, "script": None}
         self.project["connections"][output] = {
             "sourceid": condition, "sourceType": "conditions",
-            "targetid": self.bindings["ExitBranch"], "targetType": "branches",
+            "targetid": self.contract["ExitBranch"], "targetType": "branches",
         }
-        self.project["boards"][self.bindings["Board"]]["connections"].append(output)
+        self.project["boards"][self.contract["Board"]]["connections"].append(output)
         self.assert_invalid("without an else fallback")
 
     def test_exit_requires_its_explicit_event_condition(self):
-        group = self.project["branches"][self.bindings["EventRouterBranch"]]["conditions"]
+        group = self.project["branches"][self.contract["EventRouterBranch"]]["conditions"]
         condition = group["elseIfConditions"].pop()
         group["elseCondition"] = condition
         self.project["conditions"][condition]["script"] = None
@@ -733,7 +810,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_pickup_route_cannot_bypass_duplicate_and_acceptance_checks(self):
         self.route_connection("EventRouterBranch", 1).update(
-            targetid=self.bindings["PickupActionElement"], targetType="elements")
+            targetid=self.contract["PickupActionElement"], targetType="elements")
         self.assert_invalid("event router must select terminal, collect_cell, generator, or exit")
 
     def test_router_cannot_insert_an_intermediate_element_before_a_branch(self):
@@ -745,18 +822,18 @@ class NarrativeValidationTests(unittest.TestCase):
         }
         self.project["connections"][output] = dict(route, sourceid=element, sourceType="elements")
         route.update(targetid=element, targetType="elements")
-        board = self.project["boards"][self.bindings["Board"]]
+        board = self.project["boards"][self.contract["Board"]]
         board["elements"].append(element)
         board["connections"].append(output)
         self.assert_invalid("directly through its branch")
 
     def test_duplicate_check_runs_before_task_acceptance(self):
-        group = self.project["branches"][self.bindings["PickupBranch"]]["conditions"]
+        group = self.project["branches"][self.contract["PickupBranch"]]["conditions"]
         group["ifCondition"], group["elseIfConditions"][0] = group["elseIfConditions"][0], group["ifCondition"]
         self.assert_invalid("pickup branch must check duplicate identity first")
 
     def test_duplicate_route_cannot_collect_again(self):
-        self.route_connection("PickupBranch", 0)["targetid"] = self.bindings["PickupActionElement"]
+        self.route_connection("PickupBranch", 0)["targetid"] = self.contract["PickupActionElement"]
         self.assert_invalid("pickup branch must check duplicate identity first")
 
     def test_pickup_requires_shared_collected_state_for_the_supplied_identity(self):
@@ -786,7 +863,7 @@ class NarrativeValidationTests(unittest.TestCase):
                 self.assert_invalid("Duplicate-pickup feedback must be feedback only")
 
     def test_duplicate_feedback_cannot_emit_a_world_command(self):
-        self.element("DuplicatePickupElement")["components"] = [self.bindings["OpenGateComponent"]]
+        self.element("DuplicatePickupElement")["components"] = [self.contract["OpenGateComponent"]]
         self.assert_invalid("Only Success may reference the open_gate")
 
     def test_duplicate_feedback_cannot_enter_another_lane(self):
@@ -807,13 +884,13 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Duplicate-pickup feedback must be feedback only")
 
     def test_cross_event_interior_node_is_rejected(self):
-        self.generator_connection().update(targetid=self.bindings["TerminalAcceptedElement"], targetType="elements")
+        self.generator_connection().update(targetid=self.contract["TerminalAcceptedElement"], targetType="elements")
         self.assert_invalid("world-event lanes must not execute one another")
 
     def test_designer_note_needs_no_cpp_binding(self):
         note = "7ae1f39d-3536-411d-a38a-867961d460f4"
         self.project["notes"][note] = {"content": "<p>Designer note.</p>", "x": 0, "y": 0}
-        self.project["boards"][self.bindings["Board"]]["notes"].append(note)
+        self.project["boards"][self.contract["Board"]]["notes"].append(note)
         self.validate()
 
     def test_internal_element_and_connection_need_no_cpp_bindings(self):
@@ -825,7 +902,7 @@ class NarrativeValidationTests(unittest.TestCase):
         }
         self.project["connections"][connection] = dict(original, sourceid=element, sourceType="elements")
         original.update(targetid=element, targetType="elements")
-        board = self.project["boards"][self.bindings["Board"]]
+        board = self.project["boards"][self.contract["Board"]]
         board["elements"].append(element)
         board["connections"].append(connection)
         self.validate()
@@ -836,7 +913,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_all_ui_defaults_can_be_edited_without_changing_the_schema(self):
         for binding in SYNC.UI_COMPONENTS:
-            component = self.project["components"][self.bindings[binding]]
+            component = self.project["components"][self.contract[binding]]
             for ident in component["attributes"]:
                 self.project["attributes"][ident]["value"]["data"] += " revised"
         self.validate()
@@ -845,7 +922,7 @@ class NarrativeValidationTests(unittest.TestCase):
         for field in SYNC.SAVE_FIELDS:
             with self.subTest(field=field):
                 self.project = copy.deepcopy(self.unreal)
-                component = self.project["components"][self.bindings["SaveUIComponent"]]
+                component = self.project["components"][self.contract["SaveUIComponent"]]
                 attribute = next(self.project["attributes"][ident] for ident in component["attributes"]
                                  if self.project["attributes"][ident]["customId"] == field)
                 attribute["customId"] = "unsupported_message"
@@ -891,23 +968,23 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_data_components_must_stay_together_in_the_ui_folder(self):
         self.project = copy.deepcopy(self.localized)
-        self.ui_folder()["children"].remove(self.bindings["WorldTextComponent"])
+        self.ui_folder()["children"].remove(self.contract["WorldTextComponent"])
         self.assert_invalid("UI folder must contain exactly its required components")
 
     def test_state_components_must_stay_together_in_the_state_folder(self):
         self.project = copy.deepcopy(self.localized)
-        self.state_folder()["children"].remove(self.bindings["PlayerComponent"])
+        self.state_folder()["children"].remove(self.contract["PlayerComponent"])
         self.assert_invalid("State folder must contain exactly its required components")
 
     def test_input_component_cannot_be_grouped_with_actions(self):
         self.project = copy.deepcopy(self.localized)
         components = self.project["components"]
         inputs = next(item for item in components.values()
-                      if item.get("children") == [self.bindings["GameEventComponent"]])
+                      if item.get("children") == [self.contract["GameEventComponent"]])
         actions = next(item for item in components.values()
-                       if self.bindings["OpenGateComponent"] in item.get("children", []))
-        inputs["children"].remove(self.bindings["GameEventComponent"])
-        actions["children"].append(self.bindings["GameEventComponent"])
+                       if self.contract["OpenGateComponent"] in item.get("children", []))
+        inputs["children"].remove(self.contract["GameEventComponent"])
+        actions["children"].append(self.contract["GameEventComponent"])
         self.assert_invalid("Inputs folder must contain exactly its required components")
 
     def test_state_folder_cannot_introduce_a_runtime_scope(self):
@@ -924,48 +1001,48 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("four top-level component folders")
 
     def test_ui_scope_cannot_be_duplicated_by_another_component(self):
-        self.project["components"][self.bindings["OpenGateComponent"]]["customId"] = "quest_ui"
+        self.project["components"][self.contract["OpenGateComponent"]]["customId"] = "quest_ui"
         self.assert_invalid("State, UI, and game_event data component scopes must be unique")
 
     def test_event_scope_cannot_be_duplicated_by_another_component(self):
-        self.project["components"][self.bindings["OpenGateComponent"]]["customId"] = "game_event"
+        self.project["components"][self.contract["OpenGateComponent"]]["customId"] = "game_event"
         self.assert_invalid("State, UI, and game_event data component scopes must be unique")
 
     def test_event_component_must_keep_its_input_scope(self):
-        self.project["components"][self.bindings["GameEventComponent"]]["customId"] = "interaction"
+        self.project["components"][self.contract["GameEventComponent"]]["customId"] = "interaction"
         self.assert_invalid("game_event data component must have its required custom ID")
 
     def test_event_component_cannot_be_placed_in_the_ui_folder(self):
         self.project = copy.deepcopy(self.localized)
-        self.ui_folder()["children"].append(self.bindings["GameEventComponent"])
+        self.ui_folder()["children"].append(self.contract["GameEventComponent"])
         self.assert_invalid("UI folder must contain exactly its required components")
 
     def test_event_component_cannot_be_attached_as_a_command(self):
-        self.element("EventEntryElement")["components"] = [self.bindings["GameEventComponent"]]
+        self.element("EventEntryElement")["components"] = [self.contract["GameEventComponent"]]
         self.assert_invalid("game_event components must remain standalone data")
 
     def test_event_inputs_require_their_exact_bound_attributes(self):
-        self.project["components"][self.bindings["GameEventComponent"]]["attributes"].pop()
+        self.project["components"][self.contract["GameEventComponent"]]["attributes"].pop()
         self.assert_invalid("game_event component must contain exactly its two bound input attributes")
 
     def test_event_component_cannot_add_a_third_input(self):
         extra = "d9880807-af60-4c29-9456-8c64d833aa0e"
         self.project["attributes"][extra] = dict(
-            self.project["attributes"][self.bindings["EventTypeAttribute"]], customId="cell_id")
-        self.project["components"][self.bindings["GameEventComponent"]]["attributes"].append(extra)
+            self.project["attributes"][self.contract["EventTypeAttribute"]], customId="cell_id")
+        self.project["components"][self.contract["GameEventComponent"]]["attributes"].append(extra)
         self.assert_invalid("game_event component must contain exactly its two bound input attributes")
 
     def test_event_input_names_and_ownership_are_part_of_the_contract(self):
         for binding in SYNC.EVENT_INPUTS:
-            original = copy.deepcopy(self.project["attributes"][self.bindings[binding]])
-            for key, value in (("customId", "other_input"), ("cType", "boards"), ("cId", self.bindings["HUDTextComponent"])):
+            original = copy.deepcopy(self.project["attributes"][self.contract[binding]])
+            for key, value in (("customId", "other_input"), ("cType", "boards"), ("cId", self.contract["HUDTextComponent"])):
                 with self.subTest(binding=binding, key=key):
-                    self.project["attributes"][self.bindings[binding]] = dict(original, **{key: value})
+                    self.project["attributes"][self.contract[binding]] = dict(original, **{key: value})
                     self.assert_invalid("input must keep its bound owner, type, and empty-string default")
-            self.project["attributes"][self.bindings[binding]] = original
+            self.project["attributes"][self.contract[binding]] = original
 
     def test_event_type_input_requires_an_empty_plain_string(self):
-        attribute = self.project["attributes"][self.bindings["EventTypeAttribute"]]
+        attribute = self.project["attributes"][self.contract["EventTypeAttribute"]]
         for value in (
             {"type": "string", "data": "start", "plain": True},
             {"type": "string", "data": "", "plain": False},
@@ -977,7 +1054,7 @@ class NarrativeValidationTests(unittest.TestCase):
                 self.assert_invalid("game_event.type input must keep its bound owner, type, and empty-string default")
 
     def test_exported_null_event_type_imports_as_an_empty_string(self):
-        attribute = self.project["attributes"][self.bindings["EventTypeAttribute"]]
+        attribute = self.project["attributes"][self.contract["EventTypeAttribute"]]
         for data in (None, ""):
             with self.subTest(data=data):
                 attribute["value"]["data"] = data
@@ -986,13 +1063,13 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_event_inputs_require_data_to_be_imported_by_the_plugin(self):
         for binding in SYNC.EVENT_INPUTS:
             with self.subTest(binding=binding):
-                value = self.project["attributes"][self.bindings[binding]]["value"]
+                value = self.project["attributes"][self.contract[binding]]["value"]
                 original = value.pop("data")
                 self.assert_invalid("input must keep its bound owner, type, and empty-string default")
                 value["data"] = original
 
     def test_cell_identity_input_requires_an_empty_plain_string(self):
-        attribute = self.project["attributes"][self.bindings["CellIdAttribute"]]
+        attribute = self.project["attributes"][self.contract["CellIdAttribute"]]
         for value in (
             {"type": "boolean", "data": False},
             {"type": "integer", "data": 0},
@@ -1004,7 +1081,7 @@ class NarrativeValidationTests(unittest.TestCase):
                 self.assert_invalid("game_event.cell_id input must keep its bound owner, type, and empty-string default")
 
     def test_missing_bound_branch_is_rejected(self):
-        del self.project["branches"][self.bindings["TerminalBranch"]]
+        del self.project["branches"][self.contract["TerminalBranch"]]
         self.assert_invalid("missing the TerminalBranch binding")
 
     def test_display_assignment_is_rejected(self):
@@ -1016,16 +1093,16 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Presentation may only assign quest_ui fields")
 
     def test_display_command_is_rejected(self):
-        self.element("PresentationCollectingElement")["components"] = [self.bindings["OpenGateComponent"]]
+        self.element("PresentationCollectingElement")["components"] = [self.contract["OpenGateComponent"]]
         self.assert_invalid("Only Success may reference the open_gate")
 
     def test_display_condition_function_is_rejected(self):
-        branch = self.project["branches"][self.bindings["PresentationBranch"]]
+        branch = self.project["branches"][self.contract["PresentationBranch"]]
         self.project["conditions"][branch["conditions"]["ifCondition"]]["script"] = "resetVisits()"
         self.assert_invalid("Presentation conditions cannot call functions")
 
     def test_completed_display_condition_is_read_only(self):
-        branch = self.project["branches"][self.bindings["PresentationBranch"]]
+        branch = self.project["branches"][self.contract["PresentationBranch"]]
         self.project["conditions"][branch["conditions"]["ifCondition"]]["script"] = "reset(quest_ui.mission_heading)"
         self.assert_invalid("Presentation conditions cannot call functions")
 
@@ -1049,20 +1126,20 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_presentation_requires_all_five_terminal_leaves(self):
         connection = next(item for item in self.project["connections"].values()
-                          if item["targetid"] == self.bindings["PresentationReadyElement"])
-        connection["targetid"] = self.bindings["PresentationCollectingElement"]
+                          if item["targetid"] == self.contract["PresentationReadyElement"])
+        connection["targetid"] = self.contract["PresentationCollectingElement"]
         self.assert_invalid("Presentation must return to the interaction menu through exactly its five bound display leaves")
 
     def test_events_cannot_enter_the_optional_objective_flow(self):
         self.generator_connection().update(
-            targetid=self.bindings["PresentationReadyElement"], targetType="elements")
+            targetid=self.contract["PresentationReadyElement"], targetType="elements")
         self.assert_invalid("World events must return to the menu without entering the optional query flows")
 
     def test_ordinary_world_outcomes_must_return_to_the_menu(self):
         element = self.element("TerminalAcceptedElement")
         output = element["outputs"].pop()
         del self.project["connections"][output]
-        self.project["boards"][self.bindings["Board"]]["connections"].remove(output)
+        self.project["boards"][self.contract["Board"]]["connections"].remove(output)
         self.assert_invalid("Only the completed exit outcomes may end a playthrough")
 
     def test_world_outcomes_return_to_the_menu_through_local_jumpers(self):
@@ -1074,7 +1151,7 @@ class NarrativeValidationTests(unittest.TestCase):
         element = self.element("PresentationReadyElement")
         output = element["outputs"].pop()
         del self.project["connections"][output]
-        self.project["boards"][self.bindings["Board"]]["connections"].remove(output)
+        self.project["boards"][self.contract["Board"]]["connections"].remove(output)
         self.assert_invalid("five presentation leaves must use its own return jumper")
 
     def test_presentation_cannot_reenter_its_own_refresh_boundary(self):
@@ -1082,12 +1159,12 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Every return jumper must target the interaction menu")
 
     def test_presentation_cannot_restart_world_events_with_stale_inputs(self):
-        self.return_jumper()["elementId"] = self.bindings["EventRouterBranch"]
+        self.return_jumper()["elementId"] = self.contract["EventRouterBranch"]
         self.assert_invalid("Every return jumper must target the interaction menu")
 
     def test_presentation_internal_cycle_is_still_rejected(self):
         self.route_connection("PresentationBranch", 0).update(
-            targetid=self.bindings["PresentationBranch"], targetType="branches")
+            targetid=self.contract["PresentationBranch"], targetType="branches")
         self.assert_invalid("automatic event path contains a cycle before its execution boundary")
 
     def test_return_jumpers_need_no_uuid_bindings(self):
@@ -1095,7 +1172,7 @@ class NarrativeValidationTests(unittest.TestCase):
             with self.subTest(localized="contents" in project):
                 self.project = copy.deepcopy(project)
                 for ident in list(self.project["jumpers"]):
-                    self.assertNotIn(ident, self.bindings.values())
+                    self.assertNotIn(ident, self.contract.values())
                     self.project = json.loads(json.dumps(self.project).replace(ident, str(uuid4())))
                 self.validate()
 
@@ -1104,7 +1181,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("boundary jumper must exist on the same board")
 
     def test_unowned_return_jumper_is_rejected(self):
-        self.project["boards"][self.bindings["Board"]]["jumpers"].remove(self.return_connection()["targetid"])
+        self.project["boards"][self.contract["Board"]]["jumpers"].remove(self.return_connection()["targetid"])
         self.assert_invalid("boundary jumper must exist on the same board")
 
     def test_return_jumper_requires_its_destination(self):
@@ -1122,11 +1199,11 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_unused_return_jumper_is_rejected(self):
         ident = str(uuid4())
         self.project["jumpers"][ident] = dict(self.return_jumper())
-        self.project["boards"][self.bindings["Board"]]["jumpers"].append(ident)
+        self.project["boards"][self.contract["Board"]]["jumpers"].append(ident)
         self.assert_invalid("no unused jumpers")
 
     def test_stale_board_jumper_reference_is_rejected(self):
-        self.project["boards"][self.bindings["Board"]]["jumpers"].append(str(uuid4()))
+        self.project["boards"][self.contract["Board"]]["jumpers"].append(str(uuid4()))
         self.assert_invalid("no unused jumpers")
 
     def test_each_presentation_leaf_uses_its_own_jumper(self):
@@ -1163,9 +1240,9 @@ class NarrativeValidationTests(unittest.TestCase):
                 if change == "missing":
                     del self.project["jumpers"][ident]
                 elif change == "unowned":
-                    self.project["boards"][self.bindings["Board"]]["jumpers"].remove(ident)
+                    self.project["boards"][self.contract["Board"]]["jumpers"].remove(ident)
                 else:
-                    self.project["jumpers"][ident]["elementId"] = self.bindings["PickupActionElement"]
+                    self.project["jumpers"][ident]["elementId"] = self.contract["PickupActionElement"]
                 self.assert_invalid("boundary jumper must exist on the same board|World-event jumpers must target")
 
     def test_world_lanes_cannot_share_the_same_return_jumper(self):
@@ -1181,7 +1258,7 @@ class NarrativeValidationTests(unittest.TestCase):
         ident = str(uuid4())
         original = self.return_connection("TerminalAcceptedElement")["targetid"]
         self.project["jumpers"][ident] = dict(self.project["jumpers"][original])
-        self.project["boards"][self.bindings["Board"]]["jumpers"].append(ident)
+        self.project["boards"][self.contract["Board"]]["jumpers"].append(ident)
         self.return_connection("TerminalAcceptedElement")["targetid"] = ident
         self.assert_invalid("Each world-event lane must share its own return jumper")
 
@@ -1199,7 +1276,7 @@ class NarrativeValidationTests(unittest.TestCase):
 
 
     def test_wrong_ui_component_custom_id_is_rejected(self):
-        self.project["components"][self.bindings["HUDTextComponent"]]["customId"] = "other_ui"
+        self.project["components"][self.contract["HUDTextComponent"]]["customId"] = "other_ui"
         self.assert_invalid("hud data component must have its required custom ID")
 
     def test_missing_ui_attribute_custom_id_is_rejected(self):
@@ -1215,25 +1292,25 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("UI attributes must be nonempty plain strings")
 
     def test_ui_attribute_wrong_owner_is_rejected(self):
-        self.ui_attribute()["cId"] = self.bindings["OpenGateComponent"]
+        self.ui_attribute()["cId"] = self.contract["OpenGateComponent"]
         self.assert_invalid("UI attributes must be nonempty plain strings")
 
     def test_additional_ui_attribute_is_rejected(self):
         extra = "c916868d-e2ab-4d42-8f92-d4152a29a9e6"
         self.project["attributes"][extra] = dict(self.ui_attribute(), customId="debug_label")
-        self.project["components"][self.bindings["HUDTextComponent"]]["attributes"].append(extra)
+        self.project["components"][self.contract["HUDTextComponent"]]["attributes"].append(extra)
         self.assert_invalid("exactly its required string attributes and custom IDs")
 
     def test_additional_command_component_variable_is_rejected(self):
         extra = "ed23bc46-83b3-4937-ab43-91c2c8b85d08"
-        owner = self.bindings["OpenGateComponent"]
+        owner = self.contract["OpenGateComponent"]
         self.project["attributes"][extra] = dict(self.ui_attribute(), cId=owner, customId="debug_label")
         self.project["components"][owner]["attributes"] = [extra]
         self.assert_invalid("Only the seven state values, twenty-seven UI strings, and two game_event inputs may add scoped variables")
 
     def test_additional_board_variable_is_rejected(self):
         extra = "5aa30329-45b8-42df-b65b-1e94f0a76a84"
-        owner = self.bindings["Board"]
+        owner = self.contract["Board"]
         self.project["attributes"][extra] = dict(self.ui_attribute(), cType="boards", cId=owner, customId="debug_label")
         self.project["boards"][owner]["attributes"] = [extra]
         self.assert_invalid("Only the seven state values, twenty-seven UI strings, and two game_event inputs may add scoped variables")
@@ -1241,7 +1318,7 @@ class NarrativeValidationTests(unittest.TestCase):
     def test_ui_component_cannot_be_attached_as_a_command(self):
         for binding in SYNC.UI_COMPONENTS:
             with self.subTest(component=binding):
-                self.element("EventEntryElement")["components"] = [self.bindings[binding]]
+                self.element("EventEntryElement")["components"] = [self.contract[binding]]
                 self.assert_invalid("State, UI, and game_event components must remain standalone data")
 
     def test_presentation_can_show_known_ui_field(self):
@@ -1367,13 +1444,13 @@ class NarrativeValidationTests(unittest.TestCase):
 
     def test_world_statement_count_preserves_rich_text_element_references(self):
         mention = (f'<span class="mention mention-element" data-type="element" '
-                   f'data-id="{self.bindings["TerminalAcceptElement"]}">Terminal · accept task</span>')
+                   f'data-id="{self.contract["TerminalAcceptElement"]}">Terminal · accept task</span>')
         self.element("TerminalAcceptElement")["content"] = f"<pre><code>show(visits({mention}))</code></pre>"
         self.validate()
 
     def test_world_reference_cannot_hide_another_statement_in_its_code_block(self):
         mention = (f'<span class="mention mention-element" data-type="element" '
-                   f'data-id="{self.bindings["TerminalAcceptElement"]}">Terminal · accept task</span>')
+                   f'data-id="{self.contract["TerminalAcceptElement"]}">Terminal · accept task</span>')
         self.element("TerminalAcceptElement")["content"] = (
             f"<pre><code>show(visits({mention}))\nquest.started = true</code></pre>")
         self.assert_invalid("Each world-event code block must contain exactly one statement")
@@ -1393,7 +1470,7 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Presentation may only assign quest_ui fields")
 
     def test_presentation_condition_can_read_known_ui_field(self):
-        branch = self.project["branches"][self.bindings["PresentationBranch"]]
+        branch = self.project["branches"][self.contract["PresentationBranch"]]
         self.project["conditions"][branch["conditions"]["ifCondition"]]["script"] = (
             'hud.station_name != "" && world_text.sign_exit != "" && quest_ui.grid_status != ""')
         self.validate()
@@ -1589,9 +1666,9 @@ class NarrativeValidationTests(unittest.TestCase):
             if item["sourceType"] == "conditions"
         )
         extra = "b1f10946-7b6c-4b51-85a2-090fd3e03f9d"
-        target = self.bindings["MissingCellsElement"]
+        target = self.contract["MissingCellsElement"]
         if original["targetid"] == target:
-            target = self.bindings["SuccessElement"]
+            target = self.contract["SuccessElement"]
         self.project["connections"][extra] = dict(original, targetid=target, targetType="elements")
         board = next(board for board in self.project["boards"].values()
                      if original_id in (board.get("connections") or []))
@@ -1604,37 +1681,37 @@ class NarrativeValidationTests(unittest.TestCase):
         self.assert_invalid("Each condition row must have exactly one outgoing connection")
 
     def test_automatic_cycle_is_rejected(self):
-        self.generator_connection().update(targetid=self.bindings["GeneratorBranch"], targetType="branches")
+        self.generator_connection().update(targetid=self.contract["GeneratorBranch"], targetType="branches")
         self.assert_invalid("automatic event path contains a cycle")
 
     def test_automatic_cross_event_branch_is_rejected(self):
-        self.generator_connection().update(targetid=self.bindings["ExitBranch"], targetType="branches")
+        self.generator_connection().update(targetid=self.contract["ExitBranch"], targetType="branches")
         self.assert_invalid("world-event lanes must not execute one another")
 
     def test_unconnected_world_event_element_is_rejected(self):
         ident = "6529841b-dc21-43f6-b73d-85e49e5663d5"
         self.project["elements"][ident] = {"content": "<p>Unused arrival message.</p>"}
-        self.project["boards"][self.bindings["Board"]]["elements"].append(ident)
+        self.project["boards"][self.contract["Board"]]["elements"].append(ident)
         self.assert_invalid("Every shared-board node must be reachable")
 
     def test_collection_requires_pickup_event_context(self):
-        self.generator_connection().update(targetid=self.bindings["PickupActionElement"], targetType="elements")
+        self.generator_connection().update(targetid=self.contract["PickupActionElement"], targetType="elements")
         self.assert_invalid("Only the pickup event supplies the cell identity")
 
     def test_changed_command_custom_id_is_rejected(self):
-        self.project["components"][self.bindings["OpenGateComponent"]]["customId"] = "open_other"
+        self.project["components"][self.contract["OpenGateComponent"]]["customId"] = "open_other"
         self.assert_invalid("custom ID no longer matches")
 
     def test_gate_command_on_terminal_is_rejected(self):
-        self.element("TerminalAcceptElement")["components"] = [self.bindings["OpenGateComponent"]]
+        self.element("TerminalAcceptElement")["components"] = [self.contract["OpenGateComponent"]]
         self.assert_invalid("Only Success may reference the open_gate")
 
     def test_gate_command_on_shared_event_entry_is_rejected(self):
-        self.element("EventEntryElement")["components"] = [self.bindings["OpenGateComponent"]]
+        self.element("EventEntryElement")["components"] = [self.contract["OpenGateComponent"]]
         self.assert_invalid("Only Success may reference the open_gate")
 
     def test_gate_command_on_exit_is_rejected(self):
-        self.element("CompletedElement")["components"] = [self.bindings["OpenGateComponent"]]
+        self.element("CompletedElement")["components"] = [self.contract["OpenGateComponent"]]
         self.assert_invalid("Only Success may reference the open_gate")
 
     def test_missing_gate_command_is_rejected(self):
@@ -1663,7 +1740,7 @@ class NarrativeValidationTests(unittest.TestCase):
 class NarrativeSyncTests(unittest.TestCase):
     FILES = (
         "Content/ArcweaveExport/quest.json", "Narrative/authoring.json",
-        "Narrative/import.json", "Narrative/project.json", "Narrative/bindings.json",
+        "Narrative/import.json", "Narrative/project.json",
     )
 
     def setUp(self):
@@ -1678,9 +1755,13 @@ class NarrativeSyncTests(unittest.TestCase):
         self.authoring = json.loads((self.root / self.FILES[1]).read_text(encoding="utf-8"))
         self.localized = json.loads((self.root / self.FILES[2]).read_text(encoding="utf-8"))
         # Match the API: localized exports omit layout; only the Unreal export carries it.
-        for collection in ("elements", "branches", "notes", "jumpers"):
+        for collection, fields in {
+            "elements": ("x", "y", "width", "height", "autoHeight"),
+            "notes": ("x", "y", "width", "height", "autoHeight"),
+            "branches": ("x", "y"), "jumpers": ("x", "y"),
+        }.items():
             for item in self.localized[collection].values():
-                for key in ("x", "y", "width", "height", "autoHeight"):
+                for key in fields:
                     item.pop(key, None)
         self.requests = []
 
@@ -1701,7 +1782,9 @@ class NarrativeSyncTests(unittest.TestCase):
                 SYNC.sync_exports(self.root, "fixture-token", project_hash)
 
     def test_sync_updates_all_exports_and_digest_metadata_together(self):
-        controls = "aaa35a32-93ac-43fb-94a4-55e4f21ca8a3"
+        hud = SYNC.resolve_contract(self.unreal["project"])["HUDTextComponent"]
+        controls = next(ident for ident in self.unreal["project"]["components"][hud]["attributes"]
+                        if self.unreal["project"]["attributes"][ident].get("customId") == "controls")
         for project in (self.unreal["project"], self.authoring, self.localized):
             project["attributes"][controls]["value"]["data"] = "Custom controls from Arcweave"
         self.sync()
@@ -1737,7 +1820,8 @@ class NarrativeSyncTests(unittest.TestCase):
         self.assertEqual(self.localized, before)
 
     def test_project_override_becomes_the_next_sync_default(self):
-        self.authoring["name"] = "My mission copy"
+        for project in (self.unreal["project"], self.authoring, self.localized):
+            project["name"] = "My mission copy"
         self.sync("MyProjectCopy")
         metadata = json.loads((self.root / "Narrative/project.json").read_text(encoding="utf-8"))
         self.assertEqual(metadata["projectHash"], "MyProjectCopy")
@@ -1750,6 +1834,24 @@ class NarrativeSyncTests(unittest.TestCase):
         self.sync()
         self.assertEqual(len(self.requests), 6)
         self.assertTrue(all("/MyProjectCopy/" in request.full_url for request in self.requests))
+
+    def test_sync_accepts_a_copy_with_every_narrative_object_rekeyed(self):
+        projects = (self.unreal["project"], self.authoring, self.localized)
+        identifiers = {ident for project in projects for collection, items in project.items()
+                       if isinstance(items, dict) for ident in items}
+        replacements = {ident: str(uuid4()) for ident in identifiers}
+        encoded = json.dumps((self.unreal, self.authoring, self.localized))
+        for original, replacement in replacements.items():
+            encoded = encoded.replace(original, replacement)
+        self.unreal, self.authoring, self.localized = json.loads(encoded)
+        self.sync("RekeyedProjectCopy")
+        for filename in self.FILES[:3]:
+            project = json.loads((self.root / filename).read_text(encoding="utf-8"))
+            project = project.get("project", project)
+            SYNC.validate_project(project)
+            self.assertFalse(identifiers.intersection(project["elements"]))
+        metadata = json.loads((self.root / "Narrative/project.json").read_text(encoding="utf-8"))
+        self.assertEqual(metadata["projectHash"], "RekeyedProjectCopy")
 
     def test_same_project_sync_preserves_known_workspace(self):
         before = json.loads((self.root / "Narrative/project.json").read_text(encoding="utf-8"))
@@ -1772,13 +1874,121 @@ class NarrativeSyncTests(unittest.TestCase):
 
     def test_invalid_import_leaves_all_exports_and_project_selection_unchanged(self):
         before = self.snapshot()
-        bindings = json.loads((self.root / "Narrative/bindings.json").read_text(encoding="utf-8"))
+        bindings = SYNC.resolve_contract(self.unreal["project"])
         self.localized["components"][bindings["HUDTextComponent"]]["customId"] = "wrong_scope"
         with self.assertRaises(ValueError):
             self.sync("MyProjectCopy")
         self.assertEqual(self.snapshot(), before)
 
+    def test_mixed_cell_requirements_leave_all_files_unchanged(self):
+        before = self.snapshot()
+        bindings = SYNC.resolve_contract(self.unreal["project"])
+        for project in (self.authoring, self.localized):
+            project["attributes"][bindings["RequiredPowerCellsAttribute"]]["value"]["data"] = 1
+        with self.assertRaisesRegex(ValueError, "different project content"):
+            self.sync("MyProjectCopy")
+        self.assertEqual(self.snapshot(), before)
+
+    def test_each_export_is_checked_for_changed_rules_text_and_graph(self):
+        before = self.snapshot()
+        originals = copy.deepcopy((self.unreal, self.authoring, self.localized))
+        bindings = SYNC.resolve_contract(self.unreal["project"])
+        for export in ("unreal", "authoring", "localized"):
+            for change in ("condition", "content", "label", "branch_order", "jumper", "component", "name"):
+                with self.subTest(export=export, change=change):
+                    self.unreal, self.authoring, self.localized = copy.deepcopy(originals)
+                    project = self.unreal["project"] if export == "unreal" else getattr(self, export)
+                    branch = project["branches"][bindings["GeneratorBranch"]]["conditions"]
+                    if change == "condition":
+                        project["conditions"][branch["elseIfConditions"][1]]["script"] = "player.power_cells >= 1"
+                    elif change == "content":
+                        ident = bindings["SuccessElement"]
+                        value = '<pre><code>quest.power_restored = false</code></pre><p>Power restored.</p>'
+                        if export == "localized":
+                            project["contents"][ident]["content"]["en"]["text"] = value
+                        else:
+                            project["elements"][ident]["content"] = value
+                    elif change == "label":
+                        ident = project["elements"][project["startingElement"]]["outputs"][0]
+                        if export == "localized":
+                            project["contents"][ident]["label"]["en"]["text"] = "<p>View supplies</p>"
+                        else:
+                            project["connections"][ident]["label"] = "<p>View supplies</p>"
+                    elif change == "branch_order":
+                        branch["elseIfConditions"].reverse()
+                    elif change == "jumper":
+                        next(iter(project["jumpers"].values()))["elementId"] = bindings["SuccessElement"]
+                    elif change == "component":
+                        ident = bindings["PlayerComponent"]
+                        if export == "localized":
+                            project["contents"][ident]["name"]["en"]["text"] = "Changed player"
+                        else:
+                            project["components"][ident]["name"] = "Changed player"
+                    else:
+                        project["name"] = "Changed mission"
+                    with self.assertRaisesRegex(ValueError, "different project content"):
+                        self.sync("MyProjectCopy")
+                    self.assertEqual(self.snapshot(), before)
+
+    def test_consistency_uses_the_authored_default_locale(self):
+        self.localized["locales"] = [
+            {"iso": "en", "base": "fr", "name": "English"},
+            {"iso": "fr", "base": None, "name": "French"},
+        ]
+        for fields in self.localized["contents"].values():
+            for field, locales in fields.items():
+                if field != "_status" and "en" in locales:
+                    locales["fr"] = locales.pop("en")
+        entry = self.localized["startingElement"]
+        self.localized["contents"][entry]["content"]["en"] = {"text": "<p>A different translation.</p>"}
+        self.sync()
+        imported = json.loads((self.root / "Narrative/import.json").read_text(encoding="utf-8"))
+        self.assertEqual(imported["contents"], self.localized["contents"])
+
+    def test_html_cleanup_preserves_scripts_references_and_text(self):
+        entry = self.localized["startingElement"]
+        content = ('<p>Station &amp; supplies<br><span data-id="reference-a" data-type="element">Info</span></p>'
+                   '<pre><code>show(hud.station_name)</code></pre>')
+        for project in (self.unreal["project"], self.authoring):
+            project["elements"][entry]["content"] = content
+        localized_content = (content.replace('<p>', '<p style="margin-left: 20px">')
+                             .replace('<br>', '<br/>')
+                             .replace('&amp;', '&')
+                             .replace('<pre>', '<pre data-id="editor-id" spellcheck="false">')
+                             .replace('<code>', '<code class="language-arcscript">')
+                             .replace('data-id="reference-a" data-type="element"',
+                                      'data-type="element" data-id="reference-a"'))
+        self.localized["contents"][entry]["content"]["en"]["text"] = localized_content
+        self.sync()
+        before = self.snapshot()
+        for content in (localized_content.replace("reference-a", "reference-b"),
+                        localized_content.replace("Station &", "Outpost &"),
+                        localized_content.replace("show(hud.station_name)", "show(hud.brand)")):
+            with self.subTest(content=content):
+                self.localized["contents"][entry]["content"]["en"]["text"] = content
+                with self.assertRaisesRegex(ValueError, "different project content"):
+                    self.sync()
+                self.assertEqual(self.snapshot(), before)
+
+    def test_localized_html_matches_exporter_entity_decoding(self):
+        entry = self.localized["startingElement"]
+        query = self.localized["elements"][entry]["outputs"][0]
+        for localized, exported in (
+            ("<p>Literal &lt;cell&gt;</p>", "<p>Literal <cell></p>"),
+            ("<p>Literal &amp;lt;cell&amp;gt;</p>", "<p>Literal &lt;cell&gt;</p>"),
+        ):
+            with self.subTest(localized=localized):
+                for project in (self.unreal["project"], self.authoring):
+                    project["elements"][entry]["content"] = exported
+                    project["connections"][query]["label"] = exported
+                self.localized["contents"][entry]["content"]["en"]["text"] = localized
+                self.localized["contents"][query]["label"]["en"]["text"] = localized
+                self.sync()
+                imported = json.loads((self.root / "Narrative/import.json").read_text(encoding="utf-8"))
+                self.assertEqual(imported["contents"], self.localized["contents"])
+
     def test_bundled_import_matches_generated_snapshot(self):
+        SYNC.validate_export_consistency(self.unreal["project"], self.authoring, self.localized)
         imported = SYNC.make_import_project(self.localized, self.unreal["project"])
         self.assertEqual(imported, json.loads((ROOT / "Narrative/import.json").read_text(encoding="utf-8")))
         metadata = json.loads((ROOT / "Narrative/project.json").read_text(encoding="utf-8"))

@@ -71,10 +71,11 @@ private:
     FString CurrentElementId;
     FString PresentationEntryId;
     FString PresentationElementId;
-    TMap<FName, FString> UIVariableIds;
+    // Resolve authored component/attribute custom IDs once; the plugin still takes UUIDs.
+    TMap<FName, FString> VariableIds;
     TMap<FName, FString> UIText;
     // Read cache only: Arcweave owns these values and reports every runtime change.
-    TMap<FString, FString> StateValues;
+    TMap<FName, FString> StateValues;
     FString Objective;
     FString Status;
     FString PersistenceStatus;

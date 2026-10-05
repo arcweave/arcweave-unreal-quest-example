@@ -13,6 +13,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+from html import unescape
 from html.parser import HTMLParser
 
 
@@ -94,6 +95,27 @@ DISPLAY_LEAVES = tuple("Presentation" + state + "Element" for state in (
     "Completed", "Powered", "Unaccepted", "Collecting", "Ready",
 ))
 EXIT_ENDINGS = ("CompletedElement", "ExitAlreadyCompletedElement")
+ELEMENT_TITLES = {
+    "TerminalAcceptElement": "Terminal · accept task",
+    "TerminalAcceptedElement": "Terminal · task already accepted",
+    "TerminalPoweredElement": "Terminal · exit is ready",
+    "TerminalCompletedElement": "Terminal · task already complete",
+    "SuccessElement": "Generator · restore power",
+    "MissingCellsElement": "Generator · missing cells",
+    "TerminalRequiredElement": "Generator · terminal required",
+    "AlreadyOnlineElement": "Generator · already online",
+    "DuplicatePickupElement": "Pickup denied · already collected",
+    "PickupTerminalRequiredElement": "Pickup denied · accept the task",
+    "PickupActionElement": "Pickup accepted · collect the cell",
+    "CompletedElement": "Exit reached · task complete",
+    "ExitDeniedElement": "Exit denied · restore power",
+    "ExitAlreadyCompletedElement": "Exit · already complete",
+    "PresentationCompletedElement": "Display · completed",
+    "PresentationPoweredElement": "Display · powered",
+    "PresentationUnacceptedElement": "Display · unaccepted",
+    "PresentationCollectingElement": "Display · collecting",
+    "PresentationReadyElement": "Display · ready",
+}
 
 
 class CodeBlocks(HTMLParser):
@@ -336,24 +358,101 @@ def validate_ui_component(project, component_id, scope, fields):
             raise ValueError("UI attributes must be nonempty plain strings owned by the UI component, without HTML or Arcscript.")
 
 
-def validate_bindings(project, bindings):
+def resolve_contract(project):
+    """Find this sample's validation fixtures without fixing their exported UUIDs.
+
+    Titles identify expected outcomes independently of the routes being checked.
+    They are offline sample expectations, not identifiers used by the game.
+    """
+    def unique(matches, description):
+        if len(matches) != 1:
+            raise ValueError(f"The export must contain exactly one {description}.")
+        return next(iter(matches))
+
+    entry = project.get("startingElement")
+    boards = [ident for ident, board in project["boards"].items()
+              if entry in (board.get("elements") or [])]
+    if entry not in project["elements"] or len(boards) != 1:
+        raise ValueError("The starting element must identify an element on the world-event board.")
+    contract = {"Board": boards[0]}
+    component_scopes = {name: scope for name, (scope, _) in UI_COMPONENTS.items()}
+    component_scopes.update({name: scope for name, (scope, _) in STATE_COMPONENTS.items()})
+    component_scopes.update(GameEventComponent="game_event", **COMMANDS)
+    for name, scope in component_scopes.items():
+        contract[name] = unique(
+            [ident for ident, item in project["components"].items() if item.get("customId") == scope],
+            f"component with custom ID '{scope}'",
+        )
+    for component_name, (_, fields) in {
+        **STATE_COMPONENTS, "GameEventComponent": ("game_event", EVENT_INPUTS),
+    }.items():
+        component_id = contract[component_name]
+        for name, (field, _, _) in fields.items():
+            contract[name] = unique(
+                [ident for ident in project["components"][component_id].get("attributes", []) or []
+                 if project["attributes"][ident].get("customId") == field],
+                f"'{field}' attribute on '{component_scopes[component_name]}'",
+            )
+
+    titles = {}
+    for ident in project["elements"]:
+        title = CodeBlocks()
+        title.feed(localized_field(project, "elements", ident, "title") or "")
+        titles.setdefault(title.text.strip(), []).append(ident)
+    for name, title in ELEMENT_TITLES.items():
+        contract[name] = unique(titles.get(title, []), f"sample outcome titled '{title}'")
+
+    menu_branches = {
+        project["connections"][ident]["targetid"]
+        for ident in project["elements"][entry].get("outputs", []) or []
+        if project["connections"][ident]["targetType"] == "branches"
+    }
+    contract["EventRouterBranch"] = unique(menu_branches, "shared interaction-menu branch target")
+    for name, outcome in {
+        "TerminalBranch": "TerminalAcceptedElement",
+        "GeneratorBranch": "MissingCellsElement",
+        "PickupBranch": "PickupTerminalRequiredElement",
+        "ExitBranch": "ExitAlreadyCompletedElement",
+        "PresentationBranch": "PresentationCompletedElement",
+    }.items():
+        incoming_conditions = {
+            connection["sourceid"] for connection in project["connections"].values()
+            if connection["sourceType"] == "conditions" and connection["targetType"] == "elements"
+            and connection["targetid"] == contract[outcome]
+        }
+        matches = []
+        for ident, branch in project["branches"].items():
+            group = branch["conditions"]
+            conditions = {group["ifCondition"], group.get("elseCondition"),
+                          *(group.get("elseIfConditions") or [])}
+            if conditions.intersection(incoming_conditions):
+                matches.append(ident)
+        contract[name] = unique(matches, f"branch leading to '{ELEMENT_TITLES[outcome]}'")
+    return contract
+
+
+def validate_project(project):
+    validate_contract(project, resolve_contract(project))
+
+
+def validate_contract(project, contract):
     suffixes = {
         "Board": "boards", "Element": "elements", "Branch": "branches",
         "Condition": "conditions", "Connection": "connections", "Component": "components",
         "Variable": "variables", "Attribute": "attributes", "Note": "notes",
     }
-    for name, ident in bindings.items():
+    for name, ident in contract.items():
         collection = next((value for suffix, value in suffixes.items() if name.endswith(suffix)), None)
         if collection is None or ident not in project[collection]:
             raise ValueError(f"The export is missing the {name} binding.")
     event_entry = project.get("startingElement")
     if (event_entry not in project["elements"]
-            or event_entry not in (project["boards"][bindings["Board"]].get("elements") or [])):
+            or event_entry not in (project["boards"][contract["Board"]].get("elements") or [])):
         raise ValueError("The starting element must identify an element on the world-event board.")
     actual_boards = {ident for ident, board in project["boards"].items() if "children" not in board}
-    if actual_boards != {bindings["Board"]}:
+    if actual_boards != {contract["Board"]}:
         raise ValueError("The sample must use one shared board for interactions and objectives/UI.")
-    presentation_board = project["boards"][bindings["Board"]]
+    presentation_board = project["boards"][contract["Board"]]
     entry_markers = [
         (element_id, attribute_id)
         for element_id in presentation_board.get("elements", []) or []
@@ -386,15 +485,15 @@ def validate_bindings(project, bindings):
         raise ValueError("The sample uses component state and must not define global variables.")
     state_attributes = {}
     for binding, (scope, fields) in STATE_COMPONENTS.items():
-        component_id = bindings[binding]
+        component_id = contract[binding]
         component = project["components"][component_id]
         if component.get("customId") != scope or "children" in component:
             raise ValueError(f"The {scope} data component must have its required custom ID and cannot be a folder.")
         attributes = component.get("attributes", []) or []
-        if len(attributes) != len(fields) or set(attributes) != {bindings[name] for name in fields}:
+        if len(attributes) != len(fields) or set(attributes) != {contract[name] for name in fields}:
             raise ValueError(f"The {scope} component must contain exactly its bound state attributes.")
         for name, (field, kind, default) in fields.items():
-            attribute_id = bindings[name]
+            attribute_id = contract[name]
             attribute = project["attributes"][attribute_id]
             value = attribute["value"]
             data = value.get("data")
@@ -406,22 +505,22 @@ def validate_bindings(project, bindings):
             if (default is None and data < 1) or (default is not None and data != default):
                 raise ValueError(f"The {scope}.{field} initial value is not a valid new-game default.")
             state_attributes[attribute_id] = component_id
-    ui_ids = {bindings[name] for name in UI_COMPONENTS}
+    ui_ids = {contract[name] for name in UI_COMPONENTS}
     ui_attributes = {}
     for binding, (scope, fields) in UI_COMPONENTS.items():
-        component_id = bindings[binding]
+        component_id = contract[binding]
         validate_ui_component(project, component_id, scope, fields)
         for attribute_id in project["components"][component_id]["attributes"]:
             ui_attributes[attribute_id] = component_id
-    event_component_id = bindings["GameEventComponent"]
+    event_component_id = contract["GameEventComponent"]
     event_component = project["components"][event_component_id]
     if event_component.get("customId") != "game_event" or "children" in event_component:
         raise ValueError("The game_event data component must have its required custom ID and cannot be a folder.")
     event_attributes = event_component.get("attributes", []) or []
-    if len(event_attributes) != len(EVENT_INPUTS) or set(event_attributes) != {bindings[name] for name in EVENT_INPUTS}:
+    if len(event_attributes) != len(EVENT_INPUTS) or set(event_attributes) != {contract[name] for name in EVENT_INPUTS}:
         raise ValueError("The game_event component must contain exactly its two bound input attributes.")
     for binding, (name, kind, default) in EVENT_INPUTS.items():
-        attribute = project["attributes"][bindings[binding]]
+        attribute = project["attributes"][contract[binding]]
         value = attribute["value"]
         data = value.get("data")
         # Arcweave exports empty string attributes as null; the released plugin imports them as "".
@@ -443,7 +542,7 @@ def validate_bindings(project, bindings):
                 if (attribute_id not in scoped_attributes or attribute["cType"] != "components"
                         or attribute.get("cId") != scoped_attributes[attribute_id]):
                     raise ValueError("Only the seven state values, twenty-seven UI strings, and two game_event inputs may add scoped variables.")
-    state_ids = {bindings[name] for name in STATE_COMPONENTS}
+    state_ids = {contract[name] for name in STATE_COMPONENTS}
     data_ids = ui_ids | state_ids | {event_component_id}
     for component_id, component in project["components"].items():
         if component_id not in data_ids and component.get("customId") in SCOPED_FIELDS:
@@ -454,7 +553,7 @@ def validate_bindings(project, bindings):
     if folders:
         groups = {
             "UI": ui_ids, "State": state_ids, "Inputs": {event_component_id},
-            "Actions": {bindings[name] for name in COMMANDS},
+            "Actions": {contract[name] for name in COMMANDS},
         }
         group_folders = set()
         for name, children in groups.items():
@@ -474,14 +573,14 @@ def validate_bindings(project, bindings):
             raise ValueError("State, Inputs, Actions, and UI must be the four top-level component folders.")
 
     for name, custom_id in COMMANDS.items():
-        component = project["components"][bindings[name]]
+        component = project["components"][contract[name]]
         if component.get("customId") != custom_id:
             raise ValueError(f"The {name} custom ID no longer matches C++.")
     component_ids = {ident for ident, item in project["components"].items() if "children" not in item}
-    if component_ids != data_ids | {bindings[name] for name in COMMANDS}:
+    if component_ids != data_ids | {contract[name] for name in COMMANDS}:
         raise ValueError("The sample requires nine data components and only the open_gate action component.")
     command_elements = {
-        bindings["SuccessElement"]: {bindings["OpenGateComponent"]},
+        contract["SuccessElement"]: {contract["OpenGateComponent"]},
     }
 
     # Model automatic execution through elements and every possible branch outcome.
@@ -500,8 +599,8 @@ def validate_bindings(project, bindings):
     return_sources = set()
     query_destinations = set()
     world_jumper_sources = {}
-    display_leaves = {bindings[name] for name in DISPLAY_LEAVES}
-    exit_endings = {bindings[name] for name in EXIT_ENDINGS}
+    display_leaves = {contract[name] for name in DISPLAY_LEAVES}
+    exit_endings = {contract[name] for name in EXIT_ENDINGS}
 
     def edge(origin, source_id, source_type, connection_id):
         connection = project["connections"][connection_id]
@@ -589,7 +688,7 @@ def validate_bindings(project, bindings):
     if inventory_entry not in return_sources:
         raise ValueError("The inventory query must use its own return jumper to the interaction menu.")
     if (used_jumpers != set(project["jumpers"])
-            or used_jumpers != set(project["boards"][bindings["Board"]].get("jumpers", []) or [])):
+            or used_jumpers != set(project["boards"][contract["Board"]].get("jumpers", []) or [])):
         raise ValueError("Every jumper must be owned and used, with no unused jumpers.")
 
     def reachable(starts, stop):
@@ -621,7 +720,7 @@ def validate_bindings(project, bindings):
 
     display_ids = reachable({display_entry}, event_entry)
     validate_acyclic(display_ids, event_entry)
-    if bindings["PresentationBranch"] not in display_ids:
+    if contract["PresentationBranch"] not in display_ids:
         raise ValueError("Presentation must reach its bound state branch.")
     leaves = display_leaves
     terminal_ids = {ident for ident in display_ids if edges[ident] == [event_entry]}
@@ -639,7 +738,7 @@ def validate_bindings(project, bindings):
         raise ValueError("The inventory query must retain only its inventory entry marker.")
     validate_feedback_content(element_content(project, inventory_entry), "Inventory query")
 
-    event_router = bindings["EventRouterBranch"]
+    event_router = contract["EventRouterBranch"]
     menu_connections = set(project["elements"][event_entry]["outputs"])
     event_connections = {ident for ident in menu_connections
                          if project["connections"][ident]["targetType"] == "branches"
@@ -670,7 +769,7 @@ def validate_bindings(project, bindings):
     router_conditions = branch_conditions[event_router]
     router_else = router_group.get("elseCondition")
     expected_routes = {
-        condition_expression(f'game_event.type == "{event}"'): bindings[entry]
+        condition_expression(f'game_event.type == "{event}"'): contract[entry]
         for event, entry in EVENT_ROUTES.items()
     }
     actual_routes = {
@@ -682,7 +781,7 @@ def validate_bindings(project, bindings):
     ):
         raise ValueError("The event router must select terminal, collect_cell, generator, or exit directly through its branch, without an else fallback.")
 
-    pickup_branch = bindings["PickupBranch"]
+    pickup_branch = contract["PickupBranch"]
     pickup_conditions = branch_conditions[pickup_branch]
     pickup_else = project["branches"][pickup_branch]["conditions"].get("elseCondition")
     if (
@@ -692,7 +791,7 @@ def validate_bindings(project, bindings):
         != [condition_expression('(game_event.cell_id == "cell_a" && cell_a.collected) || '
                                  '(game_event.cell_id == "cell_b" && cell_b.collected)'),
             condition_expression("!quest.started")]
-        or edges[pickup_branch] != [bindings[name] for name in (
+        or edges[pickup_branch] != [contract[name] for name in (
             "DuplicatePickupElement", "PickupTerminalRequiredElement", "PickupActionElement",
         )]
     ):
@@ -704,14 +803,14 @@ def validate_bindings(project, bindings):
     validate_acyclic(world_ids, event_entry)
     if {ident for ident in world_ids if not edges[ident]} != exit_endings:
         raise ValueError("Only the completed exit outcomes may end a playthrough; all other world outcomes must return to the menu.")
-    lane_ids = {name: reachable({bindings[name]}, event_entry) for name in EVENT_LANES}
+    lane_ids = {name: reachable({contract[name]}, event_entry) for name in EVENT_LANES}
     for name, current in lane_ids.items():
-        if name != "PickupBranch" and bindings["PickupActionElement"] in current:
+        if name != "PickupBranch" and contract["PickupActionElement"] in current:
             raise ValueError("Only the pickup event supplies the cell identity needed to update collected state.")
     for name, current in lane_ids.items():
         if any(current.intersection(other) for other_name, other in lane_ids.items() if other_name != name):
             raise ValueError("Separate world-event lanes must not execute one another or share automatic paths.")
-        if not {bindings[item] for item in EVENT_LANES[name]}.issubset(current):
+        if not {contract[item] for item in EVENT_LANES[name]}.issubset(current):
             raise ValueError("Each world-event lane must retain its bound outcomes and gameplay checks.")
         boundary_sources = {ident for ident in current if event_entry in edges[ident]}
         jumpers = {ident: sources for ident, sources in world_jumper_sources.items()
@@ -719,15 +818,15 @@ def validate_bindings(project, bindings):
         if len(jumpers) != 1 or next(iter(jumpers.values())) != boundary_sources:
             raise ValueError("Each world-event lane must share its own return jumper without mixing lanes or bypassing it.")
     world_ids.add(event_entry)
-    world_board = project["boards"][bindings["Board"]]
+    world_board = project["boards"][contract["Board"]]
     world_nodes = set(world_board.get("elements", []) or []) | set(world_board.get("branches", []) or [])
     if world_ids | display_ids | inventory_ids != world_nodes:
         raise ValueError("Every shared-board node must be reachable from the interaction menu or its two query entries.")
 
     feedback_nodes = {
         event_entry: "The shared event entry",
-        bindings["DuplicatePickupElement"]: "Duplicate-pickup feedback",
-        bindings["PickupTerminalRequiredElement"]: "Task-required pickup feedback",
+        contract["DuplicatePickupElement"]: "Duplicate-pickup feedback",
+        contract["PickupTerminalRequiredElement"]: "Task-required pickup feedback",
     }
     for ident, label in feedback_nodes.items():
         if ident != event_entry and edges[ident] != [event_entry]:
@@ -776,6 +875,81 @@ def validate_bindings(project, bindings):
                 validate_world_code_block(script)
 
 
+class ExportHTML(HTMLParser):
+    """Compare HTML after the single-locale exporter's editor-attribute cleanup."""
+
+    def __init__(self):
+        super().__init__()
+        self.tokens = []
+
+    def handle_starttag(self, tag, attrs):
+        omitted = {
+            "p": {"style"}, "blockquote": {"style"},
+            "pre": {"style", "data-id", "spellcheck"}, "code": {"class"},
+        }.get(tag, set())
+        self.tokens.append(("start", tag, sorted((key, value) for key, value in attrs if key not in omitted)))
+
+    def handle_endtag(self, tag):
+        self.tokens.append(("end", tag))
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        if tag not in {"br", "hr", "img"}:
+            self.handle_endtag(tag)
+
+    def handle_data(self, data):
+        if self.tokens and self.tokens[-1][0] == "text":
+            self.tokens[-1] = ("text", self.tokens[-1][1] + data)
+        else:
+            self.tokens.append(("text", data))
+
+    def handle_comment(self, data):
+        self.tokens.append(("comment", data))
+
+
+def shared_export_content(project):
+    result = copy.deepcopy(project)
+    result.pop("contents", None)
+    result.pop("locales", None)
+    for collection in ("boards", "components"):
+        result[collection] = {ident: item for ident, item in result[collection].items() if not item.get("root")}
+    # These are the fields omitted by the JSON endpoint, not all visual properties.
+    for collection, fields in {
+        "elements": ("x", "y", "width", "height", "autoHeight"),
+        "notes": ("x", "y", "width", "height", "autoHeight"),
+        "branches": ("x", "y"), "jumpers": ("x", "y"),
+    }.items():
+        for item in result[collection].values():
+            for field in fields:
+                item.pop(field, None)
+    for collection, fields in {
+        "elements": ("title", "content"), "connections": ("label",), "components": ("name",),
+    }.items():
+        for ident, item in result[collection].items():
+            for field in fields:
+                value = localized_field(project, collection, ident, field)
+                if value is not None and field in {"content", "label"}:
+                    if field not in project[collection][ident]:
+                        # Single-locale exports decode HTML entities after serialization.
+                        value = unescape(value)
+                    parsed = ExportHTML()
+                    parsed.feed(value)
+                    parsed.close()
+                    value = parsed.tokens
+                item[field] = value
+    return result
+
+
+def validate_export_consistency(unreal_project, authoring, localized):
+    expected = shared_export_content(unreal_project)
+    for label, project in (("authoring", authoring), ("all-locales", localized)):
+        if shared_export_content(project) != expected:
+            raise ValueError(
+                f"The Unreal and {label} exports contain different project content. "
+                "The project may have changed during download; rerun sync. No exports were updated."
+            )
+
+
 def make_import_project(localized, unreal_project):
     # The all-locales JSON export preserves translations but omits board geometry.
     # The Unreal export supplies the original layout for the web importer's graph.
@@ -791,7 +965,6 @@ def make_import_project(localized, unreal_project):
 def sync_exports(root, token, project_hash=None):
     metadata_path = root / "Narrative/project.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    bindings = json.loads((root / "Narrative/bindings.json").read_text(encoding="utf-8"))
     project_hash = project_hash or metadata["projectHash"]
     encoded_hash = urllib.parse.quote(project_hash, safe="")
     base_url = f"https://arcweave.com/api/v1/{encoded_hash}"
@@ -811,10 +984,12 @@ def sync_exports(root, token, project_hash=None):
     localized_bytes = download("json?allLocales=true")
     unreal = json.loads(unreal_bytes)
     authoring = json.loads(authoring_bytes)
-    import_project = make_import_project(json.loads(localized_bytes), unreal["project"])
-    validate_bindings(unreal["project"], bindings)
-    validate_bindings(authoring, bindings)
-    validate_bindings(import_project, bindings)
+    localized = json.loads(localized_bytes)
+    validate_export_consistency(unreal["project"], authoring, localized)
+    import_project = make_import_project(localized, unreal["project"])
+    validate_project(unreal["project"])
+    validate_project(authoring)
+    validate_project(import_project)
     import_bytes = (json.dumps(import_project, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
     unreal_path = root / "Content/ArcweaveExport/quest.json"

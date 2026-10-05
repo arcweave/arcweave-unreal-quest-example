@@ -27,7 +27,7 @@ powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Map
 | Movement, interaction, and checkpoint keys | [QuestCharacter.cpp](../Source/ArcweaveQuest/QuestCharacter.cpp) |
 | Objective, inventory, and save/load display | [QuestHUD.cpp](../Source/ArcweaveQuest/QuestHUD.cpp) |
 | Game-owned snapshot data | [QuestSaveGame.h](../Source/ArcweaveQuest/QuestSaveGame.h) |
-| Bound narrative IDs | [QuestBindings.h](../Source/ArcweaveQuest/QuestBindings.h) and [bindings.json](../Narrative/bindings.json) |
+| Discover expected narrative objects for automation | [QuestTestNarrative.h](../Source/ArcweaveQuest/Tests/QuestTestNarrative.h) |
 
 `UQuestDirector` is sample code. It accesses the plugin with `GEngine->GetEngineSubsystem<UArcweaveSubsystem>()`. The plugin imports the project and evaluates Arcscript; the sample interprets an `open_gate` component reference as a native gate command and reads collected flags to update pickup visibility. See the [narrative guide](narrative.md) for the shared Play Mode/game flow, state ownership, entry discovery, and persistence contract.
 
@@ -42,7 +42,7 @@ python Scripts/test-sync-narrative.py
 powershell -ExecutionPolicy Bypass -File Scripts/test-build.ps1
 ```
 
-The Python suite validates the bundled exports, graph contracts, import copy, and sync behavior. The PowerShell fixtures check build-script routing and automation-report failures without invoking Unreal.
+The Python suite validates the bundled exports, named contract, graph structure, import copy, and sync behavior, including an export with every object ID reassigned. The PowerShell fixtures check build-script routing and automation-report failures without invoking Unreal.
 
 ## Native automation
 

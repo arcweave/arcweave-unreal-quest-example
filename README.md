@@ -42,7 +42,7 @@ To try save/load, save after collecting one cell, finish the mission, then load.
 
 ## Develop
 
-Arcweave owns progression, objectives, feedback, prompts, and labels. C++ handles movement, physical interactions, world effects, and file persistence. This is a single-player Windows example.
+Arcweave owns progression, objectives, feedback, prompts, and labels. C++ handles movement, physical interactions, world effects, and file persistence. The integration uses readable custom IDs such as `quest.started` and `open_gate`; no project UUIDs need to be copied into code. This is a single-player Windows example.
 
 - [Narrative structure, C++ integration, and editing your own copy](docs/narrative.md)
 - [Build options, tests, and packaging](docs/development.md)

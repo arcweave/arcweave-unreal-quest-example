@@ -5,7 +5,6 @@
   "projectUrl": "https://arcweave.com/app/project/MWEZgMb62g",
   "workspaceHash": "Z7gAR6XY",
   "workspaceUrl": "https://arcweave.com/app/workspace/Z7gAR6XY/projects",
-  "bindingsFile": "bindings.json",
   "authoringExport": "authoring.json",
   "unrealExport": "../Content/ArcweaveExport/quest.json",
   "exportedAt": "2026-10-05T11:49:19.645555+00:00",
