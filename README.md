@@ -53,7 +53,7 @@ The game runs offline from `Content/ArcweaveExport/quest.json`. An API key is on
 
 Referenced action components are a convention implemented by this sample: `collect_cell` and `open_gate` dispatch to C++ handlers. Before a pickup attempt, Unreal supplies `game_event.cell_already_collected` for the selected physical item. The pickup branch checks that flag, then task acceptance, before requesting collection. Its handler records the unique item and updates `player.power_cells` through `SetVariable`; the next authored element renders the updated count. Authored branches handle rejected and repeated interactions. The plugin does not provide an arbitrary Arcscript command/event registration API.
 
-The **State** folder contains Player (`player`) and Restore power quest (`quest`). **Inputs** contains Game event, **Actions** contains Collect cell and Open gate, and **UI** contains the three text components. Component variables hold values that Arcscript and Unreal can read; references to action components request effects in the engine. The director reads `quest.power_restored` directly, and the normal world refresh uses it to update station lighting. There is no separate Restore power action or duplicate native power flag.
+The **State** folder contains Player (`player`) and Restore power quest (`quest`). **Inputs** contains Game event, **Actions** contains Collect cell and Open gate, and **UI** contains the three text components. Component variables hold values that Arcscript and Unreal can read; references to action components request effects in the engine. The director keeps a read cache of the five state values, seeded at import and updated immediately by `OnArcweaveVariableChanged` when Arcscript or `SetVariable` changes them. HUD and world state getters read this cache without copying the entire imported project. Arcweave remains authoritative; there is no separate Restore power action or independently managed native power flag.
 
 The **UI** component folder separates shared HUD text (`hud`, five strings), static world labels (`world_text`, seven strings), and state-dependent quest display (`quest_ui`, seven strings). Folder names organize the editor; component custom IDs define Arcscript scopes. The director maps qualified keys such as `hud.station_name` to attribute UUIDs, then caches current values after each event. HUD drawing and looking at objects only call `GetUIText`; they never execute Arcscript or increment visits.
 
@@ -66,12 +66,14 @@ The scene uses Unreal primitive meshes and C++ actors. There are no quest Bluepr
 ## Verification and packaging
 
 ```powershell
+powershell -ExecutionPolicy Bypass -File Scripts/test-build.ps1
+python Scripts/test-sync-narrative.py
 powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Test
 powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task WorldTest
 powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Package
 powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task WorldTest -Packaged
 ```
 
-Tests run without a window using `-NullRHI -RenderOffscreen`. `Test` checks the narrative flow; `WorldTest` exercises the running world, pickups, lighting, and gate collision. `-Packaged` runs it in the packaged Development executable. The script checks Unreal's JSON automation report, including that tests actually ran. Reports and build logs are under `Saved/Validation`; packaged output defaults to `Builds/Windows`. See [local verification results](docs/verification.md).
+The first two commands check build-script routing and narrative validation without starting Unreal; the Python check requires Python 3.9 or later. Unreal tests and cooking run without a window using `-NullRHI -RenderOffscreen`. Packaging also disables hot reload. `Test` checks the narrative flow; `WorldTest` exercises the running world, pickups, lighting, and gate collision. `-Packaged` runs it in the packaged Development executable. The script checks Unreal's JSON automation report, including that tests actually ran. Reports and build logs are under `Saved/Validation`; packaged output defaults to `Builds/Windows`. Use the same `-OutputDirectory` argument for `Package` and `WorldTest -Packaged` when choosing a different archive directory. See [local verification results](docs/verification.md).
 
 The package includes the bundled JSON as a loose non-asset file so the plugin's local import can find it. The sample targets a single-player Windows desktop game; it is not a multiplayer or VR/mobile integration example.

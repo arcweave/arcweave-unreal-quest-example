@@ -81,24 +81,36 @@ DISPLAY_LEAVES = tuple("Presentation" + state + "Element" for state in (
 
 
 class CodeBlocks(HTMLParser):
-    def __init__(self):
+    def __init__(self, mask_references=False):
         super().__init__()
         self.blocks = []
         self.in_code = False
         self.text = ""
+        self.mask_references = mask_references
+        self.reference_depth = 0
 
     def handle_starttag(self, tag, attrs):
         if tag == "code":
             self.in_code = True
             self.blocks.append("")
+        elif self.mask_references and self.in_code and tag == "span":
+            attributes = dict(attrs)
+            if self.reference_depth:
+                self.reference_depth += 1
+            elif (attributes.get("data-id")
+                  and attributes.get("data-type") in {"element", "component", "board"}):
+                self.blocks[-1] += "__arcweave_reference__"
+                self.reference_depth = 1
 
     def handle_endtag(self, tag):
         if tag == "code":
             self.in_code = False
+        elif tag == "span" and self.reference_depth:
+            self.reference_depth -= 1
 
     def handle_data(self, data):
         self.text += data
-        if self.in_code:
+        if self.in_code and not self.reference_depth:
             self.blocks[-1] += data
 
 
@@ -198,6 +210,23 @@ def validate_state_names(script):
     code = re.sub(r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')''', "", script or "")
     if re.search(r"\b(?:questStarted|powerCells|requiredPowerCells|powerRestored|questCompleted)\b", code):
         raise ValueError("Arcscript must use player and quest state fields instead of former global names.")
+
+
+def validate_world_code_block(script):
+    # Native if/elseif/else/endif fragments occupy their own code blocks, just
+    # like assignments and calls. World scripts retain their state-changing role.
+    code = arcscript_expression(script).strip()
+    if code in {"else", "endif"}:
+        return
+    conditional = re.match(r"^(?:if|elseif)\b", code)
+    message = "Each world-event code block must contain exactly one statement for the native plugin."
+    try:
+        if conditional:
+            ast.parse(code[conditional.end():].strip(), mode="eval")
+        elif len(ast.parse(code).body) != 1:
+            raise ValueError(message)
+    except SyntaxError as error:
+        raise ValueError(message) from error
 
 
 def condition_expression(script):
@@ -565,10 +594,17 @@ def validate_bindings(project, bindings):
             for condition_id in branch_conditions[ident]:
                 validate_state_names(project["conditions"][condition_id].get("script"))
         else:
+            content = element_content(project, ident) or ""
             blocks = CodeBlocks()
-            blocks.feed(element_content(project, ident) or "")
+            blocks.feed(content)
             for script in blocks.blocks:
                 validate_state_names(script)
+            # Count a rich-text reference as one expression token, while the
+            # existing state-name checks retain their original text handling.
+            blocks = CodeBlocks(mask_references=True)
+            blocks.feed(content)
+            for script in blocks.blocks:
+                validate_world_code_block(script)
 
 
 def main():

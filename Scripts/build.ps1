@@ -9,6 +9,8 @@ param(
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path $PSScriptRoot -Parent
 $Project = Join-Path $ProjectRoot "ArcweaveQuest.uproject"
+if (-not $OutputDirectory) { $OutputDirectory = Join-Path $ProjectRoot "Builds" }
+$OutputDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
 $Editor = Join-Path $EngineRoot "Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
 $Build = Join-Path $EngineRoot "Engine\Build\BatchFiles\Build.bat"
 $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -29,10 +31,10 @@ if ($Task -eq "Test" -or $Task -eq "WorldTest") {
     $RunnerArguments = @($Project)
     if ($Task -eq "WorldTest") {
         if ($Packaged) {
-            $TestRunner = Join-Path $ProjectRoot "Builds\Windows\ArcweaveQuest\Binaries\Win64\ArcweaveQuest.exe"
+            $TestRunner = Join-Path $OutputDirectory "Windows\ArcweaveQuest\Binaries\Win64\ArcweaveQuest.exe"
             $RunnerArguments = @()
             # Packaged games omit this editor report template; supply it for the test report.
-            $ReportAssets = Join-Path $ProjectRoot "Builds\Windows\Engine\Content\Automation"
+            $ReportAssets = Join-Path $OutputDirectory "Windows\Engine\Content\Automation"
             New-Item -ItemType Directory -Path $ReportAssets -Force | Out-Null
             Copy-Item (Join-Path $EngineRoot "Engine\Content\Automation\Report-Template.html") $ReportAssets -Force
         } else {
@@ -55,8 +57,7 @@ if ($Task -eq "Map") {
     exit $LASTEXITCODE
 }
 if ($Task -eq "Package") {
-    if (-not $OutputDirectory) { $OutputDirectory = Join-Path $ProjectRoot "Builds" }
-    & (Join-Path $EngineRoot "Engine\Build\BatchFiles\RunUAT.bat") BuildCookRun "-project=$Project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$OutputDirectory" -utf8output "-UbtArgs=-CompilerVersion=$CompilerVersion" 2>&1 | Tee-Object -FilePath $Log
+    & (Join-Path $EngineRoot "Engine\Build\BatchFiles\RunUAT.bat") BuildCookRun "-project=$Project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$OutputDirectory" -utf8output "-UbtArgs=-CompilerVersion=$CompilerVersion -NoHotReloadFromIDE" "-AdditionalCookerOptions=-NullRHI -RenderOffscreen" 2>&1 | Tee-Object -FilePath $Log
     exit $LASTEXITCODE
 }
 if ($Task -eq "Play") {

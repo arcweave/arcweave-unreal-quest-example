@@ -837,6 +837,79 @@ class NarrativeValidationTests(unittest.TestCase):
             + self.code_block('world_text.sign_exit = "Exit open"'))
         self.validate()
 
+    def test_world_code_blocks_reject_multiple_statements_in_all_exports(self):
+        pairs = (
+            ("quest.started = true", 'show("Task accepted")'),
+            ('hud.station_name = "RELAY 08"', 'world_text.sign_exit = "OPEN"'),
+        )
+        for export in (self.unreal, self.authoring, self.localized):
+            for statements in pairs:
+                for separator in ("\n", "; "):
+                    with self.subTest(localized="contents" in export, statements=statements, separator=separator):
+                        self.project = copy.deepcopy(export)
+                        content = self.code_block(separator.join(statements))
+                        if "content" in self.element("StartElement"):
+                            self.element("StartElement")["content"] = content
+                        else:
+                            self.localized_content("StartElement")["text"] = content
+                        self.assert_invalid("Each world-event code block must contain exactly one statement")
+
+    def test_world_statements_in_separate_blocks_are_allowed_in_all_exports(self):
+        content = "".join(self.code_block(script) for script in (
+            "quest.started = true", 'show("Task accepted")',
+            'hud.station_name = "RELAY 08"', 'world_text.sign_exit = "OPEN"',
+        ))
+        for export in (self.unreal, self.authoring, self.localized):
+            with self.subTest(localized="contents" in export):
+                self.project = copy.deepcopy(export)
+                if "content" in self.element("StartElement"):
+                    self.element("StartElement")["content"] = content
+                else:
+                    self.localized_content("StartElement")["text"] = content
+                self.validate()
+
+    def test_world_statement_count_preserves_strings_and_multiline_calls(self):
+        for script in (
+            'show("Continue; // instructions /* here */ #1", \'say "go"; then exit\')',
+            'hud.station_name = "Say \\"ready;\\" before entering"',
+            'show(\n    "Collected; cells: ",\n    player.power_cells, "/", quest.required_power_cells\n)',
+            "player.power_cells += 1",
+        ):
+            with self.subTest(script=script):
+                self.script("StartElement", script)
+                self.validate()
+
+    def test_world_control_flow_fragments_remain_allowed_in_separate_blocks(self):
+        self.element("StartElement")["content"] = "".join(self.code_block(script) for script in (
+            "if !quest.started && player.power_cells >= 0",
+            "quest.started = true",
+            "elseif quest.power_restored",
+            'show("Power is restored")',
+            "else",
+            'show("Continue restoring power")',
+            "endif",
+        ))
+        self.validate()
+
+    def test_world_control_flow_fragment_cannot_hide_another_statement(self):
+        for fragment in ("if !quest.started", "elseif quest.power_restored", "else", "endif"):
+            with self.subTest(fragment=fragment):
+                self.script("StartElement", fragment + "\nquest.started = true")
+                self.assert_invalid("Each world-event code block must contain exactly one statement")
+
+    def test_world_statement_count_preserves_rich_text_element_references(self):
+        mention = (f'<span class="mention mention-element" data-type="element" '
+                   f'data-id="{self.bindings["StartElement"]}">Terminal · accept task</span>')
+        self.element("StartElement")["content"] = f"<pre><code>show(visits({mention}))</code></pre>"
+        self.validate()
+
+    def test_world_reference_cannot_hide_another_statement_in_its_code_block(self):
+        mention = (f'<span class="mention mention-element" data-type="element" '
+                   f'data-id="{self.bindings["StartElement"]}">Terminal · accept task</span>')
+        self.element("StartElement")["content"] = (
+            f"<pre><code>show(visits({mention}))\nquest.started = true</code></pre>")
+        self.assert_invalid("Each world-event code block must contain exactly one statement")
+
     def test_feedback_can_read_state_without_changing_it(self):
         self.script("DuplicatePickupElement", 'show("Already carrying ", player.power_cells, "/", quest.required_power_cells)')
         self.validate()

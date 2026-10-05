@@ -655,7 +655,11 @@ bool FArcweaveQuestFlowTest::RunTest(const FString& Parameters)
         const FArcweaveProjectData Before = Arcweave->GetArcweaveProjectData();
         const FString Cursor = Director->GetCurrentElementId();
         const FString Status = Director->GetStatus();
+        TestEqual(TEXT("The acceptance getter immediately reads the changed quest attribute"), Director->IsQuestStarted(), bStarted);
         TestEqual(TEXT("The power getter immediately reads the changed quest attribute"), Director->IsPowerRestored(), bPowered);
+        TestEqual(TEXT("The completion getter immediately reads the changed quest attribute"), Director->IsQuestCompleted(), bCompleted);
+        TestEqual(TEXT("The inventory getter immediately reads the changed player attribute"), Director->GetPowerCellCount(), Cells);
+        TestEqual(TEXT("The requirement getter immediately reads the changed quest attribute"), Director->GetRequiredPowerCellCount(), Required);
         const bool bWorldGateOpen = Director->IsGateOpen();
         const int32 Commands = GateCommands + PickupCommands;
         const int32 Notifications = PresentationChanges;
