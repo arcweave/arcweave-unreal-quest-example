@@ -9,18 +9,23 @@
 
 #include "ArcweaveSubsystem.h"
 #include "Camera/CameraComponent.h"
+#include "Components/InputComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
+#include "Engine/GameViewportClient.h"
 #include "Engine/PointLight.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/PlayerInput.h"
 #include "HAL/PlatformTime.h"
+#include "InputKeyEventArgs.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
+#include "UnrealClient.h"
 
 namespace
 {
@@ -77,6 +82,7 @@ public:
 
         case 1:
         {
+            CheckCheckpointInput();
             FHitResult Hit;
             if (!Test.TestTrue(TEXT("The initial gate blocks the doorway"), TraceGate(Hit))) return true;
             Gate = Cast<AQuestWorldActor>(Hit.GetActor());
@@ -174,6 +180,45 @@ public:
     }
 
 private:
+    void CheckCheckpointInput()
+    {
+        APlayerController* Player = World->GetFirstPlayerController();
+        UPlayerInput* Input = Player->PlayerInput;
+        UGameViewportClient* Viewport = World->GetGameViewport();
+        if (!Test.TestNotNull(TEXT("The game has a player input handler"), Input)
+            || !Test.TestNotNull(TEXT("The game has a viewport"), Viewport)) return;
+
+        const int32 ViewModeBefore = Viewport->ViewModeIndex;
+        Test.TestFalse(TEXT("No screenshot is pending before checkpoint input"), FScreenshotRequest::IsScreenshotRequested());
+        int32 SavePresses = 0;
+        int32 LoadPresses = 0;
+        // Exercise the real key mappings and debug-command path with isolated action
+        // handlers, so this test never overwrites the player's checkpoint slot.
+        UInputComponent* Actions = NewObject<UInputComponent>(Player);
+        FInputActionBinding SaveAction(TEXT("SaveCheckpoint"), IE_Pressed);
+        SaveAction.ActionDelegate.GetDelegateForManualSet().BindLambda([&SavePresses]() { ++SavePresses; });
+        Actions->AddActionBinding(SaveAction);
+        FInputActionBinding LoadAction(TEXT("LoadCheckpoint"), IE_Pressed);
+        LoadAction.ActionDelegate.GetDelegateForManualSet().BindLambda([&LoadPresses]() { ++LoadPresses; });
+        Actions->AddActionBinding(LoadAction);
+        const TArray<UInputComponent*> InputStack{Actions};
+        for (const FKey& Key : {EKeys::F5, EKeys::F9})
+        {
+            Test.TestTrue(Key.ToString() + TEXT(" has no competing debug command"), Input->GetBind(Key).IsEmpty());
+            Player->InputKey(FInputKeyEventArgs::CreateSimulated(Key, IE_Pressed, 1.0f));
+            Input->ProcessInputStack(InputStack, 1.0f / 60.0f, false);
+            Test.TestEqual(Key.ToString() + TEXT(" preserves the rendering mode"), Viewport->ViewModeIndex, ViewModeBefore);
+            Test.TestFalse(Key.ToString() + TEXT(" does not request a screenshot"), FScreenshotRequest::IsScreenshotRequested());
+            Player->InputKey(FInputKeyEventArgs::CreateSimulated(Key, IE_Released, 0.0f));
+            Input->ProcessInputStack(InputStack, 1.0f / 60.0f, false);
+        }
+        Test.TestEqual(TEXT("F5 dispatches the save action exactly once"), SavePresses, 1);
+        Test.TestEqual(TEXT("F9 dispatches the load action exactly once"), LoadPresses, 1);
+        // Leave the world usable even if a debug binding regresses.
+        Viewport->SetViewMode(static_cast<EViewModeIndex>(ViewModeBefore));
+        FScreenshotRequest::Reset();
+    }
+
     FArcweaveProjectData Narrative() const
     {
         return GEngine->GetEngineSubsystem<UArcweaveSubsystem>()->GetArcweaveProjectData();

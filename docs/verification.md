@@ -30,6 +30,14 @@ The test also verifies missing and unreadable slots, incompatible narrative fing
 
 The plugin's own `Arcweave.Project.RuntimeState` test passes against the pinned plugin. Its snapshot stores mutable values and visits; the sample supplies the file, cursor/presentation, applied world effects, and player pose. Matching imported narrative content is required, including text and layout. This sample does not migrate checkpoints between content versions.
 
+## Checkpoint keyboard regression
+
+Unreal's inherited debug shortcuts conflicted with the sample's checkpoint keys: F5 switched to shader-complexity rendering and F9 requested a screenshot. `DefaultInput.ini` now removes those two engine bindings while retaining the gameplay actions. An open editor needs restarting to reload this configuration; the fix requires no C++ rebuild.
+
+`SaveLoadWorld` now sends simulated F5/F9 presses and releases through the running player controller and processes the real input mappings. Isolated action handlers verify exactly one save and load action without accessing the player's checkpoint. The test also checks the viewport mode and screenshot-request state. Against the old configuration, it reproduced the switch from Lit to Shader Complexity and the F9 screenshot request (`Report-WorldTest-20261005-104135`, expected failure). With the fix, the full world save/load test passes both in the isolated project (`Report-WorldTest-20261005-104322`) and the rebuilt Win64 Development package (`Report-WorldTest-20261005-104714`). The updated package is installed in `Builds/Windows`, with matching file hashes and existing saves preserved.
+
+The updated automation DLL was built in the isolated project while the user's editor remained open. These input checks run with rendering disabled and verify the engine's view-mode state, rather than comparing rendered images. Follow-up logs and reports are stored separately under `Saved/Validation/CheckpointInput-20261005`.
+
 ## Quest and narrative regressions
 
 The export contains one board, 22 elements, six branches, 23 conditions with one output each, 49 connections, and twelve jumpers. The four State components contribute seven variables; four UI components contribute 26 strings; Game event contributes two inputs. There are 35 component runtime variables, no globals, and 46 UUID bindings.
