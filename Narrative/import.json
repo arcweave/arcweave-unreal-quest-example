@@ -124,11 +124,11 @@
   "notes": {
     "6c069694-7fea-4980-b59d-d9dc2c857cc4": {
       "theme": "purple",
-      "content": "<p><strong>RESTORE POWER · ONE PLAYABLE QUEST</strong></p><p>Start at Station. Check inventory or objectives through the two query jumpers, or choose a physical interaction. Ordinary responses return directly to Station. The powered exit ends the playthrough. All condition rows have one output.</p>",
+      "content": "<p><strong>RESTORE POWER · ONE PLAYABLE QUEST</strong></p><p>Start at Station. Check inventory or objectives through the two query jumpers, or choose a physical interaction. Ordinary responses return directly to Station. The powered exit ends the playthrough. </p>",
       "x": 6800,
       "y": 7500,
       "width": 11500,
-      "height": 360,
+      "height": 101,
       "autoHeight": true
     },
     "e1d06b05-73ac-4040-97d1-04a6f8091204": {
@@ -1974,7 +1974,8 @@
     "80c7c42c-bb19-4065-8afa-7cd5b54776fc": {
       "customId": "open_gate",
       "attributes": [
-        "b246d733-e1d2-4875-ab99-c860072faf58"
+        "b246d733-e1d2-4875-ab99-c860072faf58",
+        "b0aec4ad-374d-4747-99be-9e7756c231d0"
       ],
       "assets": {
         "cover": {
@@ -2012,7 +2013,7 @@
       "assets": {
         "cover": {
           "type": "icon",
-          "file": "delapouite/save"
+          "file": "delapouite/cloud-download"
         }
       }
     },
@@ -2051,7 +2052,13 @@
         "50b5319f-3ab3-4e05-8f3e-bac9292306a1",
         "f1dcf530-d53a-4a1a-8d08-f1757a1be9a3",
         "aaa35a32-93ac-43fb-94a4-55e4f21ca8a3"
-      ]
+      ],
+      "assets": {
+        "cover": {
+          "type": "icon",
+          "file": "skoll/pc"
+        }
+      }
     },
     "db3ac52b-3cc2-4a1b-86c8-2d2cd5903573": {
       "customId": "world_text",
@@ -2063,7 +2070,13 @@
         "b4d7afa5-a92d-49b3-8ea0-55a3241493d3",
         "cbb76304-82df-41d7-8ba6-3e2473db352f",
         "f7b0c1df-9308-4ab2-874a-8766f270ed3d"
-      ]
+      ],
+      "assets": {
+        "cover": {
+          "type": "icon",
+          "file": "Arcweave/cube"
+        }
+      }
     },
     "c6d692fd-c0f0-4045-9fe4-c69315169526": {
       "customId": "game_event",
@@ -2538,11 +2551,19 @@
       "cId": "06e4e920-e844-4509-9891-18e05d39f48b"
     },
     "b246d733-e1d2-4875-ab99-c860072faf58": {
-      "name": "Description",
+      "name": "Unreal effect",
       "value": {
-        "plain": false,
-        "type": "string",
-        "data": "<p><strong>Unreal effect</strong></p><p>Opens the station exit gate through the sample's C++ command handler. Station lighting follows quest.power_restored separately.</p><p><strong>When to reference</strong></p><p>Reference this component on the successful generator activation element. The sample executes the element's Arcscript first, then dispatches its referenced action components using their custom IDs.</p><p><strong>Arcweave Play Mode</strong></p><p>The authored Arcscript and quest feedback still run. The physical gate movement is implemented in Unreal by the sample; this reference is not a built-in Arcscript command.</p>"
+        "data": "<p>Opens the station exit gate through the sample's C++ command handler. Station lighting follows quest.power_restored separately.</p>",
+        "type": "string"
+      },
+      "cType": "components",
+      "cId": "80c7c42c-bb19-4065-8afa-7cd5b54776fc"
+    },
+    "b0aec4ad-374d-4747-99be-9e7756c231d0": {
+      "name": "When to reference",
+      "value": {
+        "data": "<p>Reference this component on the successful generator activation element. The sample executes the element's Arcscript first, then dispatches its referenced action components using their custom IDs.</p>",
+        "type": "string"
       },
       "cType": "components",
       "cId": "80c7c42c-bb19-4065-8afa-7cd5b54776fc"

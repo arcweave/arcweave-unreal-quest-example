@@ -8,11 +8,24 @@ A C++ Unreal sample where Arcweave drives a world objective: accept a task, coll
 
 ## Run
 
-Requires **Windows**, **Unreal Engine 5.6.1**, **Visual Studio 2022** with Game development with C++, **MSVC 14.38**, a Windows SDK, and **Git**.
+Requires **Windows**, **Unreal Engine 5.6.1**, **Visual Studio 2022** with Game development with C++, **MSVC 14.38**, and a Windows SDK.
+
+Clone with **Git** to download the sample and its pinned Arcweave plugin together:
 
 ```powershell
 git clone --recurse-submodules https://github.com/arcweave/arcweave-unreal-quest-example.git
 cd arcweave-unreal-quest-example
+```
+
+Alternatively, install without Git using **Code → Download ZIP**:
+
+1. Download and extract this repository's ZIP.
+2. Download **Source code (zip)** from the [Arcweave plugin v2.2.0 release](https://github.com/arcweave/arcweave-unreal-plugin/releases/tag/v2.2.0). GitHub's sample ZIP does not include the plugin submodule.
+3. Extract it and copy the contents of the folder containing `arcweave.uplugin` to `Plugins/Arcweave` under the sample root. The final path must be `Plugins/Arcweave/arcweave.uplugin`.
+
+From the sample directory containing `ArcweaveQuest.uproject`, build the editor target:
+
+```powershell
 powershell -ExecutionPolicy Bypass -File Scripts/build.ps1 -Task Editor
 ```
 
