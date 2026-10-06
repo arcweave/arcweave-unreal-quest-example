@@ -1,6 +1,6 @@
 # Build, test, and package
 
-Follow the [README setup](../README.md#run) first. The sample pins the Arcweave plugin to the **v2.2.0** release commit; initialize it with `git submodule update --init --recursive` if it was not cloned with the project.
+Follow the [README setup](../README.md#run) first, including manual plugin installation for ZIP downloads. For a Git checkout missing the plugin, run `git submodule update --init --recursive` to fetch the pinned **v2.2.0** release commit.
 
 ## Build options
 
